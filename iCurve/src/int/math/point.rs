@@ -1,5 +1,5 @@
-use std::ops;
-use std::ops::Mul;
+use core::cmp::Ordering;
+use core::ops;
 use crate::int::math::offset::IntOffset;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -21,36 +21,6 @@ impl IntPoint {
     }
 
     #[inline]
-    pub fn normalized_10bit(&self) -> IntPoint {
-        // return unit vector but scaled by 1024 (2^10)
-
-        let dx = (self.x as i128).unsigned_abs().pow(2);
-        let dy = (self.y as i128).unsigned_abs().pow(2);
-        let sqr_len = dx + dy;
-        if sqr_len == 0 {
-            return IntPoint::new(1024, 0);
-        }
-
-        let bits_count = sqr_len.ilog2();
-
-        let len = sqr_len.isqrt() as i64;
-
-        const VALUABLE_BITS: u32 = 10;
-        const MAX_SAFE_BITS: u32 = 63 - VALUABLE_BITS;
-
-        if bits_count <= MAX_SAFE_BITS {
-            let x = (self.x << VALUABLE_BITS) / len;
-            let y = (self.y << VALUABLE_BITS) / len;
-            IntPoint::new(x, y)
-        } else {
-            let len = len >> VALUABLE_BITS;
-            let x = self.x / len;
-            let y = self.y / len;
-            IntPoint::new(x, y)
-        }
-    }
-
-    #[inline]
     pub fn dot_product(&self, other: &Self) -> i64 {
         self.x * other.x + self.y * other.y
     }
@@ -60,6 +30,13 @@ impl IntPoint {
         self.x * other.y - self.y * other.x
     }
 
+    #[inline]
+    pub fn sqr_len(&self, other: &Self) -> u64 {
+        let x = self.x.abs_diff(other.x);
+        let y = self.y.abs_diff(other.y);
+         x * x + y * y
+    }
+    
     #[inline]
     pub fn accurate_cross_product(&self, other: &Self) -> i128 {
         let x0 = self.x as i128;
@@ -136,7 +113,7 @@ impl From<IntOffset> for IntPoint {
     }
 }
 
-impl Mul<i64> for IntPoint {
+impl ops::Mul<i64> for IntPoint {
     type Output = Self;
 
     #[inline(always)]
@@ -148,24 +125,46 @@ impl Mul<i64> for IntPoint {
     }
 }
 
+impl PartialOrd for IntPoint {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for IntPoint {
+    #[inline(always)]
+    fn cmp(&self, other: &Self) -> Ordering {
+        let x = self.x == other.x;
+        if x && self.y == other.y {
+            Ordering::Equal
+        } else if self.x < other.x || x && self.y < other.y {
+            Ordering::Less
+        } else {
+            Ordering::Greater
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::IntPoint;
     use rand::Rng;
+    use crate::int::math::normalize::Normalize16;
+    use crate::int::math::point::IntPoint;
 
     #[test]
     fn test_basic_normalization() {
-        assert_eq!(IntPoint::new(1024, 0).normalized_10bit(), IntPoint::new(1024, 0));
-        assert_eq!(IntPoint::new(0, 1024).normalized_10bit(), IntPoint::new(0, 1024));
-        assert_eq!(IntPoint::new(3, 4).normalized_10bit(), IntPoint::new(614, 819));
+        assert_eq!(IntPoint::new(1024, 0).normalized_16bit(), IntPoint::new(1024, 0));
+        assert_eq!(IntPoint::new(0, 1024).normalized_16bit(), IntPoint::new(0, 1024));
+        assert_eq!(IntPoint::new(3, 4).normalized_16bit(), IntPoint::new(614, 819));
     }
 
     #[test]
     fn test_big_numbers() {
         let x: i64 = 507758875930;
         let y: i64 = 748317763344;
-        let p = IntPoint::new(x, y).normalized_10bit();
-        let n = p.normalized_10bit();
+        let p = IntPoint::new(x, y).normalized_16bit();
+        let n = p.normalized_16bit();
         assert!(n.x.abs() <= 1024);
         assert!(n.y.abs() <= 1024);
 
@@ -185,7 +184,7 @@ mod tests {
                 continue;
             }
             let p = IntPoint::new(x, y);
-            let n = p.normalized_10bit();
+            let n = p.normalized_16bit();
             assert!(n.x.abs() <= 1024);
             assert!(n.y.abs() <= 1024);
 

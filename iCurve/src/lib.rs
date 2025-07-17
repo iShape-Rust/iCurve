@@ -1,19 +1,7 @@
+#![no_std]
+extern crate alloc;
+
 pub mod int;
 pub mod float;
 pub mod quant;
 pub(crate) mod data;
-
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}

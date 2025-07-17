@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use crate::int::bezier::anchor::IntBezierAnchor;
 use crate::int::bezier::spline::IntSpline;
 use crate::int::math::point::IntPoint;
@@ -81,6 +82,7 @@ impl<'a> Iterator for IntSplineIterator<'a> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
     use crate::int::bezier::anchor::IntBezierAnchor;
     use crate::int::bezier::path::IntBezierPath;
     use crate::int::math::offset::IntOffset;

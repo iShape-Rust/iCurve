@@ -100,6 +100,7 @@ impl IntRect {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
     use crate::int::math::point::IntPoint;
     use crate::int::math::rect::IntRect;
 

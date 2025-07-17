@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use crate::int::bezier::anchor::IntBezierAnchor;
 use crate::int::bezier::length::IntSplineLength;
 use crate::int::bezier::point::IntSplinePoints;
@@ -70,7 +71,7 @@ impl IntSpline {
     }
 }
 
-pub(crate) trait IntCADSpline {
+pub trait IntCADSpline {
     fn start(&self) -> IntPoint;
     fn start_dir(&self) -> IntPoint;
     fn end_dir(&self) -> IntPoint;

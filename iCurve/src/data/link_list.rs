@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 pub(crate) const EMPTY_REF: u32 = u32::MAX;
 
 #[derive(Debug, Clone)]
@@ -108,6 +110,7 @@ impl<'a, T> Iterator for NodeIterator<'a, T> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
     use crate::data::link_list::LinkList;
 
     #[test]

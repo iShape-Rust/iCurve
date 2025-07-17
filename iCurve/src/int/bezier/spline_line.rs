@@ -1,5 +1,6 @@
 use crate::int::bezier::spline::IntCADSpline;
 use crate::int::bezier::split::LineDivider;
+use crate::int::math::normalize::Normalize16;
 use crate::int::math::point::IntPoint;
 use crate::int::math::rect::IntRect;
 
@@ -17,12 +18,12 @@ impl IntCADSpline for IntLineSpline {
 
     #[inline]
     fn start_dir(&self) -> IntPoint {
-        (self.b - self.a).normalized_10bit()
+        (self.b - self.a).normalized_16bit()
     }
 
     #[inline]
     fn end_dir(&self) -> IntPoint {
-        (self.b - self.a).normalized_10bit()
+        (self.b - self.a).normalized_16bit()
     }
 
     #[inline]

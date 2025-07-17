@@ -1,7 +1,7 @@
+use core::ops;
+use libm::sqrt;
 use crate::float::math::offset::Offset;
 use crate::int::math::point::IntPoint;
-use std::ops;
-use std::ops::Mul;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy)]
@@ -28,7 +28,7 @@ impl Point {
 
     #[inline]
     pub fn length(&self) -> f64 {
-        self.sqr_length().sqrt()
+        sqrt(self.sqr_length())
     }
 
     #[inline]
@@ -36,7 +36,7 @@ impl Point {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
 
-        (dx * dx + dy * dy).sqrt()
+        sqrt(dx * dx + dy * dy)
     }
 
     #[inline]
@@ -131,7 +131,7 @@ impl ops::SubAssign<Self> for Point {
     }
 }
 
-impl Mul<f64> for Point {
+impl ops::Mul<f64> for Point {
     type Output = Self;
 
     #[inline(always)]

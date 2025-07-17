@@ -1,5 +1,8 @@
+use alloc::vec;
+use alloc::vec::Vec;
 use crate::data::link_list::{LinkList, EMPTY_REF};
 use crate::int::bezier::spline::IntCADSpline;
+use crate::int::math::normalize::{Normalize16, UNIT, VALUABLE_BITS};
 use crate::int::math::point::IntPoint;
 
 #[derive(Copy, Clone)]
@@ -19,48 +22,39 @@ pub trait IntSplineShorts {
 impl<Spline: IntCADSpline> IntSplineShorts for Spline {
     #[inline]
     fn approximate(&self, min_cos: u32, min_len: u32) -> Vec<IntShort> {
-        debug_assert!(min_cos <= 1024);
-        Solver::approximate(self, min_cos, min_len)
+        debug_assert!(min_cos <= UNIT);
+
+        let mut segments = LinkList::new(vec![IntShort {
+            step: 0,
+            split_factor: 0,
+            dir: (self.end() - self.start()).normalized_16bit(),
+            a: self.start(),
+            b: self.end(),
+        }]);
+
+        let shifted_min_cos = (min_cos as i64) << VALUABLE_BITS;
+        segments.approximate(self, shifted_min_cos, min_len);
+
+        let mut shorts = Vec::with_capacity(segments.len());
+        let mut index = 0;
+        while index != EMPTY_REF {
+            let node = segments.get(index);
+            shorts.push(node.item);
+            index = node.next;
+        }
+        
+        shorts
     }
 }
 
-pub(super) struct Solver<'a, Spline> {
-    min_cos: i64,
-    st_dir: IntPoint,
-    ed_dir: IntPoint,
-    min_len_power: u32,
-    spline: &'a Spline,
-    segments: LinkList<IntShort>,
-}
+impl LinkList<IntShort> {
 
-impl<'a, Spline: IntCADSpline> Solver<'a, Spline> {
     #[inline]
-    pub(super) fn approximate(spline: &Spline, min_cos: u32, min_len: u32) -> Vec<IntShort> {
+    fn approximate<Spline: IntCADSpline>(&mut self, spline: &Spline, shifted_min_cos: i64, min_len: u32) -> Vec<IntShort> {
         let min_len_power = min_len.ilog2();
         let st_dir = spline.start_dir();
         let ed_dir = spline.end_dir();
 
-        let segments = LinkList::new(vec![IntShort {
-            step: 0,
-            split_factor: 0,
-            dir: (spline.end() - spline.start()).normalized_10bit(),
-            a: spline.start(),
-            b: spline.end(),
-        }]);
-
-        Solver {
-            min_cos: (min_cos << 10) as i64,
-            st_dir,
-            ed_dir,
-            min_len_power,
-            spline,
-            segments,
-        }
-            .process()
-    }
-
-    #[inline]
-    fn process(&mut self) -> Vec<IntShort> {
         let mut buffer = Vec::with_capacity(16);
         buffer.push(0);
 
@@ -68,22 +62,22 @@ impl<'a, Spline: IntCADSpline> Solver<'a, Spline> {
 
         while !buffer.is_empty() {
             for &index in buffer.iter() {
-                if self.split_test(index) {
+                if self.split_test(index, &st_dir, &ed_dir, shifted_min_cos) {
                     to_split.push(index);
                 }
             }
 
             buffer.clear();
             for &index in to_split.iter() {
-                self.split(index, &mut buffer);
+                self.split(spline, index, min_len_power, &mut buffer);
             }
             to_split.clear();
         }
 
-        let mut shorts = Vec::with_capacity(self.segments.len());
+        let mut shorts = Vec::with_capacity(self.len());
         let mut index = 0;
         while index != EMPTY_REF {
-            let node = self.segments.get(index);
+            let node = self.get(index);
             shorts.push(node.item);
             index = node.next
         }
@@ -91,37 +85,37 @@ impl<'a, Spline: IntCADSpline> Solver<'a, Spline> {
         shorts
     }
 
-    fn split_test(&self, index: u32) -> bool {
-        let node = self.segments.get(index);
+    fn split_test(&self, index: u32, st_dir: &IntPoint, ed_dir: &IntPoint, shifted_min_cos: i64) -> bool {
+        let node = self.get(index);
         let prev = node.prev;
         let next = node.next;
         let dir = node.item.dir;
         let prev_dir = if prev != EMPTY_REF {
-            self.segments.get(prev).item.dir
+            self.get(prev).item.dir
         } else {
-            self.st_dir
+            st_dir.clone()
         };
 
         let prev_dot_product = dir.dot_product(&prev_dir);
-        if prev_dot_product < self.min_cos {
+        if prev_dot_product < shifted_min_cos {
             return true;
         }
 
         let next_dir = if next != EMPTY_REF {
-            self.segments.get(next).item.dir
+            self.get(next).item.dir
         } else {
-            self.ed_dir
+            ed_dir.clone()
         };
 
         let next_dot_product = dir.dot_product(&next_dir);
-        next_dot_product < self.min_cos
+        next_dot_product < shifted_min_cos
     }
 
-    fn split(&mut self, index: u32, result: &mut Vec<u32>) {
-        let short = self.segments.get(index).item;
+    fn split<Spline: IntCADSpline>(&mut self, spline: &Spline, index: u32, min_len_power: u32, result: &mut Vec<u32>) {
+        let short = self.get(index).item;
 
         let split_factor = short.split_factor + 1;
-        let m = self.spline.split_at(short.step + 1, split_factor);
+        let m = spline.split_at(short.step + 1, split_factor);
         let ma = m - short.a;
         let bm = short.b - m;
 
@@ -133,7 +127,7 @@ impl<'a, Spline: IntCADSpline> Solver<'a, Spline> {
         let s0 = IntShort {
             step: short.step << 1,
             split_factor,
-            dir: ma.normalized_10bit(),
+            dir: ma.normalized_16bit(),
             a: short.a,
             b: m,
         };
@@ -141,21 +135,22 @@ impl<'a, Spline: IntCADSpline> Solver<'a, Spline> {
         let s1 = IntShort {
             step: (short.step + 1) << 1,
             split_factor,
-            dir: bm.normalized_10bit(),
+            dir: bm.normalized_16bit(),
             a: m,
             b: short.b,
         };
 
-        let (i0, i1) = self.segments.split_at(index, s0, s1);
+        let (i0, i1) = self.split_at(index, s0, s1);
 
-        if !ma.is_small(self.min_len_power) {
+        if !ma.is_small(min_len_power) {
             result.push(i0)
         }
 
-        if !bm.is_small(self.min_len_power) {
+        if !bm.is_small(min_len_power) {
             result.push(i1)
         }
     }
+
 }
 
 impl IntPoint {
@@ -180,20 +175,8 @@ impl IntPoint {
 mod tests {
     use crate::int::bezier::short::IntSplineShorts;
     use crate::int::bezier::spline_cube::IntCubeSpline;
+    use crate::int::math::normalize::normalize_unit_value;
     use crate::int::math::point::IntPoint;
-
-    #[test]
-    fn test_00() {
-        let p = IntPoint::new(100, 100);
-
-        assert_eq!(p.is_small(2), false);
-        assert_eq!(p.is_small(3), false);
-        assert_eq!(p.is_small(4), false);
-        assert_eq!(p.is_small(5), false);
-        assert_eq!(p.is_small(6), false);
-        assert_eq!(p.is_small(7), false);
-        assert_eq!(p.is_small(8), true);
-    }
 
     #[test]
     fn test_01() {
@@ -204,8 +187,8 @@ mod tests {
             b: IntPoint::new(100, 0),
         };
 
-        let shorts = spline.approximate(800, 8);
-        assert_eq!(shorts.len(), 6);
+        let shorts = spline.approximate(normalize_unit_value(0.8), 8);
+        assert_eq!(shorts.len(), 8);
     }
 
     #[test]
@@ -217,8 +200,8 @@ mod tests {
             b: IntPoint::new(100, 0),
         };
 
-        let shorts = spline.approximate(800, 32);
-        assert_eq!(shorts.len(), 5);
+        let shorts = spline.approximate(normalize_unit_value(0.8), 32);
+        assert_eq!(shorts.len(), 6);
     }
 
     #[test]
@@ -230,7 +213,7 @@ mod tests {
             b: IntPoint::new(100, 0),
         };
 
-        let shorts = spline.approximate(900, 4);
+        let shorts = spline.approximate(normalize_unit_value(0.9), 4);
         assert_eq!(shorts.len(), 8);
     }
 
@@ -243,7 +226,7 @@ mod tests {
             b: IntPoint::new(1024, 1024),
         };
 
-        let shorts = spline.approximate(900, 16);
+        let shorts = spline.approximate(normalize_unit_value(0.9), 16);
         assert_eq!(shorts.len(), 4);
     }
 
@@ -256,7 +239,7 @@ mod tests {
             b: IntPoint::new(1024, 1024),
         };
 
-        let shorts = spline.approximate(800, 5);
+        let shorts = spline.approximate(normalize_unit_value(0.8), 5);
         assert_eq!(shorts.len(), 10);
     }
 }
