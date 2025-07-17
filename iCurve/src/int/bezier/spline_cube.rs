@@ -6,7 +6,7 @@ use crate::int::math::rect::IntRect;
 
 #[derive(Debug, Clone)]
 pub struct IntCubeSpline {
-    pub(super) anchors: [IntPoint; 4]
+    pub anchors: [IntPoint; 4]
 }
 impl IntCADSpline for IntCubeSpline {
     #[inline]

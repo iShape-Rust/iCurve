@@ -1,11 +1,13 @@
+use debug_ui::ext::color::Color32Ext;
 use debug_ui::util::camera::Camera;
 use debug_ui::view::curve::CurveView;
 use debug_ui::view::grid::{GridView, Step};
-use eframe::egui::{Color32, Sense};
+use eframe::egui::{Color32, Pos2, Sense, Stroke};
 use eframe::{App, Frame, egui};
+use eframe::epaint::Shape;
 use i_curve::float::math::point::Point;
 use i_curve::int::convex::builder::FourConvexBuilder;
-use i_curve::int::math::normalize::normalize_unit_value;
+use i_curve::int::math::normalize::VectorNormalization16Util;
 
 pub struct EditorApp {
     grid: GridView,
@@ -57,12 +59,21 @@ impl App for EditorApp {
             let painter = ui.painter_at(rect);
             self.grid.draw(&painter, &self.camera);
 
-            let min_cos = normalize_unit_value(self.cos_value);
+            let view_points: Vec<_> = FourConvexBuilder::default().build(&self.curve.anchors()).iter().map(|wp|{
+                let vp = self.camera.world_to_view(Point::new(wp.x as f64, wp.y as f64));
+                Pos2::new(vp.x as f32, vp.y as f32)
+            }).collect();
+
+            painter.add(Shape::convex_polygon(
+                view_points,
+                Color32::LIGHT_YELLOW.with_opacity(0.2),
+                Stroke::new(2.0, Color32::YELLOW.with_opacity(0.8)),
+            ));
+
+            let min_cos = VectorNormalization16Util::normalize_unit_value(self.cos_value);
             let (segments_count, dragged) = self.curve.draw(ui, &painter, &self.camera, min_cos, self.min_len, true);
             self.segments_count = segments_count;
 
-            FourConvexBuilder::default().build()
-            
             if !dragged {
                 let delta = response.drag_delta();
                 self.camera.move_by_view_xy(delta.x as f64, delta.y as f64);

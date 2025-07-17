@@ -36,26 +36,6 @@ impl IntPoint {
         let y = self.y.abs_diff(other.y);
          x * x + y * y
     }
-
-    #[inline]
-    pub fn accurate_cross_product(&self, other: &Self) -> i128 {
-        let x0 = self.x as i128;
-        let y0 = self.y as i128;
-        let x1 = other.x as i128;
-        let y1 = other.y as i128;
-
-        x0 * y1 - y0 * x1
-    }
-
-    #[inline]
-    pub fn accurate_dot_product(&self, other: &Self) -> i128 {
-        let x0 = self.x as i128;
-        let y0 = self.y as i128;
-        let x1 = other.x as i128;
-        let y1 = other.y as i128;
-
-        x0 * x1 + y0 * y1
-    }
 }
 
 impl ops::Add for IntPoint {
