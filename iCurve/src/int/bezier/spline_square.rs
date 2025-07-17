@@ -1,38 +1,36 @@
 use crate::int::bezier::spline::IntCADSpline;
 use crate::int::bezier::split::LineDivider;
-use crate::int::math::normalize::Normalize16;
+use crate::int::math::normalize::VectorNormalization16;
 use crate::int::math::point::IntPoint;
 use crate::int::math::rect::IntRect;
 
 #[derive(Debug, Clone)]
 pub struct IntSquareSpline {
-    pub a: IntPoint,
-    pub m: IntPoint,
-    pub b: IntPoint,
+    pub(super) anchors: [IntPoint; 3]
 }
 
 impl IntCADSpline for IntSquareSpline {
     #[inline]
     fn start(&self) -> IntPoint {
-        self.a
+        self.anchors[0]
     }
     #[inline]
     fn start_dir(&self) -> IntPoint {
-        (self.m - self.a).normalized_16bit()
+        (self.anchors[1] - self.anchors[0]).normalized_16bit()
     }
     #[inline]
     fn end_dir(&self) -> IntPoint {
-        (self.b - self.m).normalized_16bit()
+        (self.anchors[2] - self.anchors[1]).normalized_16bit()
     }
     #[inline]
     fn end(&self) -> IntPoint {
-        self.b
+        self.anchors[2]
     }
 
     #[inline]
     fn split_at(&self, step: usize, split_factor: u32) -> IntPoint {
-        let l0 = LineDivider::new(self.a, self.m);
-        let l1 = LineDivider::new(self.m, self.b);
+        let l0 = LineDivider::new(self.anchors[0], self.anchors[1]);
+        let l1 = LineDivider::new(self.anchors[1], self.anchors[2]);
         let p10 = l0.split_at(step, split_factor);
         let p11 = l1.split_at(step, split_factor);
         LineDivider::new(p10, p11).split_at(step, split_factor)
@@ -40,10 +38,11 @@ impl IntCADSpline for IntSquareSpline {
 
     #[inline]
     fn boundary(&self) -> IntRect {
-        let mut boundary = IntRect::empty();
-        boundary.add_point(&self.a);
-        boundary.add_point(&self.m);
-        boundary.add_point(&self.b);
-        boundary
+        IntRect::with_points(&self.anchors)
+    }
+
+    #[inline]
+    fn anchors(&self) -> &[IntPoint] {
+        &self.anchors
     }
 }

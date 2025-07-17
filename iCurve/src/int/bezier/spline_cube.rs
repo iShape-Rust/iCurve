@@ -1,39 +1,36 @@
 use crate::int::bezier::spline::IntCADSpline;
 use crate::int::bezier::split::LineDivider;
-use crate::int::math::normalize::Normalize16;
+use crate::int::math::normalize::VectorNormalization16;
 use crate::int::math::point::IntPoint;
 use crate::int::math::rect::IntRect;
 
 #[derive(Debug, Clone)]
 pub struct IntCubeSpline {
-    pub a: IntPoint,
-    pub am: IntPoint,
-    pub bm: IntPoint,
-    pub b: IntPoint,
+    pub(super) anchors: [IntPoint; 4]
 }
 impl IntCADSpline for IntCubeSpline {
     #[inline]
     fn start(&self) -> IntPoint {
-        self.a
+        self.anchors[0]
     }
     #[inline]
     fn start_dir(&self) -> IntPoint {
-        (self.am - self.a).normalized_16bit()
+        (self.anchors[1] - self.anchors[0]).normalized_16bit()
     }
     #[inline]
     fn end_dir(&self) -> IntPoint {
-        (self.b - self.bm).normalized_16bit()
+        (self.anchors[3] - self.anchors[2]).normalized_16bit()
     }
     #[inline]
     fn end(&self) -> IntPoint {
-        self.b
+        self.anchors[3]
     }
 
     #[inline]
     fn split_at(&self, step: usize, split_factor: u32) -> IntPoint {
-        let l0 = LineDivider::new(self.a, self.am);
-        let l1 = LineDivider::new(self.am, self.bm);
-        let l2 = LineDivider::new(self.bm, self.b);
+        let l0 = LineDivider::new(self.anchors[0], self.anchors[1]);
+        let l1 = LineDivider::new(self.anchors[1], self.anchors[2]);
+        let l2 = LineDivider::new(self.anchors[2], self.anchors[3]);
 
         let p0 = l0.split_at(step, split_factor);
         let p1 = l1.split_at(step, split_factor);
@@ -47,11 +44,11 @@ impl IntCADSpline for IntCubeSpline {
 
     #[inline]
     fn boundary(&self) -> IntRect {
-        let mut boundary = IntRect::empty();
-        boundary.add_point(&self.a);
-        boundary.add_point(&self.am);
-        boundary.add_point(&self.bm);
-        boundary.add_point(&self.b);
-        boundary
+        IntRect::with_points(&self.anchors)
+    }
+
+    #[inline]
+    fn anchors(&self) -> &[IntPoint] {
+        &self.anchors
     }
 }

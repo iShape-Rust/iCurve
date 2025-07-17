@@ -12,9 +12,10 @@ impl Space {
 
     #[inline]
     pub fn new(scale_power: i32, cell_size_power: u32) -> Self {
-        let e = scale_power + cell_size_power as i32;
-        let scale_to_int = 2f64.powi(e);
-        let scale_to_float = 2f64.powi(-e);
+        let ie = scale_power + cell_size_power as i32;
+        let e = ie as f64;
+        let scale_to_int = libm::exp2(e);
+        let scale_to_float = libm::exp2(-e);
 
         Self { cell_size_power, scale_to_int, scale_to_float }
     }

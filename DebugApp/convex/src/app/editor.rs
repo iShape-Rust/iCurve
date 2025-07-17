@@ -4,6 +4,7 @@ use debug_ui::view::grid::{GridView, Step};
 use eframe::egui::{Color32, Sense};
 use eframe::{App, Frame, egui};
 use i_curve::float::math::point::Point;
+use i_curve::int::convex::builder::FourConvexBuilder;
 use i_curve::int::math::normalize::normalize_unit_value;
 
 pub struct EditorApp {
@@ -60,6 +61,8 @@ impl App for EditorApp {
             let (segments_count, dragged) = self.curve.draw(ui, &painter, &self.camera, min_cos, self.min_len, true);
             self.segments_count = segments_count;
 
+            FourConvexBuilder::default().build()
+            
             if !dragged {
                 let delta = response.drag_delta();
                 self.camera.move_by_view_xy(delta.x as f64, delta.y as f64);

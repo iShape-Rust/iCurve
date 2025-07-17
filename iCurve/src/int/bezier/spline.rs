@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use crate::int::bezier::anchor::IntBezierAnchor;
 use crate::int::bezier::length::IntSplineLength;
 use crate::int::bezier::point::IntSplinePoints;
@@ -8,6 +7,7 @@ use crate::int::bezier::spline_line::IntLineSpline;
 use crate::int::bezier::spline_square::IntSquareSpline;
 use crate::int::math::point::IntPoint;
 use crate::int::math::rect::IntRect;
+use alloc::vec::Vec;
 
 #[derive(Debug, Clone)]
 pub(crate) enum IntSpline {
@@ -21,24 +21,16 @@ impl IntSpline {
     pub(super) fn new(a: &IntBezierAnchor, b: &IntBezierAnchor) -> Self {
         match (a.handle_out_point(), b.handle_in_point()) {
             (Some(am), Some(bm)) => IntSpline::Cube(IntCubeSpline {
-                a: a.point,
-                am,
-                bm,
-                b: b.point,
+                anchors: [a.point, am, bm, b.point],
             }),
             (Some(m), None) => IntSpline::Square(IntSquareSpline {
-                a: a.point,
-                m,
-                b: b.point,
+                anchors: [a.point, m, b.point],
             }),
             (None, Some(m)) => IntSpline::Square(IntSquareSpline {
-                a: a.point,
-                m,
-                b: b.point,
+                anchors: [a.point, m, b.point],
             }),
             (None, None) => IntSpline::Line(IntLineSpline {
-                a: a.point,
-                b: b.point,
+                anchors: [a.point, b.point],
             }),
         }
     }
@@ -78,4 +70,5 @@ pub trait IntCADSpline {
     fn end(&self) -> IntPoint;
     fn split_at(&self, step: usize, split_factor: u32) -> IntPoint;
     fn boundary(&self) -> IntRect;
+    fn anchors(&self) -> &[IntPoint];
 }

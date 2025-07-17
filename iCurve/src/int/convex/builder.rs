@@ -8,7 +8,7 @@ pub struct FourConvexBuilder {
 }
 
 impl FourConvexBuilder {
-    fn build(&mut self, points: &[IntPoint]) -> &[IntPoint] {
+    pub fn build(&mut self, points: &[IntPoint]) -> &[IntPoint] {
         debug_assert!(!points.is_empty());
         debug_assert!(points.len() <= 4);
         self.result.clear();

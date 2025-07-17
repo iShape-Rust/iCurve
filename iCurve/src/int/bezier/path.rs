@@ -85,6 +85,7 @@ mod tests {
     use alloc::vec;
     use crate::int::bezier::anchor::IntBezierAnchor;
     use crate::int::bezier::path::IntBezierPath;
+    use crate::int::math::normalize::VectorNormalization16Util;
     use crate::int::math::offset::IntOffset;
     use crate::int::math::point::IntPoint;
 
@@ -116,7 +117,7 @@ mod tests {
             closed: true,
         };
 
-        let points = path.approximate_points(800, 8);
+        let points = path.approximate_points(VectorNormalization16Util::normalize_unit_value(0.8), 8);
 
         assert_eq!(points.len(), 20);
     }

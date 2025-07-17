@@ -36,7 +36,7 @@ impl IntPoint {
         let y = self.y.abs_diff(other.y);
          x * x + y * y
     }
-    
+
     #[inline]
     pub fn accurate_cross_product(&self, other: &Self) -> i128 {
         let x0 = self.x as i128;
@@ -149,14 +149,15 @@ impl Ord for IntPoint {
 #[cfg(test)]
 mod tests {
     use rand::Rng;
-    use crate::int::math::normalize::Normalize16;
+    use crate::int::math::normalize::{VectorNormalization16, VectorNormalization16Util};
     use crate::int::math::point::IntPoint;
 
     #[test]
     fn test_basic_normalization() {
-        assert_eq!(IntPoint::new(1024, 0).normalized_16bit(), IntPoint::new(1024, 0));
-        assert_eq!(IntPoint::new(0, 1024).normalized_16bit(), IntPoint::new(0, 1024));
-        assert_eq!(IntPoint::new(3, 4).normalized_16bit(), IntPoint::new(614, 819));
+        let unit = VectorNormalization16Util::UNIT as i64;
+        assert_eq!(IntPoint::new(unit, 0).normalized_16bit(), IntPoint::new(unit, 0));
+        assert_eq!(IntPoint::new(0, unit).normalized_16bit(), IntPoint::new(0, unit));
+        assert_eq!(IntPoint::new(3, 4).normalized_16bit(), IntPoint::new(39321, 52428));
     }
 
     #[test]
@@ -165,13 +166,14 @@ mod tests {
         let y: i64 = 748317763344;
         let p = IntPoint::new(x, y).normalized_16bit();
         let n = p.normalized_16bit();
-        assert!(n.x.abs() <= 1024);
-        assert!(n.y.abs() <= 1024);
+        let unit = VectorNormalization16Util::UNIT as i64;
+        assert!(n.x.abs() <= unit);
+        assert!(n.y.abs() <= unit);
 
         let sqr_len = n.x * n.x + n.y * n.y;
-        let error = 1024 * 1024 - sqr_len;
+        let error = unit * unit - sqr_len;
 
-        assert!(error < 1024 * 100);
+        assert!(error < unit * 100);
     }
 
     #[test]
@@ -185,8 +187,8 @@ mod tests {
             }
             let p = IntPoint::new(x, y);
             let n = p.normalized_16bit();
-            assert!(n.x.abs() <= 1024);
-            assert!(n.y.abs() <= 1024);
+            assert!(n.x.abs() <= VectorNormalization16Util::UNIT as i64);
+            assert!(n.y.abs() <= VectorNormalization16Util::UNIT as i64);
 
 
             let sqr_len = n.x * n.x + n.y * n.y;

@@ -2,7 +2,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use crate::data::link_list::{LinkList, EMPTY_REF};
 use crate::int::bezier::spline::IntCADSpline;
-use crate::int::math::normalize::{Normalize16, UNIT, VALUABLE_BITS};
+use crate::int::math::normalize::{VectorNormalization16, VectorNormalization16Util};
 use crate::int::math::point::IntPoint;
 
 #[derive(Copy, Clone)]
@@ -22,7 +22,7 @@ pub trait IntSplineShorts {
 impl<Spline: IntCADSpline> IntSplineShorts for Spline {
     #[inline]
     fn approximate(&self, min_cos: u32, min_len: u32) -> Vec<IntShort> {
-        debug_assert!(min_cos <= UNIT);
+        debug_assert!(min_cos <= VectorNormalization16Util::UNIT);
 
         let mut segments = LinkList::new(vec![IntShort {
             step: 0,
@@ -32,7 +32,7 @@ impl<Spline: IntCADSpline> IntSplineShorts for Spline {
             b: self.end(),
         }]);
 
-        let shifted_min_cos = (min_cos as i64) << VALUABLE_BITS;
+        let shifted_min_cos = (min_cos as i64) << VectorNormalization16Util::VALUABLE_BITS;
         segments.approximate(self, shifted_min_cos, min_len);
 
         let mut shorts = Vec::with_capacity(segments.len());
@@ -175,71 +175,81 @@ impl IntPoint {
 mod tests {
     use crate::int::bezier::short::IntSplineShorts;
     use crate::int::bezier::spline_cube::IntCubeSpline;
-    use crate::int::math::normalize::normalize_unit_value;
+    use crate::int::math::normalize::VectorNormalization16Util;
     use crate::int::math::point::IntPoint;
 
     #[test]
     fn test_01() {
         let spline = IntCubeSpline {
-            a: IntPoint::new(0, 0),
-            am: IntPoint::new(0, 50),
-            bm: IntPoint::new(100, 50),
-            b: IntPoint::new(100, 0),
+            anchors: [
+                IntPoint::new(0, 0),
+                IntPoint::new(0, 50),
+                IntPoint::new(50, 100),
+                IntPoint::new(100, 0),
+            ]
         };
 
-        let shorts = spline.approximate(normalize_unit_value(0.8), 8);
-        assert_eq!(shorts.len(), 8);
+        let shorts = spline.approximate(VectorNormalization16Util::normalize_unit_value(0.8), 8);
+        assert_eq!(shorts.len(), 6);
     }
 
     #[test]
     fn test_02() {
         let spline = IntCubeSpline {
-            a: IntPoint::new(0, 0),
-            am: IntPoint::new(0, 50),
-            bm: IntPoint::new(100, 50),
-            b: IntPoint::new(100, 0),
+            anchors: [
+                IntPoint::new(0, 0),
+                IntPoint::new(0, 50),
+                IntPoint::new(100, 50),
+                IntPoint::new(100, 0),
+            ]
         };
 
-        let shorts = spline.approximate(normalize_unit_value(0.8), 32);
+        let shorts = spline.approximate(VectorNormalization16Util::normalize_unit_value(0.8), 32);
         assert_eq!(shorts.len(), 6);
     }
 
     #[test]
     fn test_03() {
         let spline = IntCubeSpline {
-            a: IntPoint::new(0, 0),
-            am: IntPoint::new(0, 50),
-            bm: IntPoint::new(100, 50),
-            b: IntPoint::new(100, 0),
+            anchors: [
+                IntPoint::new(0, 0),
+                IntPoint::new(0, 50),
+                IntPoint::new(100, 50),
+                IntPoint::new(100, 0),
+            ]
         };
 
-        let shorts = spline.approximate(normalize_unit_value(0.9), 4);
+        let shorts = spline.approximate(VectorNormalization16Util::normalize_unit_value(0.9), 4);
         assert_eq!(shorts.len(), 8);
     }
 
     #[test]
     fn test_04() {
         let spline = IntCubeSpline {
-            a: IntPoint::new(0, 0),
-            am: IntPoint::new(0, 512),
-            bm: IntPoint::new(512, 1024),
-            b: IntPoint::new(1024, 1024),
+            anchors: [
+                IntPoint::new(0, 0),
+                IntPoint::new(0, 512),
+                IntPoint::new(512, 1024),
+                IntPoint::new(1024, 1024),
+            ]
         };
 
-        let shorts = spline.approximate(normalize_unit_value(0.9), 16);
+        let shorts = spline.approximate(VectorNormalization16Util::normalize_unit_value(0.9), 16);
         assert_eq!(shorts.len(), 4);
     }
 
     #[test]
     fn test_05() {
         let spline = IntCubeSpline {
-            a: IntPoint::new(0, 0),
-            am: IntPoint::new(-605, 1513),
-            bm: IntPoint::new(-1010, 207),
-            b: IntPoint::new(1024, 1024),
+            anchors: [
+                IntPoint::new(0, 0),
+                IntPoint::new(-605, 1513),
+                IntPoint::new(-1010, 207),
+                IntPoint::new(1024, 1024),
+            ]
         };
 
-        let shorts = spline.approximate(normalize_unit_value(0.8), 5);
+        let shorts = spline.approximate(VectorNormalization16Util::normalize_unit_value(0.8), 5);
         assert_eq!(shorts.len(), 10);
     }
 }
