@@ -2,4 +2,6 @@ pub mod point;
 pub mod offset;
 pub mod rect;
 pub mod normalize;
-mod x_segment;
+pub mod x_segment;
+mod range;
+mod triangle;

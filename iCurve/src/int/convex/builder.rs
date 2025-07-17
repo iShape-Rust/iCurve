@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 use core::cmp::Ordering;
+use core::ptr;
 use crate::int::math::point::IntPoint;
 
 pub struct FourConvexBuilder {
@@ -12,7 +13,11 @@ impl FourConvexBuilder {
         debug_assert!(!points.is_empty());
         debug_assert!(points.len() <= 4);
         self.result.clear();
-        self.buffer.clear();
+        unsafe {
+            ptr::copy_nonoverlapping(points.as_ptr(), self.buffer.as_mut_ptr(), points.len());
+            self.buffer.set_len(points.len());
+        }
+
         self.buffer.extend_from_slice(points);
 
         let a = self.buffer.left_most();
