@@ -14,7 +14,7 @@ pub struct IntShort {
     pub b: IntPoint,
 }
 
-//https://pomax.github.io/bezierinfo/
+// https://pomax.github.io/bezierinfo/
 pub trait IntSplineShorts {
     fn approximate(&self, min_cos: u32, min_len: u32) -> Vec<IntShort>;
 }

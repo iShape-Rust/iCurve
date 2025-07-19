@@ -6,7 +6,7 @@ use crate::int::math::rect::IntRect;
 
 #[derive(Debug, Clone)]
 pub struct IntCubeSpline {
-    pub anchors: [IntPoint; 4]
+    pub anchors: [IntPoint; 4],
 }
 impl IntCADSpline for IntCubeSpline {
     #[inline]
@@ -40,6 +40,28 @@ impl IntCADSpline for IntCubeSpline {
         let p11 = LineDivider::new(p1, p2).split_at(step, split_factor);
 
         LineDivider::new(p10, p11).split_at(step, split_factor)
+    }
+
+    #[inline]
+    fn bisect(&self) -> (Self, Self) {
+        let a = self.anchors[0];
+        let ma = self.anchors[1];
+        let mb = self.anchors[2];
+        let b = self.anchors[3];
+
+        let m0 = a.mid(&ma);
+        let m1 = ma.mid(&mb);
+        let m2 = mb.mid(&b);
+
+        let mm0 = m0.mid(&m1);
+        let mm1 = m1.mid(&m2);
+
+        let mmm = mm0.mid(&mm1);
+
+        let anchors_0 = [a, m0, mm0, mmm];
+        let anchors_1 = [mmm, mm1, m2, b];
+
+        (Self { anchors: anchors_0 }, Self { anchors: anchors_1 })
     }
 
     #[inline]

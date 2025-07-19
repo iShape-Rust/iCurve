@@ -37,6 +37,14 @@ impl IntCADSpline for IntLineSpline {
     }
 
     #[inline]
+    fn bisect(&self) -> (Self, Self) {
+        let a = self.anchors[0];
+        let b = self.anchors[1];
+        let m = a.mid(&b);
+        (Self { anchors: [a, m] }, Self { anchors: [m, b] })
+    }
+
+    #[inline]
     fn boundary(&self) -> IntRect {
         IntRect::with_points(&self.anchors)
     }

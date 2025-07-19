@@ -63,7 +63,7 @@ impl IntSpline {
     }
 }
 
-pub trait IntCADSpline {
+pub trait IntCADSpline: Sized {
     fn start(&self) -> IntPoint;
     fn start_dir(&self) -> IntPoint;
     fn end_dir(&self) -> IntPoint;
@@ -71,4 +71,5 @@ pub trait IntCADSpline {
     fn split_at(&self, step: usize, split_factor: u32) -> IntPoint;
     fn boundary(&self) -> IntRect;
     fn anchors(&self) -> &[IntPoint];
+    fn bisect(&self) -> (Self, Self);
 }

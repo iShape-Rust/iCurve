@@ -3,5 +3,5 @@ pub mod offset;
 pub mod rect;
 pub mod normalize;
 pub mod x_segment;
-mod range;
-mod triangle;
+pub(crate) mod range;
+pub(crate) mod triangle;

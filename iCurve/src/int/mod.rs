@@ -1,3 +1,3 @@
 pub mod bezier;
 pub mod math;
-pub mod convex;
+pub mod collision;

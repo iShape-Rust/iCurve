@@ -1,9 +1,9 @@
 use core::cmp::Ordering;
-use core::ops;
+use core::{fmt, ops};
 use crate::int::math::offset::IntOffset;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct IntPoint {
     pub x: i64,
     pub y: i64,
@@ -35,6 +35,13 @@ impl IntPoint {
         let x = self.x.abs_diff(other.x);
         let y = self.y.abs_diff(other.y);
          x * x + y * y
+    }
+
+    #[inline]
+    pub fn mid(&self, other: &Self) -> Self {
+        let x = (self.x + other.x) / 2;
+        let y = (self.y + other.y) / 2;
+        Self { x, y }
     }
 }
 
@@ -123,6 +130,12 @@ impl Ord for IntPoint {
         } else {
             Ordering::Greater
         }
+    }
+}
+
+impl fmt::Display for IntPoint {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[{}, {}]", self.x, self.y)
     }
 }
 

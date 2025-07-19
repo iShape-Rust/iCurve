@@ -1,3 +1,4 @@
+use i_curve::int::collision::convex_hull::FourConvexPathExt;
 use debug_ui::ext::color::Color32Ext;
 use debug_ui::util::camera::Camera;
 use debug_ui::view::curve::CurveView;
@@ -6,7 +7,6 @@ use eframe::egui::{Color32, Pos2, Sense, Stroke};
 use eframe::{App, Frame, egui};
 use eframe::epaint::Shape;
 use i_curve::float::math::point::Point;
-use i_curve::int::convex::builder::FourConvexBuilder;
 use i_curve::int::math::normalize::VectorNormalization16Util;
 
 pub struct EditorApp {
@@ -59,7 +59,8 @@ impl App for EditorApp {
             let painter = ui.painter_at(rect);
             self.grid.draw(&painter, &self.camera);
 
-            let view_points: Vec<_> = FourConvexBuilder::default().build(&self.curve.anchors()).iter().map(|wp|{
+
+            let view_points: Vec<_> = self.curve.anchors().to_convex_hull().slice().iter().map(|wp|{
                 let vp = self.camera.world_to_view(Point::new(wp.x as f64, wp.y as f64));
                 Pos2::new(vp.x as f32, vp.y as f32)
             }).collect();
@@ -71,7 +72,8 @@ impl App for EditorApp {
             ));
 
             let min_cos = VectorNormalization16Util::normalize_unit_value(self.cos_value);
-            let (segments_count, dragged) = self.curve.draw(ui, &painter, &self.camera, min_cos, self.min_len, true);
+            let stroke = Stroke::new(1.0, Color32::WHITE);
+            let (segments_count, dragged) = self.curve.draw(ui, &painter, &self.camera, min_cos, self.min_len, stroke, true, 0);
             self.segments_count = segments_count;
 
             if !dragged {
