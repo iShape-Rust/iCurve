@@ -7,5 +7,5 @@ pub mod path;
 pub mod short;
 pub mod point;
 pub mod length;
-mod split;
+mod position;
 mod convex_hull;

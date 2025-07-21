@@ -63,12 +63,17 @@ impl IntBezierSpline {
     }
 }
 
+pub struct SplitPosition {
+    pub power: u32,
+    pub value: u64,
+}
+
 pub trait IntBezierSplineApi: Sized {
     fn start(&self) -> IntPoint;
     fn start_dir(&self) -> IntPoint;
     fn end_dir(&self) -> IntPoint;
     fn end(&self) -> IntPoint;
-    fn split_at(&self, step: usize, split_factor: u32) -> IntPoint;
+    fn point_at(&self, position: &SplitPosition) -> IntPoint;
     fn boundary(&self) -> IntRect;
     fn anchors(&self) -> &[IntPoint];
     fn bisect(&self) -> (Self, Self);

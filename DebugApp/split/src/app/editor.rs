@@ -59,6 +59,7 @@ impl App for EditorApp {
             let painter = ui.painter_at(rect);
             self.grid.draw(&painter, &self.camera);
 
+
             let view_points: Vec<_> = self.curve.anchors().to_convex_hull().slice().iter().map(|wp|{
                 let vp = self.camera.world_to_view(Point::new(wp.x as f64, wp.y as f64));
                 Pos2::new(vp.x as f32, vp.y as f32)

@@ -1,13 +1,13 @@
 use alloc::vec;
 use alloc::vec::Vec;
 use crate::data::link_list::{LinkList, EMPTY_REF};
-use crate::int::bezier::spline::IntBezierSplineApi;
+use crate::int::bezier::spline::{IntBezierSplineApi, SplitPosition};
 use crate::int::math::normalize::{VectorNormalization16, VectorNormalization16Util};
 use crate::int::math::point::IntPoint;
 
 #[derive(Copy, Clone)]
 pub struct IntShort {
-    pub step: usize,
+    pub step: u64,
     pub split_factor: u32,
     pub dir: IntPoint,
     pub a: IntPoint,
@@ -115,7 +115,8 @@ impl LinkList<IntShort> {
         let short = self.get(index).item;
 
         let split_factor = short.split_factor + 1;
-        let m = spline.split_at(short.step + 1, split_factor);
+        let position = SplitPosition { power: split_factor, value: short.step + 1 };
+        let m = spline.point_at(&position);
         let ma = m - short.a;
         let bm = short.b - m;
 

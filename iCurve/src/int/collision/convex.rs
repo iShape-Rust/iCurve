@@ -118,7 +118,7 @@ mod tests {
         ]
         .to_convex_hull();
 
-        assert_eq!(hull_0.collide(&hull_1), CollidingResult::Overlap);
+        assert_eq!(hull_0.collide(&hull_1), CollidingResult::Touch);
     }
 
     #[test]

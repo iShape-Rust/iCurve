@@ -1,5 +1,5 @@
-use crate::int::bezier::spline::IntBezierSplineApi;
-use crate::int::bezier::split::LineDivider;
+use crate::int::bezier::spline::{IntBezierSplineApi, SplitPosition};
+use crate::int::bezier::position::LineDivider;
 use crate::int::math::normalize::VectorNormalization16;
 use crate::int::math::point::IntPoint;
 use crate::int::math::rect::IntRect;
@@ -28,12 +28,12 @@ impl IntBezierSplineApi for IntSquareSpline {
     }
 
     #[inline]
-    fn split_at(&self, step: usize, split_factor: u32) -> IntPoint {
+    fn point_at(&self, position: &SplitPosition) -> IntPoint {
         let l0 = LineDivider::new(self.anchors[0], self.anchors[1]);
         let l1 = LineDivider::new(self.anchors[1], self.anchors[2]);
-        let p10 = l0.split_at(step, split_factor);
-        let p11 = l1.split_at(step, split_factor);
-        LineDivider::new(p10, p11).split_at(step, split_factor)
+        let p10 = l0.point_at(position);
+        let p11 = l1.point_at(position);
+        LineDivider::new(p10, p11).point_at(position)
     }
 
     #[inline]
