@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use crate::int::bezier::anchor::IntBezierAnchor;
-use crate::int::bezier::spline::IntSpline;
+use crate::int::bezier::spline::IntBezierSpline;
 use crate::int::math::point::IntPoint;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -34,7 +34,7 @@ impl IntBezierPath {
     }
 
     #[inline]
-    pub(crate) fn splines(&self) -> impl Iterator<Item = IntSpline> + '_ {
+    pub(crate) fn splines(&self) -> impl Iterator<Item =IntBezierSpline> + '_ {
         IntSplineIterator::new(self)
     }
 }
@@ -52,7 +52,7 @@ impl<'a> IntSplineIterator<'a> {
 }
 
 impl<'a> Iterator for IntSplineIterator<'a> {
-    type Item = IntSpline;
+    type Item = IntBezierSpline;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -65,7 +65,7 @@ impl<'a> Iterator for IntSplineIterator<'a> {
             return if self.path.closed {
                 let first = self.path.anchors.first().unwrap();
                 let last = self.path.anchors.last().unwrap();
-                Some(IntSpline::new(last, first))
+                Some(IntBezierSpline::new(last, first))
             } else {
                 None
             };
@@ -76,7 +76,7 @@ impl<'a> Iterator for IntSplineIterator<'a> {
 
         self.i += 1;
 
-        Some(IntSpline::new(a0, a1))
+        Some(IntBezierSpline::new(a0, a1))
     }
 }
 

@@ -1,7 +1,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 use crate::data::link_list::{LinkList, EMPTY_REF};
-use crate::int::bezier::spline::IntCADSpline;
+use crate::int::bezier::spline::IntBezierSplineApi;
 use crate::int::math::normalize::{VectorNormalization16, VectorNormalization16Util};
 use crate::int::math::point::IntPoint;
 
@@ -19,7 +19,7 @@ pub trait IntSplineShorts {
     fn approximate(&self, min_cos: u32, min_len: u32) -> Vec<IntShort>;
 }
 
-impl<Spline: IntCADSpline> IntSplineShorts for Spline {
+impl<Spline: IntBezierSplineApi> IntSplineShorts for Spline {
     #[inline]
     fn approximate(&self, min_cos: u32, min_len: u32) -> Vec<IntShort> {
         debug_assert!(min_cos <= VectorNormalization16Util::UNIT);
@@ -50,7 +50,7 @@ impl<Spline: IntCADSpline> IntSplineShorts for Spline {
 impl LinkList<IntShort> {
 
     #[inline]
-    fn approximate<Spline: IntCADSpline>(&mut self, spline: &Spline, shifted_min_cos: i64, min_len: u32) -> Vec<IntShort> {
+    fn approximate<Spline: IntBezierSplineApi>(&mut self, spline: &Spline, shifted_min_cos: i64, min_len: u32) -> Vec<IntShort> {
         let min_len_power = min_len.ilog2();
         let st_dir = spline.start_dir();
         let ed_dir = spline.end_dir();
@@ -111,7 +111,7 @@ impl LinkList<IntShort> {
         next_dot_product < shifted_min_cos
     }
 
-    fn split<Spline: IntCADSpline>(&mut self, spline: &Spline, index: u32, min_len_power: u32, result: &mut Vec<u32>) {
+    fn split<Spline: IntBezierSplineApi>(&mut self, spline: &Spline, index: u32, min_len_power: u32, result: &mut Vec<u32>) {
         let short = self.get(index).item;
 
         let split_factor = short.split_factor + 1;

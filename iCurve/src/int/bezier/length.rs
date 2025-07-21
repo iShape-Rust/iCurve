@@ -1,12 +1,12 @@
 use crate::float::math::point::Point;
 use crate::int::bezier::point::IntSplinePoints;
-use crate::int::bezier::spline::IntCADSpline;
+use crate::int::bezier::spline::IntBezierSplineApi;
 
 pub(crate) trait IntSplineLength {
     fn avg_length(&self, min_cos: u32, min_len: u32) -> u128;
 }
 
-impl<Spline: IntCADSpline> IntSplineLength for Spline {
+impl<Spline: IntBezierSplineApi> IntSplineLength for Spline {
     fn avg_length(&self, min_cos: u32, min_len: u32) -> u128 {
         let points = self.approximate_points(min_cos, min_len);
         let mut len = 0f64;

@@ -1,4 +1,4 @@
-use crate::int::bezier::spline::IntCADSpline;
+use crate::int::bezier::spline::IntBezierSplineApi;
 use crate::int::bezier::split::LineDivider;
 use crate::int::math::normalize::VectorNormalization16;
 use crate::int::math::point::IntPoint;
@@ -9,7 +9,7 @@ pub struct IntSquareSpline {
     pub(super) anchors: [IntPoint; 3]
 }
 
-impl IntCADSpline for IntSquareSpline {
+impl IntBezierSplineApi for IntSquareSpline {
     #[inline]
     fn start(&self) -> IntPoint {
         self.anchors[0]

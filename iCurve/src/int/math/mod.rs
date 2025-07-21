@@ -5,3 +5,4 @@ pub mod normalize;
 pub mod x_segment;
 pub(crate) mod range;
 pub(crate) mod triangle;
+mod segment;

@@ -96,6 +96,7 @@ impl IntRect {
         let y = self.min.y < other.max.y && self.max.y > other.min.y;
         x && y
     }
+    
 }
 
 #[cfg(test)]

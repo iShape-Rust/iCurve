@@ -1,19 +1,20 @@
-use crate::data::four_vec::FourVec;
-use crate::int::collision::colliding::{Colliding, CollidingResult};
-use crate::int::math::point::IntPoint;
+use crate::int::collision::spline::Spline;
 use crate::int::math::rect::IntRect;
 
-pub struct FourCollider {
-    pub(crate) boundary: IntRect,
-    pub(crate) convex: FourVec<IntPoint>,
+pub trait SplineCollider {
+    fn boundary(&self) -> IntRect;
 }
 
-impl Colliding for FourCollider {
-    #[inline]
-    fn collide(&self, other: &Self) -> CollidingResult {
-        if !self.boundary.is_intersect_border_include(&other.boundary) {
-            return CollidingResult::None;
+pub struct Collider {
+    spline: Spline,
+    boundary: IntRect
+}
+
+impl Collider {
+    fn new(spline: Spline) -> Self {
+        Self {
+            boundary: spline.boundary(),
+            spline,
         }
-        self.convex.collide(&other.convex)
     }
 }
