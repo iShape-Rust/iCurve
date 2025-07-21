@@ -72,7 +72,7 @@ impl App for EditorApp {
 
             let min_cos = VectorNormalization16Util::normalize_unit_value(self.cos_value);
             let stroke = Stroke::new(1.0, Color32::WHITE);
-            let (segments_count, dragged) = self.curve.draw(ui, &painter, &self.camera, min_cos, self.min_len, stroke, true, 0);
+            let (segments_count, dragged) = self.curve.draw_editable(ui, &painter, &self.camera, min_cos, self.min_len, stroke, true, 0);
             self.segments_count = segments_count;
 
             if !dragged {

@@ -45,6 +45,14 @@ impl IntBezierSplineApi for IntLineSpline {
     }
 
     #[inline]
+    fn split(&self, position: &SplitPosition) -> (Self, Self) {
+        let a = self.anchors[0];
+        let b = self.anchors[1];
+        let m = LineDivider::new(a, b).point_at(position);
+        (Self { anchors: [a, m] }, Self { anchors: [m, b] })
+    }
+
+    #[inline]
     fn boundary(&self) -> IntRect {
         IntRect::with_points(&self.anchors)
     }

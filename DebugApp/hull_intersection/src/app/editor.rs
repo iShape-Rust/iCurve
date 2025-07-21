@@ -103,8 +103,8 @@ impl App for EditorApp {
             }
 
             let min_cos = VectorNormalization16Util::normalize_unit_value(self.cos_value);
-            let (_, dragged_0) = self.curve_0.draw(ui, &painter, &self.camera, min_cos, self.min_len, stroke,true, 0);
-            let (_, dragged_1) = self.curve_1.draw(ui, &painter, &self.camera, min_cos, self.min_len, stroke,true, 4);
+            let (_, dragged_0) = self.curve_0.draw_editable(ui, &painter, &self.camera, min_cos, self.min_len, stroke,true, 0);
+            let (_, dragged_1) = self.curve_1.draw_editable(ui, &painter, &self.camera, min_cos, self.min_len, stroke,true, 4);
             let dragged = dragged_0 || dragged_1;
 
             if !dragged {

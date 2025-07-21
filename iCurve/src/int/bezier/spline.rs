@@ -77,4 +77,5 @@ pub trait IntBezierSplineApi: Sized {
     fn boundary(&self) -> IntRect;
     fn anchors(&self) -> &[IntPoint];
     fn bisect(&self) -> (Self, Self);
+    fn split(&self, position: &SplitPosition) -> (Self, Self);
 }

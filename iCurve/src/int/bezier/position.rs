@@ -22,11 +22,9 @@ impl LineDivider {
 
     #[inline]
     fn value_at(a: i64, b: i64, position: &SplitPosition) -> i64 {
-        let a = a as i128;
-        let b = b as i128;
         let v = position.value as i128;
-        let t = (v * (b - a)) >> position.power;
+        let t = (v * (b - a) as i128) >> position.power;
 
-        (a + t) as i64
+        a + t as i64
     }
 }

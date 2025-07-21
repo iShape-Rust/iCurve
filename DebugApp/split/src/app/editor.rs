@@ -7,6 +7,8 @@ use eframe::egui::{Color32, Pos2, Sense, Stroke};
 use eframe::{App, Frame, egui};
 use eframe::epaint::Shape;
 use i_curve::float::math::point::Point;
+use i_curve::int::bezier::spline::{IntBezierSplineApi, SplitPosition};
+use i_curve::int::bezier::spline_cube::IntCubeSpline;
 use i_curve::int::math::normalize::VectorNormalization16Util;
 
 pub struct EditorApp {
@@ -15,7 +17,9 @@ pub struct EditorApp {
     camera: Camera,
     cos_value: f64,
     min_len: u32,
-    segments_count: usize
+
+    split_value: f64,
+    split_power: u32,
 }
 
 impl Default for EditorApp {
@@ -39,7 +43,8 @@ impl Default for EditorApp {
             camera,
             cos_value: 0.95,
             min_len: 16,
-            segments_count: 0
+            split_value: 0.5,
+            split_power: 4,
         }
     }
 }
@@ -49,7 +54,8 @@ impl App for EditorApp {
         egui::TopBottomPanel::top("slider_panel").show(ctx, |ui| {
             ui.add(egui::Slider::new(&mut self.cos_value, 0.9..=1.0).text("Min Cos"));
             ui.add(egui::Slider::new(&mut self.min_len, 4..=4096).text("Min Len"));
-            ui.label(format!("Segments count: {}", self.segments_count));
+            ui.add(egui::Slider::new(&mut self.split_value, 0.0..=1.0).text("Split Value"));
+            ui.add(egui::Slider::new(&mut self.split_power, 3..=10).text("Split Factor"));
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -58,7 +64,6 @@ impl App for EditorApp {
 
             let painter = ui.painter_at(rect);
             self.grid.draw(&painter, &self.camera);
-
 
             let view_points: Vec<_> = self.curve.anchors().to_convex_hull().slice().iter().map(|wp|{
                 let vp = self.camera.world_to_view(Point::new(wp.x as f64, wp.y as f64));
@@ -72,9 +77,21 @@ impl App for EditorApp {
             ));
 
             let min_cos = VectorNormalization16Util::normalize_unit_value(self.cos_value);
-            let stroke = Stroke::new(1.0, Color32::WHITE);
-            let (segments_count, dragged) = self.curve.draw(ui, &painter, &self.camera, min_cos, self.min_len, stroke, true, 0);
-            self.segments_count = segments_count;
+            let main_stroke = Stroke::new(4.0, Color32::GRAY);
+            let child_stroke = Stroke::new(1.0, Color32::GREEN);
+            let (_, dragged) = self.curve.draw_editable(ui, &painter, &self.camera, min_cos, self.min_len, main_stroke, false, 0);
+
+            let main_spline = IntCubeSpline { anchors: self.curve.anchors() };
+            let value = ((1 << self.split_power) as f64 * self.split_value).round() as u64;
+            let position = SplitPosition { power: self.split_power, value };
+            let (spline_a, spline_b) = main_spline.split(&position);
+            let anchors_a = spline_a.anchors.map(|p| Point { x: p.x as f64, y: p.y as f64 });
+            let anchors_b = spline_b.anchors.map(|p| Point { x: p.x as f64, y: p.y as f64 });
+            let curve_a = CurveView::new(anchors_a);
+            let curve_b = CurveView::new(anchors_b);
+
+            curve_a.draw(ui, &painter, &self.camera, min_cos, self.min_len, child_stroke, false);
+            curve_b.draw(ui, &painter, &self.camera, min_cos, self.min_len, child_stroke, false);
 
             if !dragged {
                 let delta = response.drag_delta();

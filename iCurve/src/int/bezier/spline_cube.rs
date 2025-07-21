@@ -28,18 +28,19 @@ impl IntBezierSplineApi for IntCubeSpline {
 
     #[inline]
     fn point_at(&self, position: &SplitPosition) -> IntPoint {
-        let l0 = LineDivider::new(self.anchors[0], self.anchors[1]);
-        let l1 = LineDivider::new(self.anchors[1], self.anchors[2]);
-        let l2 = LineDivider::new(self.anchors[2], self.anchors[3]);
+        let a = self.anchors[0];
+        let ma = self.anchors[1];
+        let mb = self.anchors[2];
+        let b = self.anchors[3];
 
-        let p0 = l0.point_at(position);
-        let p1 = l1.point_at(position);
-        let p2 = l2.point_at(position);
+        let m0 = LineDivider::new(a, ma).point_at(position);
+        let m1 = LineDivider::new(ma, mb).point_at(position);
+        let m2 = LineDivider::new(mb, b).point_at(position);
 
-        let p10 = LineDivider::new(p0, p1).point_at(position);
-        let p11 = LineDivider::new(p1, p2).point_at(position);
+        let mm0 = LineDivider::new(m0, m1).point_at(position);
+        let mm1 = LineDivider::new(m1, m2).point_at(position);
 
-        LineDivider::new(p10, p11).point_at(position)
+        LineDivider::new(mm0, mm1).point_at(position)
     }
 
     #[inline]
@@ -57,6 +58,28 @@ impl IntBezierSplineApi for IntCubeSpline {
         let mm1 = m1.mid(&m2);
 
         let mmm = mm0.mid(&mm1);
+
+        let anchors_0 = [a, m0, mm0, mmm];
+        let anchors_1 = [mmm, mm1, m2, b];
+
+        (Self { anchors: anchors_0 }, Self { anchors: anchors_1 })
+    }
+
+    #[inline]
+    fn split(&self, position: &SplitPosition) -> (Self, Self) {
+        let a = self.anchors[0];
+        let ma = self.anchors[1];
+        let mb = self.anchors[2];
+        let b = self.anchors[3];
+
+        let m0 = LineDivider::new(a, ma).point_at(position);
+        let m1 = LineDivider::new(ma, mb).point_at(position);
+        let m2 = LineDivider::new(mb, b).point_at(position);
+
+        let mm0 = LineDivider::new(m0, m1).point_at(position);
+        let mm1 = LineDivider::new(m1, m2).point_at(position);
+
+        let mmm = LineDivider::new(mm0, mm1).point_at(position);
 
         let anchors_0 = [a, m0, mm0, mmm];
         let anchors_1 = [mmm, mm1, m2, b];
