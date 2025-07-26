@@ -1,9 +1,8 @@
 use crate::int::collision::colliding::{Colliding, CollidingResult};
-use crate::int::math::point::IntPoint;
+use crate::int::math::ab_segment::{Contain, IntABSegment};
 use crate::int::math::range::LineRange;
 use crate::int::math::triangle::Triangle;
 use crate::int::math::x_segment::XSegment;
-use core::cmp::Ordering;
 
 impl Colliding for XSegment {
     #[inline]
@@ -35,43 +34,10 @@ impl Colliding for XSegment {
             self.not_collinear_collide(other)            
         }
     }
-}
 
-#[derive(Debug, PartialEq)]
-enum Contain {
-    Inside,
-    Outside,
-    End,
-}
-
-#[inline]
-fn ab_contains(a: IntPoint, b: IntPoint, p: IntPoint) -> Contain {
-    let v0 = p - a;
-    let v1 = p - b;
-
-    if v0.cross_product(&v1) != 0 {
-        return Contain::Outside;
-    }
-
-    let dot = v0.dot_product(&v1);
-
-    match dot.cmp(&0) {
-        Ordering::Less => Contain::Inside,
-        Ordering::Equal => Contain::End,
-        Ordering::Greater => Contain::Outside,
-    }
-}
-
-#[inline]
-fn ab_include(a: IntPoint, b: IntPoint, p: IntPoint) -> Contain {
-    let v0 = p - a;
-    let v1 = p - b;
-    let dot = v0.dot_product(&v1);
-
-    match dot.cmp(&0) {
-        Ordering::Less => Contain::Inside,
-        Ordering::Equal => Contain::End,
-        Ordering::Greater => Contain::Outside,
+    #[inline]
+    fn overlap(&self, other: &Self) -> bool {
+        self.collide(other) != CollidingResult::None
     }
 }
 
@@ -90,7 +56,7 @@ impl XSegment {
     }
 
     #[inline(always)]
-    fn is_overlap_xy(&self, other: &Self) -> bool {
+    pub(crate) fn is_overlap_xy(&self, other: &Self) -> bool {
         if self.x_range().is_not_overlap(&other.x_range()) {
             return false;
         }
@@ -98,18 +64,8 @@ impl XSegment {
     }
 
     #[inline]
-    fn contains(&self, p: IntPoint) -> Contain {
-        ab_contains(self.a, self.b, p)
-    }
-
-    #[inline]
     fn sqr_len(&self) -> u64 {
-        self.a.sqr_len(&self.b)
-    }
-
-    #[inline]
-    fn include(&self, p: IntPoint) -> Contain {
-        ab_include(self.a, self.b, p)
+        self.a.sqr_dist(&self.b)
     }
 
     #[inline]
@@ -141,13 +97,13 @@ impl XSegment {
     #[inline]
     fn ordered_collinear_collide(&self, other: &Self) -> CollidingResult {
         let mut ends = 0;
-        match self.include(other.a) {
+        match self.contains_on_collinear_span(other.a) {
             Contain::Inside => return CollidingResult::Overlap,
             Contain::End => ends += 1,
             Contain::Outside => {}
         }
 
-        match self.include(other.b) {
+        match self.contains_on_collinear_span(other.b) {
             Contain::Inside => return CollidingResult::Overlap,
             Contain::End => ends += 1,
             Contain::Outside => {}
@@ -164,7 +120,6 @@ impl XSegment {
 #[cfg(test)]
 mod tests {
     use crate::int::collision::colliding::{Colliding, CollidingResult};
-    use crate::int::collision::x_segment::{Contain, ab_contains};
     use crate::int::math::point::IntPoint;
     use crate::int::math::x_segment::XSegment;
 
@@ -286,105 +241,5 @@ mod tests {
         let s1 = XSegment::new(IntPoint::new(10, 10), IntPoint::new(10, 20));
 
         assert_eq!(s0.collide(&s1), CollidingResult::None);
-    }
-
-    #[test]
-    fn test_ab_contains_0() {
-        let result = ab_contains(
-            IntPoint::new(0, 0),
-            IntPoint::new(10, 0),
-            IntPoint::new(5, 0),
-        );
-        assert_eq!(result, Contain::Inside);
-    }
-
-    #[test]
-    fn test_ab_contains_1() {
-        let result = ab_contains(
-            IntPoint::new(0, 0),
-            IntPoint::new(10, 0),
-            IntPoint::new(-5, 0),
-        );
-        assert_eq!(result, Contain::Outside);
-    }
-
-    #[test]
-    fn test_ab_contains_2() {
-        let result = ab_contains(
-            IntPoint::new(0, 0),
-            IntPoint::new(10, 0),
-            IntPoint::new(15, 0),
-        );
-        assert_eq!(result, Contain::Outside);
-    }
-
-    #[test]
-    fn test_ab_contains_3() {
-        let result = ab_contains(
-            IntPoint::new(0, 0),
-            IntPoint::new(10, 0),
-            IntPoint::new(0, 0),
-        );
-        assert_eq!(result, Contain::End);
-    }
-
-    #[test]
-    fn test_ab_contains_4() {
-        let result = ab_contains(
-            IntPoint::new(0, 0),
-            IntPoint::new(10, 0),
-            IntPoint::new(10, 0),
-        );
-        assert_eq!(result, Contain::End);
-    }
-
-    #[test]
-    fn test_ab_contains_5() {
-        let result = ab_contains(
-            IntPoint::new(5, 5),
-            IntPoint::new(10, 10),
-            IntPoint::new(15, 15),
-        );
-        assert_eq!(result, Contain::Outside);
-    }
-
-    #[test]
-    fn test_ab_contains_6() {
-        let result = ab_contains(
-            IntPoint::new(5, 5),
-            IntPoint::new(10, 10),
-            IntPoint::new(0, 0),
-        );
-        assert_eq!(result, Contain::Outside);
-    }
-
-    #[test]
-    fn test_ab_contains_7() {
-        let result = ab_contains(
-            IntPoint::new(5, 5),
-            IntPoint::new(10, 10),
-            IntPoint::new(5, 5),
-        );
-        assert_eq!(result, Contain::End);
-    }
-
-    #[test]
-    fn test_ab_contains_8() {
-        let result = ab_contains(
-            IntPoint::new(5, 5),
-            IntPoint::new(10, 10),
-            IntPoint::new(10, 10),
-        );
-        assert_eq!(result, Contain::End);
-    }
-
-    #[test]
-    fn test_ab_contains_9() {
-        let result = ab_contains(
-            IntPoint::new(5, 5),
-            IntPoint::new(10, 10),
-            IntPoint::new(7, 7),
-        );
-        assert_eq!(result, Contain::Inside);
     }
 }

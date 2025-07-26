@@ -3,8 +3,8 @@ use crate::int::math::point::IntPoint;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct XSegment {
-    pub(crate) a: IntPoint,
-    pub(crate) b: IntPoint,
+    pub a: IntPoint,
+    pub b: IntPoint,
 }
 
 impl PartialOrd for XSegment {

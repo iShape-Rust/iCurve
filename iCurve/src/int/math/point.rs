@@ -31,9 +31,16 @@ impl IntPoint {
     }
 
     #[inline]
-    pub fn sqr_len(&self, other: &Self) -> u64 {
+    pub fn sqr_dist(&self, other: &Self) -> u64 {
         let x = self.x.abs_diff(other.x);
         let y = self.y.abs_diff(other.y);
+         x * x + y * y
+    }
+
+    #[inline]
+    pub fn sqr_len(&self) -> u64 {
+        let x = self.x.unsigned_abs();
+        let y = self.y.unsigned_abs();
          x * x + y * y
     }
 

@@ -1,0 +1,9 @@
+[package]
+name = "segment_cross"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = "^0.32.0"
+i_curve = { path = "../../iCurve" }
+debug_ui = { path = "../debug_ui" }

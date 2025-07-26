@@ -105,7 +105,7 @@ impl Util for FourVec<IntPoint> {
                 Ordering::Greater => i += 1,
                 Ordering::Equal => {
                     self.remove(i);
-                    if a.sqr_len(&b) < a.sqr_len(&p) {
+                    if a.sqr_dist(&b) < a.sqr_dist(&p) {
                         self.buffer[j] = p;
                         b = p;
                         e = v;

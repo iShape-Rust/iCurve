@@ -6,7 +6,7 @@ use crate::int::math::rect::IntRect;
 
 #[derive(Debug, Clone)]
 pub struct IntSquareSpline {
-    pub(super) anchors: [IntPoint; 3]
+    pub(crate) anchors: [IntPoint; 3]
 }
 
 impl IntBezierSplineApi for IntSquareSpline {

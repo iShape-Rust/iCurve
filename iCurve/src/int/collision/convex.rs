@@ -10,6 +10,11 @@ impl Colliding for FourVec<IntPoint> {
         let offset = self.buffer[0];
         FourConvex::new(offset, self.slice()).collide(&FourConvex::new(offset, other.slice()))
     }
+
+    #[inline]
+    fn overlap(&self, other: &Self) -> bool {
+        self.collide(other) != CollidingResult::None
+    }
 }
 
 struct FourConvex {
@@ -72,6 +77,11 @@ impl Colliding for FourConvex {
         }
 
         CollidingResult::None
+    }
+
+    #[inline]
+    fn overlap(&self, other: &Self) -> bool {
+        self.collide(other) != CollidingResult::None
     }
 }
 

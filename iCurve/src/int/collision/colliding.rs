@@ -7,4 +7,5 @@ pub enum CollidingResult {
 
 pub trait Colliding {
     fn collide(&self, other: &Self) -> CollidingResult;
+    fn overlap(&self, other: &Self) -> bool;
 }
