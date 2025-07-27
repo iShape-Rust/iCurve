@@ -4,7 +4,7 @@ use debug_ui::view::segm::SegmentView;
 use eframe::egui::{Color32, Pos2, Sense, Shape, Stroke};
 use eframe::{App, Frame, egui};
 use i_curve::float::math::point::Point;
-use i_curve::int::collision::solver::x_segment::XResult;
+use i_curve::int::collision::solver::x_segment::XOverlap;
 use i_curve::int::math::x_segment::XSegment;
 
 pub struct EditorApp {
@@ -57,25 +57,25 @@ impl App for EditorApp {
             let dragged_0 = self.seg_view_0.draw(ui, &painter, &self.camera, stroke,0);
             let dragged_1 = self.seg_view_1.draw(ui, &painter, &self.camera, stroke,2);
 
-            match s0.cross(&s1) {
-                XResult::Segment(s) => {
-                    let wa = Point { x: s.a.x as f64, y: s.a.y as f64 };
-                    let wb = Point { x: s.b.x as f64, y: s.b.y as f64 };
-                    let va = self.camera.world_to_view(wa);
-                    let vb = self.camera.world_to_view(wb);
-                    let sa = Pos2::new(va.x as f32, va.y as f32);
-                    let sb = Pos2::new(vb.x as f32, vb.y as f32);
-
-
-                    painter.line_segment([sa, sb], Stroke::new(4.0, Color32::ORANGE));
+            if let Some(cross) = s0.cross(&s1) {
+                match cross {
+                    XOverlap::Segment(s) => {
+                        let wa = Point { x: s.a.x as f64, y: s.a.y as f64 };
+                        let wb = Point { x: s.b.x as f64, y: s.b.y as f64 };
+                        let va = self.camera.world_to_view(wa);
+                        let vb = self.camera.world_to_view(wb);
+                        let sa = Pos2::new(va.x as f32, va.y as f32);
+                        let sb = Pos2::new(vb.x as f32, vb.y as f32);
+                        
+                        painter.line_segment([sa, sb], Stroke::new(4.0, Color32::ORANGE));
+                    }
+                    XOverlap::Point(p) => {
+                        let wp = Point { x: p.x as f64, y: p.y as f64 };
+                        let vp = self.camera.world_to_view(wp);
+                        let sp = Pos2::new(vp.x as f32, vp.y as f32);
+                        painter.add(Shape::circle_filled(sp, 8.0, Color32::ORANGE));
+                    }
                 }
-                XResult::Point(p) => {
-                    let wp = Point { x: p.x as f64, y: p.y as f64 };
-                    let vp = self.camera.world_to_view(wp);
-                    let sp = Pos2::new(vp.x as f32, vp.y as f32);
-                    painter.add(Shape::circle_filled(sp, 8.0, Color32::ORANGE));
-                }
-                XResult::None => {}
             }
 
             if !(dragged_0 || dragged_1) {
