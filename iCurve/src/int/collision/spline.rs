@@ -10,6 +10,7 @@ use crate::int::math::point::IntPoint;
 use crate::int::math::rect::IntRect;
 use crate::int::math::x_segment::XSegment;
 
+#[derive(Debug, Clone)]
 pub enum Spline {
     Arc(IntArc),
     Line(IntLineSpline),

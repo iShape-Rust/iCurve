@@ -51,9 +51,4 @@ impl<T: Copy + Default> FourVec<T> {
         self.remove(idx);
         val
     }
-
-    #[inline]
-    pub(crate) fn iter(&self) -> core::slice::Iter<'_, T> {
-        self.buffer[..self.len].iter()
-    }
 }

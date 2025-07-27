@@ -1,6 +1,5 @@
 use crate::float::math::point::Point;
 use crate::int::math::point::IntPoint;
-use crate::int::math::x_segment::XSegment;
 
 pub(crate) struct IntSegment {
     pub(crate) a: IntPoint,

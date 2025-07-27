@@ -56,11 +56,16 @@ impl XSegment {
     }
 
     #[inline(always)]
+    pub(crate) fn is_overlap_y(&self, other: &Self) -> bool {
+        self.y_range().is_overlap(&other.y_range())
+    }
+    
+    #[inline(always)]
     pub(crate) fn is_overlap_xy(&self, other: &Self) -> bool {
         if self.x_range().is_not_overlap(&other.x_range()) {
             return false;
         }
-        self.y_range().is_overlap(&other.y_range())
+        self.is_overlap_y(other)
     }
 
     #[inline]
