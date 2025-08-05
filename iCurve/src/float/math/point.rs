@@ -1,7 +1,7 @@
-use core::ops;
-use libm::sqrt;
 use crate::float::math::offset::Offset;
 use crate::int::math::point::IntPoint;
+use core::ops;
+use libm::sqrt;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy)]
@@ -60,9 +60,23 @@ impl From<Offset> for Point {
     }
 }
 
+impl From<[i64; 2]> for Point {
+    #[inline]
+    fn from(value: [i64; 2]) -> Self {
+        Self::new(value[0] as f64, value[1] as f64)
+    }
+}
+
 impl From<IntPoint> for Point {
     #[inline]
     fn from(value: IntPoint) -> Self {
+        Self::new(value.x as f64, value.y as f64)
+    }
+}
+
+impl From<&IntPoint> for Point {
+    #[inline]
+    fn from(value: &IntPoint) -> Self {
         Self::new(value.x as f64, value.y as f64)
     }
 }

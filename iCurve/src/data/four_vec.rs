@@ -1,5 +1,6 @@
 use core::ptr;
 
+#[derive(Clone)]
 pub struct FourVec<T: Copy + Default> {
     pub(crate) buffer: [T; 4],
     pub(crate) len: usize,

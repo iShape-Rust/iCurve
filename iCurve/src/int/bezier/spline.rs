@@ -2,25 +2,25 @@ use crate::int::bezier::anchor::IntBezierAnchor;
 use crate::int::bezier::length::IntSplineLength;
 use crate::int::bezier::point::IntSplinePoints;
 use crate::int::bezier::short::{IntShort, IntSplineShorts};
-use crate::int::bezier::spline_cube::IntCubeSpline;
+use crate::int::bezier::spline_cubic::IntCubicSpline;
 use crate::int::bezier::spline_line::IntLineSpline;
 use crate::int::bezier::spline_square::IntSquareSpline;
 use crate::int::math::point::IntPoint;
-use crate::int::math::rect::IntRect;
 use alloc::vec::Vec;
+use crate::int::bezier::curve::IntBezierCurveSpline;
 
 #[derive(Debug, Clone)]
 pub(crate) enum IntBezierSpline {
     Line(IntLineSpline),
     Square(IntSquareSpline),
-    Cube(IntCubeSpline),
+    Cubic(IntCubicSpline),
 }
 
 impl IntBezierSpline {
     #[inline]
     pub(super) fn new(a: &IntBezierAnchor, b: &IntBezierAnchor) -> Self {
         match (a.handle_out_point(), b.handle_in_point()) {
-            (Some(am), Some(bm)) => IntBezierSpline::Cube(IntCubeSpline {
+            (Some(am), Some(bm)) => IntBezierSpline::Cubic(IntCubicSpline {
                 anchors: [a.point, am, bm, b.point],
             }),
             (Some(m), None) => IntBezierSpline::Square(IntSquareSpline {
@@ -40,7 +40,7 @@ impl IntBezierSpline {
         match self {
             IntBezierSpline::Line(s) => s.approximate_points(min_cos, min_len),
             IntBezierSpline::Square(s) => s.approximate_points(min_cos, min_len),
-            IntBezierSpline::Cube(s) => s.approximate_points(min_cos, min_len),
+            IntBezierSpline::Cubic(s) => s.approximate_points(min_cos, min_len),
         }
     }
 
@@ -49,7 +49,7 @@ impl IntBezierSpline {
         match self {
             IntBezierSpline::Line(s) => s.approximate(min_cos, min_len),
             IntBezierSpline::Square(s) => s.approximate(min_cos, min_len),
-            IntBezierSpline::Cube(s) => s.approximate(min_cos, min_len),
+            IntBezierSpline::Cubic(s) => s.approximate(min_cos, min_len),
         }
     }
 
@@ -58,7 +58,7 @@ impl IntBezierSpline {
         match self {
             IntBezierSpline::Line(s) => s.avg_length(min_cos, min_len),
             IntBezierSpline::Square(s) => s.avg_length(min_cos, min_len),
-            IntBezierSpline::Cube(s) => s.avg_length(min_cos, min_len),
+            IntBezierSpline::Cubic(s) => s.avg_length(min_cos, min_len),
         }
     }
 }
@@ -68,14 +68,10 @@ pub struct SplitPosition {
     pub value: u64,
 }
 
-pub trait IntBezierSplineApi: Sized {
-    fn start(&self) -> IntPoint;
+pub trait IntBezierSplineMath: Sized + IntBezierCurveSpline {
     fn start_dir(&self) -> IntPoint;
     fn end_dir(&self) -> IntPoint;
-    fn end(&self) -> IntPoint;
     fn point_at(&self, position: &SplitPosition) -> IntPoint;
-    fn boundary(&self) -> IntRect;
-    fn anchors(&self) -> &[IntPoint];
     fn bisect(&self) -> (Self, Self);
     fn split(&self, position: &SplitPosition) -> (Self, Self);
 }

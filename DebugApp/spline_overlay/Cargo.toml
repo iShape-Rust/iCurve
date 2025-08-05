@@ -5,5 +5,7 @@ edition = "2024"
 
 [dependencies]
 eframe = "^0.32.0"
-i_curve = { path = "../../iCurve" }
+i_curve = { path = "../../iCurve", features = ["eframe"] }
 debug_ui = { path = "../debug_ui" }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.141"

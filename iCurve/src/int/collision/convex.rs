@@ -88,7 +88,7 @@ impl Colliding for FourConvex {
 #[cfg(test)]
 mod tests {
     use crate::int::collision::colliding::{Colliding, CollidingResult};
-    use crate::int::collision::convex_hull::FourConvexPathExt;
+    use crate::int::collision::four_convex_path::FourConvexPath;
     use crate::int::math::point::IntPoint;
 
     #[test]
@@ -99,7 +99,7 @@ mod tests {
             IntPoint::new(10, 10),
             IntPoint::new(0, 10),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         let hull_1 = [
             IntPoint::new(8, 5),
@@ -107,7 +107,7 @@ mod tests {
             IntPoint::new(18, 5),
             IntPoint::new(13, 10),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         assert_eq!(hull_0.collide(&hull_1), CollidingResult::Overlap);
     }
@@ -119,14 +119,14 @@ mod tests {
             IntPoint::new(5, 5),
             IntPoint::new(0, 10),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         let hull_1 = [
             IntPoint::new(5, 5),
             IntPoint::new(10, 10),
             IntPoint::new(10, 0),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         assert_eq!(hull_0.collide(&hull_1), CollidingResult::Touch);
     }
@@ -138,14 +138,14 @@ mod tests {
             IntPoint::new(5, 5),
             IntPoint::new(0, 10),
         ]
-            .to_convex_hull();
+            .to_four_convex();
 
         let hull_1 = [
             IntPoint::new(4, 5),
             IntPoint::new(9, 10),
             IntPoint::new(9, 0),
         ]
-            .to_convex_hull();
+            .to_four_convex();
 
         assert_eq!(hull_0.collide(&hull_1), CollidingResult::Overlap);
     }
@@ -157,14 +157,14 @@ mod tests {
             IntPoint::new(5, 5),
             IntPoint::new(0, 10),
         ]
-            .to_convex_hull();
+            .to_four_convex();
 
         let hull_1 = [
             IntPoint::new(10, 5),
             IntPoint::new(15, 10),
             IntPoint::new(15, 0),
         ]
-            .to_convex_hull();
+            .to_four_convex();
 
         assert_eq!(hull_0.collide(&hull_1), CollidingResult::None);
     }
@@ -177,7 +177,7 @@ mod tests {
             IntPoint::new(100, 0),
             IntPoint::new(-100, 0),
         ]
-            .to_convex_hull();
+            .to_four_convex();
 
         let hull_1 = [
             IntPoint::new(100, 100),
@@ -185,7 +185,7 @@ mod tests {
             IntPoint::new(200, 100),
             IntPoint::new(200, 200),
         ]
-            .to_convex_hull();
+            .to_four_convex();
 
         assert_eq!(hull_0.collide(&hull_1), CollidingResult::None);
     }

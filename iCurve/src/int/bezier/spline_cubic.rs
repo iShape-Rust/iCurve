@@ -1,18 +1,15 @@
 use crate::int::bezier::position::LineDivider;
-use crate::int::bezier::spline::{IntBezierSplineApi, SplitPosition};
+use crate::int::bezier::spline::{IntBezierSplineMath, SplitPosition};
 use crate::int::math::normalize::VectorNormalization16;
 use crate::int::math::point::IntPoint;
-use crate::int::math::rect::IntRect;
 
 #[derive(Debug, Clone)]
-pub struct IntCubeSpline {
+pub struct IntCubicSpline {
     pub anchors: [IntPoint; 4],
 }
-impl IntBezierSplineApi for IntCubeSpline {
-    #[inline]
-    fn start(&self) -> IntPoint {
-        self.anchors[0]
-    }
+
+impl IntBezierSplineMath for IntCubicSpline {
+
     #[inline]
     fn start_dir(&self) -> IntPoint {
         (self.anchors[1] - self.anchors[0]).normalized_16bit()
@@ -20,10 +17,6 @@ impl IntBezierSplineApi for IntCubeSpline {
     #[inline]
     fn end_dir(&self) -> IntPoint {
         (self.anchors[3] - self.anchors[2]).normalized_16bit()
-    }
-    #[inline]
-    fn end(&self) -> IntPoint {
-        self.anchors[3]
     }
 
     #[inline]
@@ -77,19 +70,9 @@ impl IntBezierSplineApi for IntCubeSpline {
 
         (Self { anchors: anchors_0 }, Self { anchors: anchors_1 })
     }
-
-    #[inline]
-    fn boundary(&self) -> IntRect {
-        IntRect::with_points(&self.anchors)
-    }
-
-    #[inline]
-    fn anchors(&self) -> &[IntPoint] {
-        &self.anchors
-    }
 }
 
-impl IntCubeSpline {
+impl IntCubicSpline {
     #[inline]
     pub(crate) fn is_flat(&self, power: u32, generation: u32) -> bool {
         // power max(boundary.size) < 2^power
@@ -139,12 +122,12 @@ impl IntCubeSpline {
 
 #[cfg(test)]
 mod tests {
-    use crate::int::bezier::spline_cube::IntCubeSpline;
+    use crate::int::bezier::spline_cubic::IntCubicSpline;
     use crate::int::math::point::IntPoint;
 
     #[test]
     fn test_0() {
-        let spline = IntCubeSpline {
+        let spline = IntCubicSpline {
             anchors: [
                 IntPoint::new(0, 0),
                 IntPoint::new(100, 100),
@@ -158,7 +141,7 @@ mod tests {
 
     #[test]
     fn test_1() {
-        let spline = IntCubeSpline {
+        let spline = IntCubicSpline {
             anchors: [
                 IntPoint::new(0, 0),
                 IntPoint::new(100, 1),

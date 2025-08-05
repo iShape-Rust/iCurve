@@ -100,6 +100,13 @@ impl ops::Sub<IntOffset> for IntPoint {
     }
 }
 
+impl From<[i64; 2]> for IntPoint {
+    #[inline]
+    fn from(value: [i64; 2]) -> Self {
+        Self::new(value[0], value[1])
+    }
+}
+
 impl From<IntOffset> for IntPoint {
     #[inline]
     fn from(value: IntOffset) -> Self {

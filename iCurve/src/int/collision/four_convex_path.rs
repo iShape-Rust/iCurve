@@ -2,13 +2,13 @@ use crate::data::four_vec::FourVec;
 use crate::int::math::point::IntPoint;
 use core::cmp::Ordering;
 
-pub trait FourConvexPathExt {
-    fn to_convex_hull(&self) -> FourVec<IntPoint>;
+pub trait FourConvexPath {
+    fn to_four_convex(&self) -> FourVec<IntPoint>;
 }
 
-impl FourConvexPathExt for [IntPoint] {
+impl FourConvexPath for [IntPoint] {
     #[inline]
-    fn to_convex_hull(&self) -> FourVec<IntPoint> {
+    fn to_four_convex(&self) -> FourVec<IntPoint> {
         debug_assert!(!self.is_empty());
         debug_assert!(self.len() <= 4);
         let mut result = FourVec::new();
@@ -121,13 +121,13 @@ impl Util for FourVec<IntPoint> {
 #[cfg(test)]
 mod tests {
     use crate::int::collision::convexity::Convexity;
-    use crate::int::collision::convex_hull::FourConvexPathExt;
+    use crate::int::collision::four_convex_path::FourConvexPath;
     use crate::int::math::point::IntPoint;
     use rand::Rng;
 
     #[test]
     fn test_0() {
-        let result = [IntPoint::new(0, 0)].to_convex_hull();
+        let result = [IntPoint::new(0, 0)].to_four_convex();
 
         assert_eq!(result.len, 1);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn test_1() {
-        let result = [IntPoint::new(0, 0), IntPoint::new(0, 0)].to_convex_hull();
+        let result = [IntPoint::new(0, 0), IntPoint::new(0, 0)].to_four_convex();
 
         assert_eq!(result.len, 1);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_2() {
-        let result = [IntPoint::new(0, 0), IntPoint::new(10, 0)].to_convex_hull();
+        let result = [IntPoint::new(0, 0), IntPoint::new(10, 0)].to_four_convex();
 
         assert_eq!(result.len, 2);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_3() {
-        let result = [IntPoint::new(10, 0), IntPoint::new(0, 0)].to_convex_hull();
+        let result = [IntPoint::new(10, 0), IntPoint::new(0, 0)].to_four_convex();
 
         assert_eq!(result.len, 2);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -170,7 +170,7 @@ mod tests {
             IntPoint::new(10, -10),
             IntPoint::new(10, 10),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         assert_eq!(result.len, 3);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -186,7 +186,7 @@ mod tests {
             IntPoint::new(10, 10),
             IntPoint::new(10, -10),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         assert_eq!(result.len, 3);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -203,7 +203,7 @@ mod tests {
             IntPoint::new(10, 10),
             IntPoint::new(10, -10),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         assert_eq!(result.len, 4);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -221,7 +221,7 @@ mod tests {
             IntPoint::new(10, 10),
             IntPoint::new(10, -10),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         assert_eq!(result.len, 3);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -238,7 +238,7 @@ mod tests {
             IntPoint::new(10, 10),
             IntPoint::new(10, -10),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         assert_eq!(result.len, 3);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -255,7 +255,7 @@ mod tests {
             IntPoint::new(10, 0),
             IntPoint::new(15, 0),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         assert_eq!(result.len, 2);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -271,7 +271,7 @@ mod tests {
             IntPoint::new(10, 0),
             IntPoint::new(15, 10),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         assert_eq!(result.len, 3);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -288,7 +288,7 @@ mod tests {
             IntPoint::new(0, 10),
             IntPoint::new(0, 15),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         assert_eq!(result.len, 2);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -304,7 +304,7 @@ mod tests {
             IntPoint::new(0, -10),
             IntPoint::new(0, -15),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         assert_eq!(result.len, 2);
         assert_eq!(result.buffer[0], IntPoint::new(0, -15));
@@ -320,7 +320,7 @@ mod tests {
             IntPoint::new(5, 5),
             IntPoint::new(10, 10),
         ]
-        .to_convex_hull();
+        .to_four_convex();
 
         assert_eq!(result.len, 3);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -341,7 +341,7 @@ mod tests {
                 points[i] = IntPoint::new(x, y);
             }
 
-            let result = points.to_convex_hull();
+            let result = points.to_four_convex();
             assert!(result.slice().is_convex());
         }
     }

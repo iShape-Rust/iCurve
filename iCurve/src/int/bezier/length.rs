@@ -1,12 +1,12 @@
 use crate::float::math::point::Point;
 use crate::int::bezier::point::IntSplinePoints;
-use crate::int::bezier::spline::IntBezierSplineApi;
+use crate::int::bezier::spline::IntBezierSplineMath;
 
 pub(crate) trait IntSplineLength {
     fn avg_length(&self, min_cos: u32, min_len: u32) -> u128;
 }
 
-impl<Spline: IntBezierSplineApi> IntSplineLength for Spline {
+impl<Spline: IntBezierSplineMath> IntSplineLength for Spline {
     fn avg_length(&self, min_cos: u32, min_len: u32) -> u128 {
         let points = self.approximate_points(min_cos, min_len);
         let mut len = 0f64;
@@ -23,7 +23,7 @@ impl<Spline: IntBezierSplineApi> IntSplineLength for Spline {
 #[cfg(test)]
 mod tests {
     use crate::int::bezier::length::IntSplineLength;
-    use crate::int::bezier::spline_cube::IntCubeSpline;
+    use crate::int::bezier::spline_cubic::IntCubicSpline;
     use crate::int::bezier::spline_line::IntLineSpline;
     use crate::int::bezier::spline_square::IntSquareSpline;
     use crate::int::math::normalize::VectorNormalization16Util;
@@ -56,7 +56,7 @@ mod tests {
 
     #[test]
     fn test_02() {
-        let spline = IntCubeSpline {
+        let spline = IntCubicSpline {
             anchors: [
                 IntPoint::new(0, 0),
                 IntPoint::new(0, 50),

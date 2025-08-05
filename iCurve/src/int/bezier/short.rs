@@ -1,7 +1,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 use crate::data::link_list::{LinkList, EMPTY_REF};
-use crate::int::bezier::spline::{IntBezierSplineApi, SplitPosition};
+use crate::int::bezier::spline::{IntBezierSplineMath, SplitPosition};
 use crate::int::math::normalize::{VectorNormalization16, VectorNormalization16Util};
 use crate::int::math::point::IntPoint;
 
@@ -19,7 +19,7 @@ pub trait IntSplineShorts {
     fn approximate(&self, min_cos: u32, min_len: u32) -> Vec<IntShort>;
 }
 
-impl<Spline: IntBezierSplineApi> IntSplineShorts for Spline {
+impl<Spline: IntBezierSplineMath> IntSplineShorts for Spline {
     #[inline]
     fn approximate(&self, min_cos: u32, min_len: u32) -> Vec<IntShort> {
         debug_assert!(min_cos <= VectorNormalization16Util::UNIT);
@@ -50,7 +50,7 @@ impl<Spline: IntBezierSplineApi> IntSplineShorts for Spline {
 impl LinkList<IntShort> {
 
     #[inline]
-    fn approximate<Spline: IntBezierSplineApi>(&mut self, spline: &Spline, shifted_min_cos: i64, min_len: u32) -> Vec<IntShort> {
+    fn approximate<Spline: IntBezierSplineMath>(&mut self, spline: &Spline, shifted_min_cos: i64, min_len: u32) -> Vec<IntShort> {
         let min_len_power = min_len.ilog2();
         let st_dir = spline.start_dir();
         let ed_dir = spline.end_dir();
@@ -111,7 +111,7 @@ impl LinkList<IntShort> {
         next_dot_product < shifted_min_cos
     }
 
-    fn split<Spline: IntBezierSplineApi>(&mut self, spline: &Spline, index: u32, min_len_power: u32, result: &mut Vec<u32>) {
+    fn split<Spline: IntBezierSplineMath>(&mut self, spline: &Spline, index: u32, min_len_power: u32, result: &mut Vec<u32>) {
         let short = self.get(index).item;
 
         let split_factor = short.split_factor + 1;
@@ -175,13 +175,13 @@ impl IntPoint {
 #[cfg(test)]
 mod tests {
     use crate::int::bezier::short::IntSplineShorts;
-    use crate::int::bezier::spline_cube::IntCubeSpline;
+    use crate::int::bezier::spline_cubic::IntCubicSpline;
     use crate::int::math::normalize::VectorNormalization16Util;
     use crate::int::math::point::IntPoint;
 
     #[test]
     fn test_01() {
-        let spline = IntCubeSpline {
+        let spline = IntCubicSpline {
             anchors: [
                 IntPoint::new(0, 0),
                 IntPoint::new(0, 50),
@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_02() {
-        let spline = IntCubeSpline {
+        let spline = IntCubicSpline {
             anchors: [
                 IntPoint::new(0, 0),
                 IntPoint::new(0, 50),
@@ -211,7 +211,7 @@ mod tests {
 
     #[test]
     fn test_03() {
-        let spline = IntCubeSpline {
+        let spline = IntCubicSpline {
             anchors: [
                 IntPoint::new(0, 0),
                 IntPoint::new(0, 50),
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_04() {
-        let spline = IntCubeSpline {
+        let spline = IntCubicSpline {
             anchors: [
                 IntPoint::new(0, 0),
                 IntPoint::new(0, 512),
@@ -241,7 +241,7 @@ mod tests {
 
     #[test]
     fn test_05() {
-        let spline = IntCubeSpline {
+        let spline = IntCubicSpline {
             anchors: [
                 IntPoint::new(0, 0),
                 IntPoint::new(-605, 1513),

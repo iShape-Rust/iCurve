@@ -1,8 +1,10 @@
 mod collider;
 pub mod colliding;
 pub mod convex;
-pub mod convex_hull;
+pub mod four_convex_path;
 pub mod convexity;
 pub mod solver;
-pub mod spline;
 pub(crate) mod x_segment;
+pub mod approximation;
+mod four_convex;
+mod fit;

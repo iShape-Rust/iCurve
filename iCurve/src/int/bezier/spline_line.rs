@@ -1,20 +1,14 @@
-use crate::int::bezier::spline::{IntBezierSplineApi, SplitPosition};
+use crate::int::bezier::spline::{IntBezierSplineMath, SplitPosition};
 use crate::int::bezier::position::LineDivider;
 use crate::int::math::normalize::VectorNormalization16;
 use crate::int::math::point::IntPoint;
-use crate::int::math::rect::IntRect;
 
 #[derive(Debug, Clone)]
 pub struct IntLineSpline {
     pub(crate) anchors: [IntPoint; 2]
 }
 
-impl IntBezierSplineApi for IntLineSpline {
-
-    #[inline]
-    fn start(&self) -> IntPoint {
-        self.anchors[0]
-    }
+impl IntBezierSplineMath for IntLineSpline {
 
     #[inline]
     fn start_dir(&self) -> IntPoint {
@@ -24,11 +18,6 @@ impl IntBezierSplineApi for IntLineSpline {
     #[inline]
     fn end_dir(&self) -> IntPoint {
         (self.anchors[1] - self.anchors[0]).normalized_16bit()
-    }
-
-    #[inline]
-    fn end(&self) -> IntPoint {
-        self.anchors[1]
     }
 
     #[inline]
@@ -50,15 +39,5 @@ impl IntBezierSplineApi for IntLineSpline {
         let b = self.anchors[1];
         let m = LineDivider::new(a, b).point_at(position);
         (Self { anchors: [a, m] }, Self { anchors: [m, b] })
-    }
-
-    #[inline]
-    fn boundary(&self) -> IntRect {
-        IntRect::with_points(&self.anchors)
-    }
-
-    #[inline]
-    fn anchors(&self) -> &[IntPoint] {
-        &self.anchors
     }
 }

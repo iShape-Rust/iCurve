@@ -96,7 +96,13 @@ impl IntRect {
         let y = self.min.y < other.max.y && self.max.y > other.min.y;
         x && y
     }
-    
+
+    #[inline]
+    pub fn is_not_overlap(&self, other: &Self) -> bool {
+        let x = self.min.x > other.max.x || other.min.x > self.max.x;
+        let y = self.min.y > other.max.y || other.min.y > self.max.y;
+        x || y
+    }
 }
 
 #[cfg(test)]

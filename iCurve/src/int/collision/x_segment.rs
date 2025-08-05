@@ -247,4 +247,12 @@ mod tests {
 
         assert_eq!(s0.collide(&s1), CollidingResult::None);
     }
+
+    #[test]
+    fn test_15() {
+        let s0 = XSegment::new(IntPoint::new(-200, 351), IntPoint::new(167, 141));
+        let s1 = XSegment::new(IntPoint::new(150, 150), IntPoint::new(200, 200));
+
+        assert_eq!(s0.collide(&s1), CollidingResult::None);
+    }
 }

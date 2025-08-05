@@ -108,8 +108,8 @@ impl XSegment {
             let kx = a1x as i128 * xy_b128;
             let ky = a1y as i128 * xy_b128;
 
-            x0 = (kx / div) as i64;
-            y0 = (ky / div) as i64;
+            x0 = kx.div_round(div) as i64;
+            y0 = ky.div_round(div) as i64;
         }
 
         let x = x0 + a0x;
@@ -168,6 +168,22 @@ impl XSegment {
         }
 
         None
+    }
+}
+
+trait DivRound {
+    fn div_round(self, divider: Self) -> Self;
+}
+
+impl DivRound for i128 {
+    #[inline]
+    fn div_round(self, divider: Self) -> Self {
+        let half = divider.abs() / 2;
+        if (self ^ divider) >= 0 {
+            (self + half) / divider
+        } else {
+            (self - half) / divider
+        }
     }
 }
 
@@ -291,6 +307,34 @@ mod tests {
             assert_eq!(cd.degenerate_collinear_cross(&bd).unwrap(), XOverlap::Segment(cd));
 
             assert_eq!(cd.degenerate_collinear_cross(&cd).unwrap(), XOverlap::Segment(cd));
+        }
+    }
+
+    #[test]
+    fn test_0() {
+        let s0 = XSegment::new(IntPoint::new(121, 151), IntPoint::new(138, 147));
+        let s1 = XSegment::new(IntPoint::new(130, 149), IntPoint::new(133, 149));
+
+        let result = s0.cross(&s1).unwrap();
+
+        if let XOverlap::Point(point) = result {
+            assert_eq!(point, IntPoint::new(0, 0));
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn test_1() {
+        let s0 = XSegment::new(IntPoint::new(0, 4), IntPoint::new(17, 0));
+        let s1 = XSegment::new(IntPoint::new(9, 2), IntPoint::new(12, 2));
+
+        let result = s0.cross(&s1).unwrap();
+
+        if let XOverlap::Point(point) = result {
+            assert_eq!(point, IntPoint::new(0, 0));
+        } else {
+            assert!(false);
         }
     }
 }
