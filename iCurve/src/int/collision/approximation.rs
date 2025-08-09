@@ -9,7 +9,6 @@ use crate::int::collision::collider::Collider;
 use crate::int::collision::four_convex_path::FourConvexPath;
 use crate::int::collision::space::Space;
 use crate::int::math::point::IntPoint;
-use crate::int::math::rect::IntRect;
 use crate::int::math::x_segment::XSegment;
 
 pub trait SplineApproximation: IntBaseSpline + Sized {
@@ -19,31 +18,25 @@ pub trait SplineApproximation: IntBaseSpline + Sized {
 
     fn to_convex(&self) -> FourVec<IntPoint>;
 
-    #[inline(always)]
-    fn convex_approximation(&self, boundary: &IntRect, space: &Space) -> Option<FourVec<IntPoint>> {
-        let max_log_size = boundary.max_log_size();
-        if max_log_size >= space.convex_level {
-            return None;
-        }
 
-        let path = if max_log_size < space.line_level {
-            self.to_convex_line()
-        } else {
-            self.to_convex()
-        };
-
-        Some(path)
-    }
 
     #[inline(always)]
     fn into_collider(self, space: &Space) -> Collider {
         let boundary = self.boundary();
-        let approximation = self.convex_approximation(&boundary, space);
+        let size_level = boundary.size_level();
+        let approximation = if size_level >= space.convex_level {
+            None
+        } else if size_level < space.line_level {
+            Some(self.to_convex_line())
+        } else {
+            Some(self.to_convex())
+        };
 
         Collider {
             spline: self.into_spline(),
             boundary,
             approximation,
+            size_level,
         }
     }
 }

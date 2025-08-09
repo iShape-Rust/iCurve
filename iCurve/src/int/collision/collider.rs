@@ -13,24 +13,29 @@ pub struct Collider {
     pub spline: IntSpline,
     pub boundary: IntRect,
     pub approximation: Option<FourVec<IntPoint>>,
+    pub(crate) size_level: u32,
 }
 
 impl Collider {
     #[inline]
-    pub(super) fn overlap_with_margin(&self, other: &Self, margin: u64) -> bool {
+    pub(super) fn overlap(&self, other: &Self, space: &Space) -> bool {
         if self.boundary.is_not_overlap(&other.boundary) {
             return false;
         }
 
         match (&self.approximation, &other.approximation) {
-            (Some(c0), Some(c1)) => c0.slice().overlaps_with_space(c1.slice(), margin),
+            (Some(c0), Some(c1)) => {
+                let max_level = self.size_level.max(other.size_level);
+                let margin = (2 + max_level - space.line_level) as u64;
+                c0.slice().overlap_with_margin(c1.slice(), margin)
+            },
             (_, _) => true,
         }
     }
 
     #[inline]
     pub(crate) fn split(&self, space: &Space) -> Option<(Collider, Collider)> {
-        if self.boundary.max_log_size() <= space.line_level {
+        if self.boundary.size_level() <= space.line_level {
             return None;
         }
         Some(self.bisect(space))

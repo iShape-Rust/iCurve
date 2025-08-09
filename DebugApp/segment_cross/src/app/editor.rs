@@ -3,7 +3,7 @@ use debug_ui::view::grid::{GridView, Step};
 use debug_ui::view::segm::SegmentView;
 use eframe::egui::{Color32, Sense, Shape, Stroke};
 use eframe::{App, Frame, egui};
-use i_curve::int::collision::solver::x_segment::XOverlap;
+use i_curve::int::collision::x_segment::XOverlap;
 use i_curve::int::math::x_segment::XSegment;
 use crate::app::res::TestResource;
 

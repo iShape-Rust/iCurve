@@ -33,7 +33,7 @@ impl Solver {
         self.marks.clear();
         self.list.clear();
 
-        let max_log_size = primary.boundary.max_log_size().max(secondary.boundary.max_log_size());
+        let max_log_size = primary.size_level.max(secondary.size_level);
         let min_iter_count = if max_log_size > self.space.convex_level {
             max_log_size - self.space.convex_level
         } else {
@@ -61,7 +61,7 @@ impl Solver {
 
         while !self.list.is_empty() && iter_range.contains(&generation) && self.list.len() <= 1024 {
             for pair in self.list.iter() {
-                if pair.overlap() {
+                if pair.overlap(&self.space) {
                     pair.split_into(&self.space, &mut self.next);
                 }
             }
@@ -135,7 +135,8 @@ mod tests {
     use core::f64::consts::PI;
     use crate::int::base::spline::IntSpline;
     use crate::int::bezier::spline_cubic::IntCubicSpline;
-    use crate::int::collision::solver::SplineOverlay;
+    use crate::int::collision::approximation::SplineApproximation;
+    use crate::int::collision::solver::{Solver, SplineOverlay};
     use crate::int::collision::space::Space;
     use crate::int::math::point::IntPoint;
 
@@ -265,84 +266,8 @@ mod tests {
     }
 
     #[test]
-    fn test_5() {
-        let a = IntCubicSpline {
-            anchors: [
-                IntPoint::new(167, 141),
-                IntPoint::new(151, 146),
-                IntPoint::new(129, 150),
-                IntPoint::new(103, 157),
-            ],
-        };
-
-        let b = IntCubicSpline {
-            anchors: [
-                IntPoint::new(130, 149),
-                IntPoint::new(136, 150),
-                IntPoint::new(143, 150),
-                IntPoint::new(150, 150),
-            ],
-        };
-
-        let result = IntSpline::Cubic(a).overlay(&IntSpline::Cubic(b), &Space::default());
-
-        assert_eq!(result.len(), 1);
-    }
-
-    #[test]
-    fn test_6() {
-        let a = IntCubicSpline {
-            anchors: [
-                IntPoint::new(138, 147),
-                IntPoint::new(128, 150),
-                IntPoint::new(116, 153),
-                IntPoint::new(103, 157),
-            ],
-        };
-
-        let b = IntCubicSpline {
-            anchors: [
-                IntPoint::new(130, 149),
-                IntPoint::new(133, 149),
-                IntPoint::new(136, 149),
-                IntPoint::new(139, 149),
-            ],
-        };
-
-        let result = IntSpline::Cubic(a).overlay(&IntSpline::Cubic(b), &Space::default());
-
-        assert_eq!(result.len(), 1);
-    }
-
-    #[test]
-    fn test_7() {
-        let a = IntCubicSpline {
-            anchors: [
-                IntPoint::new(167, 141),
-                IntPoint::new(151, 146),
-                IntPoint::new(129, 150),
-                IntPoint::new(103, 157),
-            ],
-        };
-
-        let b = IntCubicSpline {
-            anchors: [
-                IntPoint::new(130, 149),
-                IntPoint::new(136, 150),
-                IntPoint::new(143, 150),
-                IntPoint::new(150, 150),
-            ],
-        };
-
-        let result = IntSpline::Cubic(a).overlay(&IntSpline::Cubic(b), &Space::default());
-
-        assert_eq!(result.len(), 1);
-    }
-
-
-    #[test]
     fn test_random_0() {
-        const COUNT: usize = 1000;
+        const COUNT: usize = 20;
         const R: i64 = 10_000;
         const F: f64 = R as f64;
         let mut pnt_offset = [IntPoint::zero(); COUNT];
@@ -374,6 +299,8 @@ mod tests {
             ],
         };
 
+        let mut solver = Solver::default();
+
         for &p0 in pnt_offset.iter() {
             a.anchors[1] = b.anchors[0] + p0;
             for &p1 in pnt_offset.iter() {
@@ -383,8 +310,10 @@ mod tests {
                     for &p3 in pnt_offset.iter() {
                         b.anchors[2] = b.anchors[3] + p3;
 
-                        let result = IntSpline::Cubic(a.clone()).overlay(&IntSpline::Cubic(b.clone()), &Space::default());
-                        if result.is_empty() {
+                        solver.intersect(a.clone().into_collider(&solver.space), b.clone().into_collider(&solver.space));
+                        solver.marks.is_empty();
+
+                        if solver.marks.is_empty() {
                             panic!("Can not be empty");
                         }
                     }

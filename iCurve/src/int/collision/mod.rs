@@ -1,8 +1,8 @@
-mod collider;
-pub mod four_convex_path;
-pub mod convex;
-pub(crate) mod x_segment;
 pub mod approximation;
-mod solver;
+mod collider;
+pub mod convex;
+pub mod four_convex_path;
 mod pair;
-mod space;
+pub mod solver;
+pub mod space;
+pub mod x_segment;

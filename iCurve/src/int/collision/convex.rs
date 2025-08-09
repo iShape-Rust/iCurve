@@ -3,7 +3,7 @@ use crate::int::math::point::IntPoint;
 pub trait Convexity {
     fn is_convex(&self) -> bool;
     fn convex_contains(&self, point: IntPoint) -> bool;
-    fn overlaps_with_space(&self, other: &Self, space: u64) -> bool;
+    fn overlap_with_margin(&self, other: &Self, space: u64) -> bool;
 }
 
 impl Convexity for [IntPoint] {
@@ -56,21 +56,21 @@ impl Convexity for [IntPoint] {
     }
 
     #[inline]
-    fn overlaps_with_space(&self, other: &Self, space: u64) -> bool {
-        if find_width_separate_line(self, other, space) {
+    fn overlap_with_margin(&self, other: &Self, margin: u64) -> bool {
+        if find_width_separate_line(self, other, margin) {
             return false;
         }
 
-        let separation = find_width_separate_line(other, self, space);
+        let separation = find_width_separate_line(other, self, margin);
         
         !separation
     }
 }
 
-fn find_width_separate_line(path: &[IntPoint], points: &[IntPoint], space: u64) -> bool {
+fn find_width_separate_line(path: &[IntPoint], points: &[IntPoint], margin: u64) -> bool {
     let mut a = *path.last().unwrap();
-    let sqr_space = space * space;
-    let log_sqr_space = sqr_space.ilog2() + 1;
+    let sqr_gap = margin * margin;
+    let log_sqr_space = sqr_gap.ilog2() + 1;
 
     'main_loop: for &b in path.iter() {
         let ba = b - a;
@@ -91,15 +91,15 @@ fn find_width_separate_line(path: &[IntPoint], points: &[IntPoint], space: u64) 
 
         let unit_sqr_s = min_v.sqr_len();
         
-        let (min_pos_s, sqr_s) = if let Some(space_sqr_s) = unit_sqr_s.checked_mul(sqr_space) {
+        let (min_pos_s, sqr_s) = if let Some(space_sqr_s) = unit_sqr_s.checked_mul(sqr_gap) {
             (space_sqr_s, min_s * min_s)
         } else {
-            let shifted_sqr_s = (unit_sqr_s >> log_sqr_space) * sqr_space; 
+            let shifted_sqr_s = (unit_sqr_s >> log_sqr_space) * sqr_gap; 
             let shifted_min_s = (min_s * min_s) >> log_sqr_space;
             (shifted_sqr_s, shifted_min_s)
         };
 
-        if min_pos_s > sqr_s {
+        if min_pos_s < sqr_s {
             return true;
         }
 
@@ -200,7 +200,7 @@ mod tests {
     }
 
     #[test]
-    fn test_overlaps_with_unit_margin_0() {
+    fn test_overlaps_with_margin_0() {
         let path_0 = [
             IntPoint::new(0, 0),
             IntPoint::new(10, 0),
@@ -214,15 +214,15 @@ mod tests {
             IntPoint::new(20, 10),
         ];
 
-        let overlap_0 = path_0.overlaps_with_space(&path_1, 1);
-        let overlap_1 = path_1.overlaps_with_space(&path_0, 1);
+        let overlap_0 = path_0.overlap_with_margin(&path_1, 1);
+        let overlap_1 = path_1.overlap_with_margin(&path_0, 1);
 
         assert!(overlap_0);
         assert!(overlap_1);
     }
 
     #[test]
-    fn test_overlaps_with_unit_margin_1() {
+    fn test_overlaps_with_margin_1() {
         let path_0 = [
             IntPoint::new(0, 0),
             IntPoint::new(10, 0),
@@ -236,15 +236,15 @@ mod tests {
             IntPoint::new(20, 10),
         ];
 
-        let overlap_0 = path_0.overlaps_with_space(&path_1, 1);
-        let overlap_1 = path_1.overlaps_with_space(&path_0, 1);
+        let overlap_0 = path_0.overlap_with_margin(&path_1, 1);
+        let overlap_1 = path_1.overlap_with_margin(&path_0, 1);
 
         assert!(overlap_0);
         assert!(overlap_1);
     }
 
     #[test]
-    fn test_overlaps_with_unit_margin_2() {
+    fn test_overlaps_with_margin_2() {
         let path_0 = [
             IntPoint::new(0, 0),
             IntPoint::new(10, 0),
@@ -258,15 +258,15 @@ mod tests {
             IntPoint::new(20, 10),
         ];
 
-        let overlap_0 = path_0.overlaps_with_space(&path_1, 1);
-        let overlap_1 = path_1.overlaps_with_space(&path_0, 1);
+        let overlap_0 = path_0.overlap_with_margin(&path_1, 1);
+        let overlap_1 = path_1.overlap_with_margin(&path_0, 1);
 
         assert!(!overlap_0);
         assert!(!overlap_1);
     }
 
     #[test]
-    fn test_overlaps_with_unit_margin_3() {
+    fn test_overlaps_with_margin_3() {
         let path_0 = [
             IntPoint::new(0, 0),
             IntPoint::new(10, 0),
@@ -279,15 +279,15 @@ mod tests {
             IntPoint::new(20, 0)
         ];
 
-        let overlap_0 = path_0.overlaps_with_space(&path_1, 1);
-        let overlap_1 = path_1.overlaps_with_space(&path_0, 1);
+        let overlap_0 = path_0.overlap_with_margin(&path_1, 1);
+        let overlap_1 = path_1.overlap_with_margin(&path_0, 1);
 
         assert!(overlap_0);
         assert!(overlap_1);
     }
 
     #[test]
-    fn test_overlaps_with_unit_margin_4() {
+    fn test_overlaps_with_margin_4() {
         let path_0 = [
             IntPoint::new(0, 0),
             IntPoint::new(10, 0),
@@ -300,15 +300,15 @@ mod tests {
             IntPoint::new(20, 0)
         ];
 
-        let overlap_0 = path_0.overlaps_with_space(&path_1, 1);
-        let overlap_1 = path_1.overlaps_with_space(&path_0, 1);
+        let overlap_0 = path_0.overlap_with_margin(&path_1, 1);
+        let overlap_1 = path_1.overlap_with_margin(&path_0, 1);
 
         assert!(overlap_0);
         assert!(overlap_1);
     }
 
     #[test]
-    fn test_overlaps_with_unit_margin_5() {
+    fn test_overlaps_with_margin_5() {
         let path_0 = [
             IntPoint::new(0, 0),
             IntPoint::new(10, 0),
@@ -321,15 +321,15 @@ mod tests {
             IntPoint::new(20, 0)
         ];
 
-        let overlap_0 = path_0.overlaps_with_space(&path_1, 1);
-        let overlap_1 = path_1.overlaps_with_space(&path_0, 1);
+        let overlap_0 = path_0.overlap_with_margin(&path_1, 1);
+        let overlap_1 = path_1.overlap_with_margin(&path_0, 1);
 
         assert!(!overlap_0);
         assert!(!overlap_1);
     }
 
     #[test]
-    fn test_overlaps_with_unit_margin_6() {
+    fn test_overlaps_with_margin_6() {
         let path_0 = [
             IntPoint::new(0, 0),
             IntPoint::new(10, 0),
@@ -342,8 +342,8 @@ mod tests {
             IntPoint::new(20, 5)
         ];
 
-        let overlap_0 = path_0.overlaps_with_space(&path_1, 1);
-        let overlap_1 = path_1.overlaps_with_space(&path_0, 1);
+        let overlap_0 = path_0.overlap_with_margin(&path_1, 1);
+        let overlap_1 = path_1.overlap_with_margin(&path_0, 1);
 
         assert!(!overlap_0);
         assert!(!overlap_1);

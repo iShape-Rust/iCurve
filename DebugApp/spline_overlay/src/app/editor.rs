@@ -8,8 +8,9 @@ use eframe::{App, Frame, egui};
 use i_curve::int::base::spline::IntSpline;
 use i_curve::int::bezier::spline_cubic::IntCubicSpline;
 use i_curve::int::collision::approximation::SplineApproximation;
-use i_curve::int::collision::solver::cross::SplineOverlay;
-use i_curve::int::collision::solver::x_segment::XOverlap;
+use i_curve::int::collision::solver::SplineOverlay;
+use i_curve::int::collision::space::Space;
+use i_curve::int::collision::x_segment::XOverlap;
 use i_curve::int::math::normalize::VectorNormalization16Util;
 use i_curve::int::math::point::IntPoint;
 
@@ -98,8 +99,10 @@ impl App for EditorApp {
                 anchors: self.curve_1.anchors(),
             };
 
+            let space = Space::default();
+            
             let result =
-                IntSpline::Cubic(cube_0.clone()).overlay(&IntSpline::Cubic(cube_1.clone()));
+                IntSpline::Cubic(cube_0.clone()).overlay(&IntSpline::Cubic(cube_1.clone()), &space);
             let stroke = Stroke::new(2.0, Color32::GRAY);
 
             let min_cos = VectorNormalization16Util::normalize_unit_value(self.cos_value);
@@ -142,8 +145,9 @@ impl App for EditorApp {
             }
 
             if self.approximation {
-                let c0 = cube_0.into_collider();
-                let c1 = cube_1.into_collider();
+                let space = Space::default();
+                let c0 = cube_0.into_collider(&space);
+                let c1 = cube_1.into_collider(&space);
                 if let Some(apx) = c0.approximation {
                     self.draw_approximation(&painter, apx.slice());
                 }

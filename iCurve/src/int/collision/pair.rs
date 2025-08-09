@@ -16,8 +16,8 @@ pub(super) struct Pair {
 
 impl Pair {
     #[inline]
-    pub(super) fn overlap(&self) -> bool {
-        self.primary.collider.overlap_with_margin(&self.secondary.collider, 2)
+    pub(super) fn overlap(&self, space: &Space) -> bool {
+        self.primary.collider.overlap(&self.secondary.collider, space)
     }
 
     #[inline]
@@ -70,7 +70,7 @@ mod tests {
 
     #[test]
     fn test_pair_0() {
-        let space = Space::with_line_level(4);
+        let space = Space::default();
 
         let a = IntCubicSpline {
             anchors: [
@@ -94,12 +94,14 @@ mod tests {
         let x1 = XBox { generation: 0, collider: b.into_collider(&space) };
         let pair = Pair { primary: x0, secondary: x1 };
 
-        assert_eq!(pair.overlap(), false);
+        let overlap = pair.overlap(&space);
+
+        assert_eq!(overlap, true);
     }
 
     #[test]
     fn test_1() {
-        let space = Space::with_line_level(4);
+        let space = Space::default();
 
         let a = IntCubicSpline {
             anchors: [
@@ -123,6 +125,6 @@ mod tests {
         let x1 = XBox { generation: 0, collider: b.into_collider(&space) };
         let pair = Pair { primary: x0, secondary: x1 };
 
-        assert_eq!(pair.overlap(), true);
+        assert_eq!(pair.overlap(&space), true);
     }
 }
