@@ -120,7 +120,7 @@ impl Util for FourVec<IntPoint> {
 
 #[cfg(test)]
 mod tests {
-    use crate::int::collision::convexity::Convexity;
+    use crate::int::collision::convex::Convexity;
     use crate::int::collision::four_convex_path::FourConvexPath;
     use crate::int::math::point::IntPoint;
     use rand::Rng;
