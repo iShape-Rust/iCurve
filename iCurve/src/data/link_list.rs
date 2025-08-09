@@ -68,44 +68,6 @@ impl<T> LinkList<T> {
 
         (index, new_index)
     }
-
-    #[inline]
-    pub(crate) fn node_iter(&self) -> NodeIterator<T> {
-        NodeIterator::new(self)
-    }
-}
-
-pub(crate) struct NodeIterator<'a, T> {
-    list: &'a LinkList<T>,
-    index: u32,
-}
-
-impl<'a, T> NodeIterator<'a, T> {
-    #[inline]
-    pub(crate) fn new(list: &'a LinkList<T>) -> Self {
-        let index = if list.len() == 0 {
-            EMPTY_REF
-        } else {
-            (list.len() - 1) as u32
-        };
-        Self { list, index }
-    }
-}
-
-impl<'a, T> Iterator for NodeIterator<'a, T> {
-    type Item = &'a ListNode<T>;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index == EMPTY_REF {
-            return None;
-        }
-
-        let node = self.list.get(self.index);
-        self.index = node.next;
-
-        Some(&node)
-    }
 }
 
 #[cfg(test)]

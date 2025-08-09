@@ -27,7 +27,6 @@ impl Ord for XSegment {
 }
 
 impl XSegment {
-
     #[inline(always)]
     pub fn new(a: IntPoint, b: IntPoint) -> Self {
         if a < b {

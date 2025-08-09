@@ -16,14 +16,6 @@ pub(super) struct Pair {
 
 impl Pair {
     #[inline]
-    fn is_boundary_overlap(&self) -> bool {
-        self.primary
-            .collider
-            .boundary
-            .is_intersect_border_include(&self.secondary.collider.boundary)
-    }
-
-    #[inline]
     pub(super) fn overlap(&self) -> bool {
         self.primary.collider.overlap_with_margin(&self.secondary.collider, 2)
     }

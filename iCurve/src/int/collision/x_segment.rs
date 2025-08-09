@@ -1,13 +1,11 @@
-use crate::int::math::ab_segment::IntABSegment;
 use crate::int::math::point::IntPoint;
 use crate::int::math::range::LineRange;
-use crate::int::math::triangle::Triangle;
 use crate::int::math::x_segment::XSegment;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum XOverlap {
     Segment(XSegment),
-    Point(IntPoint)
+    Point(IntPoint),
 }
 
 impl XSegment {
@@ -17,21 +15,30 @@ impl XSegment {
             return None;
         }
 
-        let a0b0a1 = Triangle::clock_direction(self.a, self.b, other.a);
-        let a0b0b1 = Triangle::clock_direction(self.a, self.b, other.b);
+        let ab = self.b - self.a;
+        let cd = other.b - other.a;
 
-        let a1b1a0 = Triangle::clock_direction(other.a, other.b, self.a);
-        let a1b1b0 = Triangle::clock_direction(other.a, other.b, self.b);
+        let ca = other.a - self.a;
+        let da = other.b - self.a;
+        let bc = other.a - self.b;
 
-        let degenerate = a0b0a1 == 0 || a0b0b1 == 0 || a1b1a0 == 0 || a1b1b0 == 0;
-        if degenerate {
-            return self.degenerate_cross(other);
-        }
+        let cab = ab.cross_product(&ca);
+        let dab = ab.cross_product(&da);
+        let acd = cd.cross_product(&ca);
+        let bcd = cd.cross_product(&bc);
 
-        if a0b0a1 != a0b0b1 && a1b1a0 != a1b1b0 {
-            Some(XOverlap::Point(self.cross_point(other)))
-        } else {
+        let (a, b, c, d) = (acd == 0, bcd == 0, cab == 0, dab == 0);
+
+        if a || b || c || d {
+            if ab.cross_product(&cd) == 0 {
+                self.degenerate_collinear_cross(other)
+            } else {
+                self.degenerate_not_collinear_cross(other, [a, b, c, d])
+            }
+        } else if (cab > 0) == (dab > 0) || (acd > 0) == (bcd > 0) {
             None
+        } else {
+            Some(XOverlap::Point(self.cross_point(other)))
         }
     }
 
@@ -120,15 +127,6 @@ impl XSegment {
     }
 
     #[inline]
-    fn degenerate_cross(&self, other: &XSegment) -> Option<XOverlap> {
-        if self.is_collinear(other) {
-            self.degenerate_collinear_cross(other)
-        } else {
-            self.degenerate_not_collinear_cross(other)
-        }
-    }
-
-    #[inline]
     fn degenerate_collinear_cross(&self, other: &XSegment) -> Option<XOverlap> {
         if self.a <= other.a {
             self.degenerate_collinear_ordered_cross(other)
@@ -151,23 +149,23 @@ impl XSegment {
     }
 
     #[inline]
-    fn degenerate_not_collinear_cross(&self, other: &XSegment) -> Option<XOverlap> {
-        if self.is_on_span(other.a) {
-            return Some(XOverlap::Point(other.a));
-        }
-
-        if self.is_on_span(other.b) {
-            return Some(XOverlap::Point(other.b));
-        }
-
-        if other.is_on_span(self.a) {
+    fn degenerate_not_collinear_cross(
+        &self,
+        other: &XSegment,
+        abcd: [bool; 4],
+    ) -> Option<XOverlap> {
+        if abcd[0] && other.contains(self.a) {
             return Some(XOverlap::Point(self.a));
         }
-
-        if other.is_on_span(self.b) {
+        if abcd[1] && other.contains(self.b) {
             return Some(XOverlap::Point(self.b));
         }
-
+        if abcd[2] && self.contains(other.a) {
+            return Some(XOverlap::Point(other.a));
+        }
+        if abcd[3] && self.contains(other.b) {
+            return Some(XOverlap::Point(other.b));
+        }
         None
     }
 
@@ -185,16 +183,21 @@ impl XSegment {
     }
 
     #[inline(always)]
-    pub(crate) fn is_overlap_y(&self, other: &Self) -> bool {
+    fn is_overlap_y(&self, other: &Self) -> bool {
         self.y_range().is_overlap(&other.y_range())
     }
 
     #[inline(always)]
-    pub(crate) fn is_overlap_xy(&self, other: &Self) -> bool {
+    fn is_overlap_xy(&self, other: &Self) -> bool {
         if self.x_range().is_not_overlap(&other.x_range()) {
             return false;
         }
         self.is_overlap_y(other)
+    }
+
+    #[inline(always)]
+    fn contains(&self, p: IntPoint) -> bool {
+        self.a <= p && p <= self.b
     }
 }
 
@@ -271,97 +274,234 @@ mod tests {
 
             // ab
 
-            assert_eq!(ab.degenerate_collinear_cross(&ab).unwrap(), XOverlap::Segment(ab));
-            assert_eq!(ab.degenerate_collinear_cross(&ac).unwrap(), XOverlap::Segment(ab));
-            assert_eq!(ab.degenerate_collinear_cross(&ad).unwrap(), XOverlap::Segment(ab));
+            assert_eq!(
+                ab.degenerate_collinear_cross(&ab).unwrap(),
+                XOverlap::Segment(ab)
+            );
+            assert_eq!(
+                ab.degenerate_collinear_cross(&ac).unwrap(),
+                XOverlap::Segment(ab)
+            );
+            assert_eq!(
+                ab.degenerate_collinear_cross(&ad).unwrap(),
+                XOverlap::Segment(ab)
+            );
 
-            assert_eq!(ab.degenerate_collinear_cross(&bc).unwrap(), XOverlap::Point(b));
-            assert_eq!(ab.degenerate_collinear_cross(&bd).unwrap(), XOverlap::Point(b));
+            assert_eq!(
+                ab.degenerate_collinear_cross(&bc).unwrap(),
+                XOverlap::Point(b)
+            );
+            assert_eq!(
+                ab.degenerate_collinear_cross(&bd).unwrap(),
+                XOverlap::Point(b)
+            );
 
             assert_eq!(ab.degenerate_collinear_cross(&cd), None);
 
             // ac
 
-            assert_eq!(ac.degenerate_collinear_cross(&ab).unwrap(), XOverlap::Segment(ab));
-            assert_eq!(ac.degenerate_collinear_cross(&ac).unwrap(), XOverlap::Segment(ac));
-            assert_eq!(ac.degenerate_collinear_cross(&ad).unwrap(), XOverlap::Segment(ac));
+            assert_eq!(
+                ac.degenerate_collinear_cross(&ab).unwrap(),
+                XOverlap::Segment(ab)
+            );
+            assert_eq!(
+                ac.degenerate_collinear_cross(&ac).unwrap(),
+                XOverlap::Segment(ac)
+            );
+            assert_eq!(
+                ac.degenerate_collinear_cross(&ad).unwrap(),
+                XOverlap::Segment(ac)
+            );
 
-            assert_eq!(ac.degenerate_collinear_cross(&bc).unwrap(), XOverlap::Segment(bc));
-            assert_eq!(ac.degenerate_collinear_cross(&bd).unwrap(), XOverlap::Segment(bc));
+            assert_eq!(
+                ac.degenerate_collinear_cross(&bc).unwrap(),
+                XOverlap::Segment(bc)
+            );
+            assert_eq!(
+                ac.degenerate_collinear_cross(&bd).unwrap(),
+                XOverlap::Segment(bc)
+            );
 
-            assert_eq!(ac.degenerate_collinear_cross(&cd).unwrap(), XOverlap::Point(c));
+            assert_eq!(
+                ac.degenerate_collinear_cross(&cd).unwrap(),
+                XOverlap::Point(c)
+            );
 
             // ad
 
-            assert_eq!(ad.degenerate_collinear_cross(&ab).unwrap(), XOverlap::Segment(ab));
-            assert_eq!(ad.degenerate_collinear_cross(&ac).unwrap(), XOverlap::Segment(ac));
-            assert_eq!(ad.degenerate_collinear_cross(&ad).unwrap(), XOverlap::Segment(ad));
+            assert_eq!(
+                ad.degenerate_collinear_cross(&ab).unwrap(),
+                XOverlap::Segment(ab)
+            );
+            assert_eq!(
+                ad.degenerate_collinear_cross(&ac).unwrap(),
+                XOverlap::Segment(ac)
+            );
+            assert_eq!(
+                ad.degenerate_collinear_cross(&ad).unwrap(),
+                XOverlap::Segment(ad)
+            );
 
-            assert_eq!(ad.degenerate_collinear_cross(&bc).unwrap(), XOverlap::Segment(bc));
-            assert_eq!(ad.degenerate_collinear_cross(&bd).unwrap(), XOverlap::Segment(bd));
+            assert_eq!(
+                ad.degenerate_collinear_cross(&bc).unwrap(),
+                XOverlap::Segment(bc)
+            );
+            assert_eq!(
+                ad.degenerate_collinear_cross(&bd).unwrap(),
+                XOverlap::Segment(bd)
+            );
 
-            assert_eq!(ad.degenerate_collinear_cross(&cd).unwrap(), XOverlap::Segment(cd));
+            assert_eq!(
+                ad.degenerate_collinear_cross(&cd).unwrap(),
+                XOverlap::Segment(cd)
+            );
 
             // bc
 
-            assert_eq!(bc.degenerate_collinear_cross(&ab).unwrap(), XOverlap::Point(b));
-            assert_eq!(bc.degenerate_collinear_cross(&ac).unwrap(), XOverlap::Segment(bc));
-            assert_eq!(bc.degenerate_collinear_cross(&ad).unwrap(), XOverlap::Segment(bc));
+            assert_eq!(
+                bc.degenerate_collinear_cross(&ab).unwrap(),
+                XOverlap::Point(b)
+            );
+            assert_eq!(
+                bc.degenerate_collinear_cross(&ac).unwrap(),
+                XOverlap::Segment(bc)
+            );
+            assert_eq!(
+                bc.degenerate_collinear_cross(&ad).unwrap(),
+                XOverlap::Segment(bc)
+            );
 
-            assert_eq!(bc.degenerate_collinear_cross(&bc).unwrap(), XOverlap::Segment(bc));
-            assert_eq!(bc.degenerate_collinear_cross(&bd).unwrap(), XOverlap::Segment(bc));
+            assert_eq!(
+                bc.degenerate_collinear_cross(&bc).unwrap(),
+                XOverlap::Segment(bc)
+            );
+            assert_eq!(
+                bc.degenerate_collinear_cross(&bd).unwrap(),
+                XOverlap::Segment(bc)
+            );
 
-            assert_eq!(bc.degenerate_collinear_cross(&cd).unwrap(), XOverlap::Point(c));
+            assert_eq!(
+                bc.degenerate_collinear_cross(&cd).unwrap(),
+                XOverlap::Point(c)
+            );
 
             // bd
 
-            assert_eq!(bd.degenerate_collinear_cross(&ab).unwrap(), XOverlap::Point(b));
-            assert_eq!(bd.degenerate_collinear_cross(&ac).unwrap(), XOverlap::Segment(bc));
-            assert_eq!(bd.degenerate_collinear_cross(&ad).unwrap(), XOverlap::Segment(bd));
+            assert_eq!(
+                bd.degenerate_collinear_cross(&ab).unwrap(),
+                XOverlap::Point(b)
+            );
+            assert_eq!(
+                bd.degenerate_collinear_cross(&ac).unwrap(),
+                XOverlap::Segment(bc)
+            );
+            assert_eq!(
+                bd.degenerate_collinear_cross(&ad).unwrap(),
+                XOverlap::Segment(bd)
+            );
 
-            assert_eq!(bd.degenerate_collinear_cross(&bc).unwrap(), XOverlap::Segment(bc));
-            assert_eq!(bd.degenerate_collinear_cross(&bd).unwrap(), XOverlap::Segment(bd));
+            assert_eq!(
+                bd.degenerate_collinear_cross(&bc).unwrap(),
+                XOverlap::Segment(bc)
+            );
+            assert_eq!(
+                bd.degenerate_collinear_cross(&bd).unwrap(),
+                XOverlap::Segment(bd)
+            );
 
-            assert_eq!(bd.degenerate_collinear_cross(&cd).unwrap(), XOverlap::Segment(cd));
+            assert_eq!(
+                bd.degenerate_collinear_cross(&cd).unwrap(),
+                XOverlap::Segment(cd)
+            );
 
             // cd
 
             assert_eq!(cd.degenerate_collinear_cross(&ab), None);
-            assert_eq!(cd.degenerate_collinear_cross(&ac).unwrap(), XOverlap::Point(c));
-            assert_eq!(cd.degenerate_collinear_cross(&ad).unwrap(), XOverlap::Segment(cd));
+            assert_eq!(
+                cd.degenerate_collinear_cross(&ac).unwrap(),
+                XOverlap::Point(c)
+            );
+            assert_eq!(
+                cd.degenerate_collinear_cross(&ad).unwrap(),
+                XOverlap::Segment(cd)
+            );
 
-            assert_eq!(cd.degenerate_collinear_cross(&bc).unwrap(), XOverlap::Point(c));
-            assert_eq!(cd.degenerate_collinear_cross(&bd).unwrap(), XOverlap::Segment(cd));
+            assert_eq!(
+                cd.degenerate_collinear_cross(&bc).unwrap(),
+                XOverlap::Point(c)
+            );
+            assert_eq!(
+                cd.degenerate_collinear_cross(&bd).unwrap(),
+                XOverlap::Segment(cd)
+            );
 
-            assert_eq!(cd.degenerate_collinear_cross(&cd).unwrap(), XOverlap::Segment(cd));
+            assert_eq!(
+                cd.degenerate_collinear_cross(&cd).unwrap(),
+                XOverlap::Segment(cd)
+            );
         }
     }
 
     #[test]
     fn test_0() {
-        let s0 = XSegment::new(IntPoint::new(121, 151), IntPoint::new(138, 147));
-        let s1 = XSegment::new(IntPoint::new(130, 149), IntPoint::new(133, 149));
+        let s0 = XSegment::new(IntPoint::new(0, 0), IntPoint::new(10, 10));
+        let s1 = XSegment::new(IntPoint::new(10, 0), IntPoint::new(20, 0));
 
-        let result = s0.cross(&s1).unwrap();
-
-        if let XOverlap::Point(point) = result {
-            assert_eq!(point, IntPoint::new(0, 0));
-        } else {
-            assert!(false);
-        }
+        assert!(s0.cross(&s1).is_none());
+        assert!(s1.cross(&s0).is_none());
     }
 
     #[test]
     fn test_1() {
+        let s0 = XSegment::new(IntPoint::new(0, 0), IntPoint::new(5, 5));
+        let s1 = XSegment::new(IntPoint::new(0, 5), IntPoint::new(2, 3));
+
+        assert!(s0.cross(&s1).is_none());
+        assert!(s1.cross(&s0).is_none());
+    }
+
+    #[test]
+    fn test_2() {
+        let s0 = XSegment::new(IntPoint::new(0, 0), IntPoint::new(5, 5));
+        let s1 = XSegment::new(IntPoint::new(3, 2), IntPoint::new(5, 0));
+
+        assert!(s0.cross(&s1).is_none());
+        assert!(s1.cross(&s0).is_none());
+    }
+
+    #[test]
+    fn test_3() {
+        let s0 = XSegment::new(IntPoint::new(0, 0), IntPoint::new(3, 3));
+        let s1 = XSegment::new(IntPoint::new(2, 5), IntPoint::new(5, 2));
+
+        assert!(s0.cross(&s1).is_none());
+        assert!(s1.cross(&s0).is_none());
+    }
+
+    #[test]
+    fn test_4() {
+        let s0 = XSegment::new(IntPoint::new(0, 0), IntPoint::new(2, 2));
+        let s1 = XSegment::new(IntPoint::new(3, 3), IntPoint::new(5, 5));
+
+        assert!(s0.cross(&s1).is_none());
+        assert!(s1.cross(&s0).is_none());
+    }
+
+    #[test]
+    fn test_5() {
+        let s0 = XSegment::new(IntPoint::new(0, 0), IntPoint::new(2, 2));
+        let s1 = XSegment::new(IntPoint::new(0, 1), IntPoint::new(2, 3));
+
+        assert!(s0.cross(&s1).is_none());
+        assert!(s1.cross(&s0).is_none());
+    }
+
+    #[test]
+    fn test_6() {
         let s0 = XSegment::new(IntPoint::new(0, 4), IntPoint::new(17, 0));
         let s1 = XSegment::new(IntPoint::new(9, 2), IntPoint::new(12, 2));
 
-        let result = s0.cross(&s1).unwrap();
-
-        if let XOverlap::Point(point) = result {
-            assert_eq!(point, IntPoint::new(0, 0));
-        } else {
-            assert!(false);
-        }
+        assert!(s0.cross(&s1).is_none());
+        assert!(s1.cross(&s0).is_none());
     }
 }

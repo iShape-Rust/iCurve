@@ -4,6 +4,4 @@ pub mod rect;
 pub mod normalize;
 pub mod x_segment;
 pub(crate) mod range;
-pub(crate) mod triangle;
 pub(crate) mod segment;
-pub(crate) mod ab_segment;
