@@ -6,19 +6,16 @@ use crate::int::bezier::spline_line::IntLineSpline;
 use crate::int::bezier::spline_square::IntSquareSpline;
 use crate::int::circle::arc::IntArc;
 use crate::int::collision::collider::Collider;
-use crate::int::collision::four_convex_path::FourConvexPath;
+use crate::int::collision::four_convex::FourConvexPath;
 use crate::int::collision::space::Space;
 use crate::int::math::point::IntPoint;
-use crate::int::math::x_segment::XSegment;
 
 pub trait SplineApproximation: IntBaseSpline + Sized {
-    fn to_segment(&self) -> XSegment;
+    fn to_segment(&self) -> [IntPoint; 2];
 
     fn to_convex_line(&self) -> FourVec<IntPoint>;
 
     fn to_convex(&self) -> FourVec<IntPoint>;
-
-
 
     #[inline(always)]
     fn into_collider(self, space: &Space) -> Collider {
@@ -43,8 +40,8 @@ pub trait SplineApproximation: IntBaseSpline + Sized {
 
 impl SplineApproximation for IntLineSpline {
     #[inline(always)]
-    fn to_segment(&self) -> XSegment {
-        XSegment::new(self.start(), self.end())
+    fn to_segment(&self) -> [IntPoint; 2] {
+        [self.start(), self.end()]
     }
 
     #[inline(always)]
@@ -60,8 +57,8 @@ impl SplineApproximation for IntLineSpline {
 
 impl SplineApproximation for IntSquareSpline {
     #[inline(always)]
-    fn to_segment(&self) -> XSegment {
-        XSegment::new(self.start(), self.end())
+    fn to_segment(&self) -> [IntPoint; 2] {
+        [self.start(), self.end()]
     }
 
     #[inline(always)]
@@ -77,8 +74,8 @@ impl SplineApproximation for IntSquareSpline {
 
 impl SplineApproximation for IntCubicSpline {
     #[inline(always)]
-    fn to_segment(&self) -> XSegment {
-        XSegment::new(self.start(), self.end())
+    fn to_segment(&self) -> [IntPoint; 2] {
+        [self.start(), self.end()]
     }
 
     #[inline(always)]
@@ -94,7 +91,7 @@ impl SplineApproximation for IntCubicSpline {
 
 impl SplineApproximation for IntArc {
     #[inline(always)]
-    fn to_segment(&self) -> XSegment {
+    fn to_segment(&self) -> [IntPoint; 2] {
         panic!("Not implemented")
     }
 

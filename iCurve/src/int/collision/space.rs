@@ -7,6 +7,12 @@ pub struct Space {
 }
 
 impl Space {
+
+    #[inline(always)]
+    pub(crate) fn snap_radius(&self) -> u64 {
+        1 << self.line_level
+    }
+
     #[inline]
     pub fn with_line_level(line_level: u32) -> Self {
         let convex_level = 32 - line_level;

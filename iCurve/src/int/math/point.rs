@@ -45,6 +45,11 @@ impl IntPoint {
     }
 
     #[inline]
+    pub fn len(&self) -> u64 {
+        self.sqr_len().isqrt()
+    }
+    
+    #[inline]
     pub fn mid(&self, other: &Self) -> Self {
         let x = (self.x + other.x) / 2;
         let y = (self.y + other.y) / 2;

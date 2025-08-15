@@ -63,6 +63,7 @@ impl IntBezierSpline {
     }
 }
 
+#[derive(Clone, Default)]
 pub struct SplitPosition {
     pub power: u32,
     pub value: u64,

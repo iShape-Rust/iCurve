@@ -1,62 +1,91 @@
-use alloc::vec::Vec;
+use crate::int::bezier::spline::SplitPosition;
 use crate::int::collision::collider::Collider;
 use crate::int::collision::space::Space;
+use alloc::vec::Vec;
 
 #[derive(Clone)]
 pub(super) struct XBox {
-    pub(super) generation: u32,
+    pub(super) position: SplitPosition,
     pub(super) collider: Collider,
 }
 
 #[derive(Clone)]
 pub(super) struct Pair {
-    pub(super) primary: XBox,
-    pub(super) secondary: XBox,
+    pub(super) a_box: XBox,
+    pub(super) b_box: XBox,
 }
 
 impl Pair {
     #[inline]
     pub(super) fn overlap(&self, space: &Space) -> bool {
-        self.primary.collider.overlap(&self.secondary.collider, space)
+        self.a_box.collider.overlap(&self.b_box.collider, space)
     }
 
     #[inline]
     pub(super) fn split_into(&self, space: &Space, vec: &mut Vec<Pair>) {
-        let s0 = self.primary.collider.split(space);
-        let s1 = self.secondary.collider.split(space);
+        let a = self.a_box.bisect(space);
+        let b = self.b_box.bisect(space);
 
-        match (s0, s1) {
-            (Some((c0, c1)), Some((c2, c3))) => {
-                let g0 = self.primary.generation + 1;
-                let g1 = self.secondary.generation + 1;
-                let x0 = XBox { generation: g0, collider: c0 };
-                let x1 = XBox { generation: g0, collider: c1 };
-                let x2 = XBox { generation: g1, collider: c2 };
-                let x3 = XBox { generation: g1, collider: c3 };
-
-                vec.push(Pair { primary: x0.clone(), secondary: x2.clone() });
-                vec.push(Pair { primary: x0, secondary: x3.clone() });
-                vec.push(Pair { primary: x1.clone(), secondary: x2 });
-                vec.push(Pair { primary: x1, secondary: x3 });
+        match (a, b) {
+            (Some((a0, a1)), Some((b0, b1))) => {
+                vec.push(Pair {
+                    a_box: a0.clone(),
+                    b_box: b0.clone(),
+                });
+                vec.push(Pair {
+                    a_box: a0,
+                    b_box: b1.clone(),
+                });
+                vec.push(Pair {
+                    a_box: a1.clone(),
+                    b_box: b0,
+                });
+                vec.push(Pair {
+                    a_box: a1,
+                    b_box: b1,
+                });
             }
-            (Some((c0, c1)), None) => {
-                let g0 = self.primary.generation + 1;
-                let x0 = XBox { generation: g0, collider: c0 };
-                let x1 = XBox { generation: g0, collider: c1 };
-
-                vec.push(Pair { primary: x0, secondary: self.secondary.clone() });
-                vec.push(Pair { primary: x1, secondary: self.secondary.clone() });
+            (Some((a0, a1)), None) => {
+                vec.push(Pair {
+                    a_box: a0,
+                    b_box: self.b_box.clone(),
+                });
+                vec.push(Pair {
+                    a_box: a1,
+                    b_box: self.b_box.clone(),
+                });
             }
-            (None, Some((c2, c3))) => {
-                let g1 = self.secondary.generation + 1;
-                let x2 = XBox { generation: g1, collider: c2 };
-                let x3 = XBox { generation: g1, collider: c3 };
-
-                vec.push(Pair { primary: self.primary.clone(), secondary: x2 });
-                vec.push(Pair { primary: self.primary.clone(), secondary: x3 });
+            (None, Some((b0, b1))) => {
+                vec.push(Pair {
+                    a_box: self.a_box.clone(),
+                    b_box: b0,
+                });
+                vec.push(Pair {
+                    a_box: self.a_box.clone(),
+                    b_box: b1,
+                });
             }
-            (None, None) => vec.push(self.clone())
+            (None, None) => vec.push(self.clone()),
         }
+    }
+}
+
+impl XBox {
+    #[inline]
+    fn bisect(&self, space: &Space) -> Option<(XBox, XBox)> {
+        let (col_0, col_1) = self.collider.bisect(space)?;
+        let (pos_0, pos_1) = self.position.bisect();
+
+        Some((
+            XBox {
+                position: pos_0,
+                collider: col_0,
+            },
+            XBox {
+                position: pos_1,
+                collider: col_1,
+            },
+        ))
     }
 }
 
@@ -90,9 +119,18 @@ mod tests {
             ],
         };
 
-        let x0 = XBox { generation: 0, collider: a.into_collider(&space) };
-        let x1 = XBox { generation: 0, collider: b.into_collider(&space) };
-        let pair = Pair { primary: x0, secondary: x1 };
+        let x0 = XBox {
+            position: Default::default(),
+            collider: a.into_collider(&space),
+        };
+        let x1 = XBox {
+            position: Default::default(),
+            collider: b.into_collider(&space),
+        };
+        let pair = Pair {
+            a_box: x0,
+            b_box: x1,
+        };
 
         let overlap = pair.overlap(&space);
 
@@ -121,9 +159,18 @@ mod tests {
             ],
         };
 
-        let x0 = XBox { generation: 0, collider: a.into_collider(&space) };
-        let x1 = XBox { generation: 0, collider: b.into_collider(&space) };
-        let pair = Pair { primary: x0, secondary: x1 };
+        let x0 = XBox {
+            position: Default::default(),
+            collider: a.into_collider(&space),
+        };
+        let x1 = XBox {
+            position: Default::default(),
+            collider: b.into_collider(&space),
+        };
+        let pair = Pair {
+            a_box: x0,
+            b_box: x1,
+        };
 
         assert_eq!(pair.overlap(&space), true);
     }

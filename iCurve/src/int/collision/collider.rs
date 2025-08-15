@@ -6,7 +6,6 @@ use crate::int::collision::convex::Convexity;
 use crate::int::collision::space::Space;
 use crate::int::math::point::IntPoint;
 use crate::int::math::rect::IntRect;
-use crate::int::math::x_segment::XSegment;
 
 #[derive(Clone)]
 pub struct Collider {
@@ -34,15 +33,15 @@ impl Collider {
     }
 
     #[inline]
-    pub(crate) fn split(&self, space: &Space) -> Option<(Collider, Collider)> {
+    pub(crate) fn bisect(&self, space: &Space) -> Option<(Collider, Collider)> {
         if self.boundary.size_level() <= space.line_level {
             return None;
         }
-        Some(self.bisect(space))
+        Some(self.split(space))
     }
 
     #[inline]
-    fn bisect(&self, space: &Space) -> (Collider, Collider) {
+    fn split(&self, space: &Space) -> (Collider, Collider) {
         match &self.spline {
             IntSpline::Arc(_) => panic!("Not implemented"),
             IntSpline::Line(s) => {
@@ -61,7 +60,7 @@ impl Collider {
     }
 
     #[inline]
-    pub(crate) fn to_segment(&self) -> XSegment {
+    pub(crate) fn to_segment(&self) -> [IntPoint; 2] {
         match &self.spline {
             IntSpline::Arc(_) => panic!("Not implemented"),
             IntSpline::Line(s) => s.to_segment(),

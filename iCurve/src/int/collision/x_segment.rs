@@ -4,7 +4,7 @@ use crate::int::math::x_segment::XSegment;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum XOverlap {
-    Segment(XSegment),
+    Segment([IntPoint; 2]),
     Point(IntPoint),
 }
 
@@ -138,9 +138,9 @@ impl XSegment {
     #[inline]
     fn degenerate_collinear_ordered_cross(&self, other: &XSegment) -> Option<XOverlap> {
         if other.b <= self.b {
-            Some(XOverlap::Segment(other.clone()))
+            Some(XOverlap::Segment([other.a, other.b]))
         } else if other.a < self.b {
-            Some(XOverlap::Segment(XSegment::new(other.a, self.b)))
+            Some(XOverlap::Segment([other.a, self.b]))
         } else if other.a == self.b {
             Some(XOverlap::Point(other.a))
         } else {
@@ -198,6 +198,13 @@ impl XSegment {
     #[inline(always)]
     fn contains(&self, p: IntPoint) -> bool {
         self.a <= p && p <= self.b
+    }
+}
+
+impl Into<[IntPoint; 2]> for XSegment {
+    #[inline(always)]
+    fn into(self) -> [IntPoint; 2] {
+        [self.a, self.b]
     }
 }
 
@@ -276,15 +283,15 @@ mod tests {
 
             assert_eq!(
                 ab.degenerate_collinear_cross(&ab).unwrap(),
-                XOverlap::Segment(ab)
+                XOverlap::Segment(ab.into())
             );
             assert_eq!(
                 ab.degenerate_collinear_cross(&ac).unwrap(),
-                XOverlap::Segment(ab)
+                XOverlap::Segment(ab.into())
             );
             assert_eq!(
                 ab.degenerate_collinear_cross(&ad).unwrap(),
-                XOverlap::Segment(ab)
+                XOverlap::Segment(ab.into())
             );
 
             assert_eq!(
@@ -302,24 +309,24 @@ mod tests {
 
             assert_eq!(
                 ac.degenerate_collinear_cross(&ab).unwrap(),
-                XOverlap::Segment(ab)
+                XOverlap::Segment(ab.into())
             );
             assert_eq!(
                 ac.degenerate_collinear_cross(&ac).unwrap(),
-                XOverlap::Segment(ac)
+                XOverlap::Segment(ac.into())
             );
             assert_eq!(
                 ac.degenerate_collinear_cross(&ad).unwrap(),
-                XOverlap::Segment(ac)
+                XOverlap::Segment(ac.into())
             );
 
             assert_eq!(
                 ac.degenerate_collinear_cross(&bc).unwrap(),
-                XOverlap::Segment(bc)
+                XOverlap::Segment(bc.into())
             );
             assert_eq!(
                 ac.degenerate_collinear_cross(&bd).unwrap(),
-                XOverlap::Segment(bc)
+                XOverlap::Segment(bc.into())
             );
 
             assert_eq!(
@@ -331,29 +338,29 @@ mod tests {
 
             assert_eq!(
                 ad.degenerate_collinear_cross(&ab).unwrap(),
-                XOverlap::Segment(ab)
+                XOverlap::Segment(ab.into())
             );
             assert_eq!(
                 ad.degenerate_collinear_cross(&ac).unwrap(),
-                XOverlap::Segment(ac)
+                XOverlap::Segment(ac.into())
             );
             assert_eq!(
                 ad.degenerate_collinear_cross(&ad).unwrap(),
-                XOverlap::Segment(ad)
+                XOverlap::Segment(ad.into())
             );
 
             assert_eq!(
                 ad.degenerate_collinear_cross(&bc).unwrap(),
-                XOverlap::Segment(bc)
+                XOverlap::Segment(bc.into())
             );
             assert_eq!(
                 ad.degenerate_collinear_cross(&bd).unwrap(),
-                XOverlap::Segment(bd)
+                XOverlap::Segment(bd.into())
             );
 
             assert_eq!(
                 ad.degenerate_collinear_cross(&cd).unwrap(),
-                XOverlap::Segment(cd)
+                XOverlap::Segment(cd.into())
             );
 
             // bc
@@ -364,20 +371,20 @@ mod tests {
             );
             assert_eq!(
                 bc.degenerate_collinear_cross(&ac).unwrap(),
-                XOverlap::Segment(bc)
+                XOverlap::Segment(bc.into())
             );
             assert_eq!(
                 bc.degenerate_collinear_cross(&ad).unwrap(),
-                XOverlap::Segment(bc)
+                XOverlap::Segment(bc.into())
             );
 
             assert_eq!(
                 bc.degenerate_collinear_cross(&bc).unwrap(),
-                XOverlap::Segment(bc)
+                XOverlap::Segment(bc.into())
             );
             assert_eq!(
                 bc.degenerate_collinear_cross(&bd).unwrap(),
-                XOverlap::Segment(bc)
+                XOverlap::Segment(bc.into())
             );
 
             assert_eq!(
@@ -393,25 +400,25 @@ mod tests {
             );
             assert_eq!(
                 bd.degenerate_collinear_cross(&ac).unwrap(),
-                XOverlap::Segment(bc)
+                XOverlap::Segment(bc.into())
             );
             assert_eq!(
                 bd.degenerate_collinear_cross(&ad).unwrap(),
-                XOverlap::Segment(bd)
+                XOverlap::Segment(bd.into())
             );
 
             assert_eq!(
                 bd.degenerate_collinear_cross(&bc).unwrap(),
-                XOverlap::Segment(bc)
+                XOverlap::Segment(bc.into())
             );
             assert_eq!(
                 bd.degenerate_collinear_cross(&bd).unwrap(),
-                XOverlap::Segment(bd)
+                XOverlap::Segment(bd.into())
             );
 
             assert_eq!(
                 bd.degenerate_collinear_cross(&cd).unwrap(),
-                XOverlap::Segment(cd)
+                XOverlap::Segment(cd.into())
             );
 
             // cd
@@ -423,7 +430,7 @@ mod tests {
             );
             assert_eq!(
                 cd.degenerate_collinear_cross(&ad).unwrap(),
-                XOverlap::Segment(cd)
+                XOverlap::Segment(cd.into())
             );
 
             assert_eq!(
@@ -432,12 +439,12 @@ mod tests {
             );
             assert_eq!(
                 cd.degenerate_collinear_cross(&bd).unwrap(),
-                XOverlap::Segment(cd)
+                XOverlap::Segment(cd.into())
             );
 
             assert_eq!(
                 cd.degenerate_collinear_cross(&cd).unwrap(),
-                XOverlap::Segment(cd)
+                XOverlap::Segment(cd.into())
             );
         }
     }

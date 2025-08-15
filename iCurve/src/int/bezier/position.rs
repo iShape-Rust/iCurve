@@ -3,11 +3,10 @@ use crate::int::math::point::IntPoint;
 
 pub(crate) struct LineDivider {
     a: IntPoint,
-    b: IntPoint
+    b: IntPoint,
 }
 
 impl LineDivider {
-
     #[inline]
     pub(crate) fn new(a: IntPoint, b: IntPoint) -> Self {
         Self { a, b }
@@ -26,5 +25,25 @@ impl LineDivider {
         let t = (v * (b - a) as i128) >> position.power;
 
         a + t as i64
+    }
+}
+
+impl SplitPosition {
+    #[inline]
+    pub(crate) fn bisect(&self) -> (Self, Self) {
+        let power = self.power + 1;
+        let val_0 = self.value << 1;
+        let val_1 = (self.value << 1) | 1;
+
+        (
+            Self {
+                power,
+                value: val_0,
+            },
+            Self {
+                power,
+                value: val_1,
+            },
+        )
     }
 }

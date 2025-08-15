@@ -37,6 +37,20 @@ impl XSegment {
     }
 }
 
+impl From<[IntPoint; 2]> for XSegment {
+    #[inline(always)]
+    fn from(value: [IntPoint; 2]) -> Self {
+        Self::new(value[0], value[1])
+    }
+}
+
+impl From<&[IntPoint; 2]> for XSegment {
+    #[inline(always)]
+    fn from(value: &[IntPoint; 2]) -> Self {
+        Self::new(value[0], value[1])
+    }
+}
+
 impl Default for XSegment {
     fn default() -> Self {
         XSegment { a: IntPoint::zero(), b: IntPoint::zero() }
