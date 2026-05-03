@@ -89,11 +89,7 @@ impl Util for FourVec<IntPoint> {
             let v = p - a;
             let cross = v.cross_product(&e);
 
-            let ord = if REVERSED {
-                0.cmp(&cross)
-            } else {
-                cross.cmp(&0)
-            };
+            let ord = if REVERSED { 0.cmp(&cross) } else { cross.cmp(&0) };
 
             match ord {
                 Ordering::Less => {
@@ -165,12 +161,7 @@ mod tests {
 
     #[test]
     fn test_4() {
-        let result = [
-            IntPoint::new(0, 0),
-            IntPoint::new(10, -10),
-            IntPoint::new(10, 10),
-        ]
-        .to_four_convex();
+        let result = [IntPoint::new(0, 0), IntPoint::new(10, -10), IntPoint::new(10, 10)].to_four_convex();
 
         assert_eq!(result.len, 3);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));
@@ -181,12 +172,7 @@ mod tests {
 
     #[test]
     fn test_5() {
-        let result = [
-            IntPoint::new(0, 0),
-            IntPoint::new(10, 10),
-            IntPoint::new(10, -10),
-        ]
-        .to_four_convex();
+        let result = [IntPoint::new(0, 0), IntPoint::new(10, 10), IntPoint::new(10, -10)].to_four_convex();
 
         assert_eq!(result.len, 3);
         assert_eq!(result.buffer[0], IntPoint::new(0, 0));

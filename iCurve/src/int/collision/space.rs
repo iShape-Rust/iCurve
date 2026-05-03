@@ -7,7 +7,6 @@ pub struct Space {
 }
 
 impl Space {
-
     #[inline(always)]
     pub(crate) fn snap_radius(&self) -> u64 {
         1 << self.line_level

@@ -60,20 +60,14 @@ mod tests {
     fn test_0() {
         let s = IntSegment::new(IntPoint::new(0, 0), IntPoint::new(10, 0));
         assert_eq!(s.closest_point(IntPoint::new(-10, 10)), IntPoint::new(0, 0));
-        assert_eq!(
-            s.closest_point(IntPoint::new(-10, -10)),
-            IntPoint::new(0, 0)
-        );
+        assert_eq!(s.closest_point(IntPoint::new(-10, -10)), IntPoint::new(0, 0));
     }
 
     #[test]
     fn test_1() {
         let s = IntSegment::new(IntPoint::new(0, 0), IntPoint::new(10, 0));
         assert_eq!(s.closest_point(IntPoint::new(20, 10)), IntPoint::new(10, 0));
-        assert_eq!(
-            s.closest_point(IntPoint::new(20, -10)),
-            IntPoint::new(10, 0)
-        );
+        assert_eq!(s.closest_point(IntPoint::new(20, -10)), IntPoint::new(10, 0));
     }
 
     #[test]
@@ -87,10 +81,7 @@ mod tests {
     fn test_3() {
         let s = IntSegment::new(IntPoint::new(0, 0), IntPoint::new(10, 0));
         assert_eq!(s.closest_point(IntPoint::new(10, 10)), IntPoint::new(10, 0));
-        assert_eq!(
-            s.closest_point(IntPoint::new(10, -10)),
-            IntPoint::new(10, 0)
-        );
+        assert_eq!(s.closest_point(IntPoint::new(10, -10)), IntPoint::new(10, 0));
     }
 
     #[test]

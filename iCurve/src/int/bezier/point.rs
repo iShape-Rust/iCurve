@@ -1,7 +1,7 @@
-use alloc::vec::Vec;
 use crate::int::bezier::short::IntSplineShorts;
 use crate::int::bezier::spline::IntBezierSplineMath;
 use crate::int::math::point::IntPoint;
+use alloc::vec::Vec;
 
 pub trait IntSplinePoints {
     fn approximate_points(&self, min_cos: u32, min_len: u32) -> Vec<IntPoint>;

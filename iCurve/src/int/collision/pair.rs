@@ -40,10 +40,7 @@ impl Pair {
                     a_box: a1.clone(),
                     b_box: b0,
                 });
-                vec.push(Pair {
-                    a_box: a1,
-                    b_box: b1,
-                });
+                vec.push(Pair { a_box: a1, b_box: b1 });
             }
             (Some((a0, a1)), None) => {
                 vec.push(Pair {
@@ -127,10 +124,7 @@ mod tests {
             position: Default::default(),
             collider: b.into_collider(&space),
         };
-        let pair = Pair {
-            a_box: x0,
-            b_box: x1,
-        };
+        let pair = Pair { a_box: x0, b_box: x1 };
 
         let overlap = pair.overlap(&space);
 
@@ -167,10 +161,7 @@ mod tests {
             position: Default::default(),
             collider: b.into_collider(&space),
         };
-        let pair = Pair {
-            a_box: x0,
-            b_box: x1,
-        };
+        let pair = Pair { a_box: x0, b_box: x1 };
 
         assert_eq!(pair.overlap(&space), true);
     }

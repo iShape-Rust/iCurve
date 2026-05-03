@@ -1,6 +1,6 @@
+use crate::int::math::offset::IntOffset;
 use core::cmp::Ordering;
 use core::{fmt, ops};
-use crate::int::math::offset::IntOffset;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -34,21 +34,21 @@ impl IntPoint {
     pub fn sqr_dist(&self, other: &Self) -> u64 {
         let x = self.x.abs_diff(other.x);
         let y = self.y.abs_diff(other.y);
-         x * x + y * y
+        x * x + y * y
     }
 
     #[inline]
     pub fn sqr_len(&self) -> u64 {
         let x = self.x.unsigned_abs();
         let y = self.y.unsigned_abs();
-         x * x + y * y
+        x * x + y * y
     }
 
     #[inline]
     pub fn len(&self) -> u64 {
         self.sqr_len().isqrt()
     }
-    
+
     #[inline]
     pub fn mid(&self, other: &Self) -> Self {
         let x = (self.x + other.x) / 2;
@@ -160,16 +160,19 @@ impl fmt::Display for IntPoint {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
     use crate::int::math::normalize::{VectorNormalization16, VectorNormalization16Util};
     use crate::int::math::point::IntPoint;
+    use rand::Rng;
 
     #[test]
     fn test_basic_normalization() {
         let unit = VectorNormalization16Util::UNIT as i64;
         assert_eq!(IntPoint::new(unit, 0).normalized_16bit(), IntPoint::new(unit, 0));
         assert_eq!(IntPoint::new(0, unit).normalized_16bit(), IntPoint::new(0, unit));
-        assert_eq!(IntPoint::new(3, 4).normalized_16bit(), IntPoint::new(39321, 52428));
+        assert_eq!(
+            IntPoint::new(3, 4).normalized_16bit(),
+            IntPoint::new(39321, 52428)
+        );
     }
 
     #[test]
@@ -201,7 +204,6 @@ mod tests {
             let n = p.normalized_16bit();
             assert!(n.x.abs() <= VectorNormalization16Util::UNIT as i64);
             assert!(n.y.abs() <= VectorNormalization16Util::UNIT as i64);
-
 
             let sqr_len = n.x * n.x + n.y * n.y;
             let error = 1024 * 1024 - sqr_len;

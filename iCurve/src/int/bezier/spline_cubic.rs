@@ -9,7 +9,6 @@ pub struct IntCubicSpline {
 }
 
 impl IntBezierSplineMath for IntCubicSpline {
-
     #[inline]
     fn start_dir(&self) -> IntPoint {
         (self.anchors[1] - self.anchors[0]).normalized_16bit()
@@ -110,7 +109,7 @@ impl IntCubicSpline {
         let sb = vb.cross_product(&v);
 
         if sa <= 0 || sb <= 0 {
-            return false
+            return false;
         }
 
         let v_log2len = v.sqr_len().ilog2() / 2;

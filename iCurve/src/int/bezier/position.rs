@@ -35,15 +35,6 @@ impl SplitPosition {
         let val_0 = self.value << 1;
         let val_1 = (self.value << 1) | 1;
 
-        (
-            Self {
-                power,
-                value: val_0,
-            },
-            Self {
-                power,
-                value: val_1,
-            },
-        )
+        (Self { power, value: val_0 }, Self { power, value: val_1 })
     }
 }

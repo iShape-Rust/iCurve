@@ -5,11 +5,9 @@ use crate::int::math::point::IntPoint;
 pub struct Space {
     cell_size_power: u32,
     scale_to_int: f64,
-    scale_to_float: f64
+    scale_to_float: f64,
 }
-
 impl Space {
-
     #[inline]
     pub fn new(scale_power: i32, cell_size_power: u32) -> Self {
         let ie = scale_power + cell_size_power as i32;
@@ -17,12 +15,16 @@ impl Space {
         let scale_to_int = libm::exp2(e);
         let scale_to_float = libm::exp2(-e);
 
-        Self { cell_size_power, scale_to_int, scale_to_float }
+        Self {
+            cell_size_power,
+            scale_to_int,
+            scale_to_float,
+        }
     }
 
     #[inline(always)]
     pub fn debug() -> Self {
-        Self::new(10,3)
+        Self::new(10, 3)
     }
 
     #[inline(always)]
@@ -61,7 +63,7 @@ impl Space {
 impl Default for Space {
     #[inline(always)]
     fn default() -> Self {
-        Self::new(20,4)
+        Self::new(20, 4)
     }
 }
 

@@ -199,11 +199,7 @@ mod tests {
             IntPoint::new(0, 10),
         ];
 
-        let path_1 = [
-            IntPoint::new(10, 5),
-            IntPoint::new(20, 0),
-            IntPoint::new(20, 10),
-        ];
+        let path_1 = [IntPoint::new(10, 5), IntPoint::new(20, 0), IntPoint::new(20, 10)];
 
         let overlap_0 = path_0.overlap_with_margin(&path_1, 1);
         let overlap_1 = path_1.overlap_with_margin(&path_0, 1);
@@ -221,11 +217,7 @@ mod tests {
             IntPoint::new(0, 10),
         ];
 
-        let path_1 = [
-            IntPoint::new(11, 5),
-            IntPoint::new(20, 0),
-            IntPoint::new(20, 10),
-        ];
+        let path_1 = [IntPoint::new(11, 5), IntPoint::new(20, 0), IntPoint::new(20, 10)];
 
         let overlap_0 = path_0.overlap_with_margin(&path_1, 1);
         let overlap_1 = path_1.overlap_with_margin(&path_0, 1);
@@ -243,11 +235,7 @@ mod tests {
             IntPoint::new(0, 10),
         ];
 
-        let path_1 = [
-            IntPoint::new(12, 5),
-            IntPoint::new(20, 0),
-            IntPoint::new(20, 10),
-        ];
+        let path_1 = [IntPoint::new(12, 5), IntPoint::new(20, 0), IntPoint::new(20, 10)];
 
         let overlap_0 = path_0.overlap_with_margin(&path_1, 1);
         let overlap_1 = path_1.overlap_with_margin(&path_0, 1);

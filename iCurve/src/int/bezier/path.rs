@@ -1,7 +1,7 @@
-use alloc::vec::Vec;
 use crate::int::bezier::anchor::IntBezierAnchor;
 use crate::int::bezier::spline::IntBezierSpline;
 use crate::int::math::point::IntPoint;
+use alloc::vec::Vec;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
@@ -11,7 +11,6 @@ pub struct IntBezierPath {
 }
 
 impl IntBezierPath {
-
     #[inline]
     pub fn approximate_points(&self, min_cos: u32, min_len: u32) -> Vec<IntPoint> {
         let capacity = self.anchors.len() * 16;
@@ -34,7 +33,7 @@ impl IntBezierPath {
     }
 
     #[inline]
-    pub(crate) fn splines(&self) -> impl Iterator<Item =IntBezierSpline> + '_ {
+    pub(crate) fn splines(&self) -> impl Iterator<Item = IntBezierSpline> + '_ {
         IntSplineIterator::new(self)
     }
 }
@@ -82,12 +81,12 @@ impl<'a> Iterator for IntSplineIterator<'a> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
     use crate::int::bezier::anchor::IntBezierAnchor;
     use crate::int::bezier::path::IntBezierPath;
     use crate::int::math::normalize::VectorNormalization16Util;
     use crate::int::math::offset::IntOffset;
     use crate::int::math::point::IntPoint;
+    use alloc::vec;
 
     #[test]
     fn test_00() {

@@ -4,7 +4,6 @@ use crate::int::collision::x_segment::XOverlap;
 use crate::int::math::point::IntPoint;
 
 impl Solver {
-
     // fn split(&mut self, primary: IntSpline, secondary: IntSpline) {
     //     match self.marks.len() {
     //         0 => return,
@@ -18,18 +17,12 @@ impl Solver {
     //             // self.single_split(primary, secondary)
     //     }
     //     debug_assert!(!self.marks.is_empty())
-    // 
-    // 
-    // 
+    //
+    //
+    //
     // }
 
     fn single_split(&mut self, point: IntPoint, primary: IntSpline, secondary: IntSpline) {
         // the most common case
-
-
-
-
-
     }
-
 }

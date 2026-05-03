@@ -27,7 +27,7 @@ impl Collider {
                 let max_level = self.size_level.max(other.size_level);
                 let margin = (2 + max_level - space.line_level) as u64;
                 c0.slice().overlap_with_margin(c1.slice(), margin)
-            },
+            }
             (_, _) => true,
         }
     }

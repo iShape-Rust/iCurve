@@ -1,5 +1,5 @@
-use core::cmp::Ordering;
 use crate::int::math::point::IntPoint;
+use core::cmp::Ordering;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct XSegment {
@@ -29,11 +29,7 @@ impl Ord for XSegment {
 impl XSegment {
     #[inline(always)]
     pub fn new(a: IntPoint, b: IntPoint) -> Self {
-        if a < b {
-            Self { a, b }
-        } else {
-            Self { a: b, b: a }
-        }
+        if a < b { Self { a, b } } else { Self { a: b, b: a } }
     }
 }
 
@@ -53,6 +49,9 @@ impl From<&[IntPoint; 2]> for XSegment {
 
 impl Default for XSegment {
     fn default() -> Self {
-        XSegment { a: IntPoint::zero(), b: IntPoint::zero() }
+        XSegment {
+            a: IntPoint::zero(),
+            b: IntPoint::zero(),
+        }
     }
 }

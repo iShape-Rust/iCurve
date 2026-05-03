@@ -1,7 +1,7 @@
-pub mod point;
-pub mod offset;
-pub mod rect;
 pub mod normalize;
-pub mod x_segment;
+pub mod offset;
+pub mod point;
 pub(crate) mod range;
+pub mod rect;
 pub(crate) mod segment;
+pub mod x_segment;

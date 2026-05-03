@@ -21,7 +21,7 @@ impl VectorNormalization16 for IntPoint {
         let dy = (self.y as i128).unsigned_abs().pow(2);
         let sqr_len = dx + dy;
         if sqr_len == 0 {
-            return IntPoint::zero()
+            return IntPoint::zero();
         }
 
         let bits_count = sqr_len.ilog2();

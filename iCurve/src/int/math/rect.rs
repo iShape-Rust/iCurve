@@ -8,7 +8,6 @@ pub struct IntRect {
 }
 
 impl IntRect {
-
     #[inline(always)]
     pub fn width(&self) -> u64 {
         self.max.x.abs_diff(self.min.x)
@@ -107,9 +106,9 @@ impl IntRect {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
     use crate::int::math::point::IntPoint;
     use crate::int::math::rect::IntRect;
+    use alloc::vec;
 
     #[test]
     fn test_0() {

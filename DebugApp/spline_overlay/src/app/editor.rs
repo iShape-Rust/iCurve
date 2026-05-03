@@ -135,8 +135,8 @@ impl App for EditorApp {
                         painter.add(Shape::circle_filled(vp.into(), 8.0, Color32::RED));
                     }
                     XOverlap::Segment(s) => {
-                        let va = self.camera.world_to_view(s.a.into());
-                        let vb = self.camera.world_to_view(s.b.into());
+                        let va = self.camera.world_to_view(s[0].into());
+                        let vb = self.camera.world_to_view(s[1].into());
 
                         painter
                             .line_segment([va.into(), vb.into()], Stroke::new(4.0, Color32::RED));

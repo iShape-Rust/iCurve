@@ -1,11 +1,11 @@
 pub mod anchor;
+pub mod curve;
+pub mod length;
+pub mod path;
+pub mod point;
+mod position;
+pub mod short;
 pub mod spline;
+pub mod spline_cubic;
 pub mod spline_line;
 pub mod spline_square;
-pub mod spline_cubic;
-pub mod path;
-pub mod short;
-pub mod point;
-pub mod length;
-mod position;
-pub mod curve;

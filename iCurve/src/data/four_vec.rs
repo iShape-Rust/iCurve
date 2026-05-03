@@ -7,15 +7,17 @@ pub struct FourVec<T: Copy + Default> {
 }
 
 impl<T: Copy + Default> FourVec<T> {
-
     #[inline]
     pub fn slice(&self) -> &[T] {
         &self.buffer[0..self.len]
     }
-    
+
     #[inline]
     pub(crate) fn new() -> Self {
-        Self { buffer: [T::default(); 4], len: 0 }
+        Self {
+            buffer: [T::default(); 4],
+            len: 0,
+        }
     }
 
     #[inline]
@@ -25,11 +27,16 @@ impl<T: Copy + Default> FourVec<T> {
         unsafe {
             ptr::copy_nonoverlapping(src.as_ptr(), buf.as_mut_ptr(), src.len());
         }
-        Self { buffer: buf, len: src.len() }
+        Self {
+            buffer: buf,
+            len: src.len(),
+        }
     }
 
     #[inline]
-    pub(crate) fn is_empty(&self) -> bool { self.len == 0 }
+    pub(crate) fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 
     #[inline]
     pub(crate) fn push(&mut self, value: T) {

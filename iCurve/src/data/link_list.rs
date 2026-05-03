@@ -72,8 +72,8 @@ impl<T> LinkList<T> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
     use crate::data::link_list::LinkList;
+    use alloc::vec;
 
     #[test]
     fn test_00() {

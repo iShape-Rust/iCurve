@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
+      <package file="$PROJECT_DIR$">
+        <enabledFeature name="default" />
+      </package>
+    </cargoProject>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="112d8c33-1ac4-4170-af66-3bb0d9b40aa1" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/../segment_cross/src/app/res.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../spline_overlay/src/app/res.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../iCurve/src/eframe/mod.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../iCurve/src/eframe/point.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../iCurve/src/int/base/mod.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../iCurve/src/int/base/spline.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../iCurve/src/int/bezier/curve.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../iCurve/src/int/collision/approximation.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../iCurve/src/int/collision/fit.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../../iCurve/src/int/collision/four_convex.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../segment_cross/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../segment_cross/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../segment_cross/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/../segment_cross/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../segment_cross/src/app/editor.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../segment_cross/src/app/editor.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../segment_cross/src/app/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../segment_cross/src/app/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../spline_overlay/.idea/spline_overlay.iml" beforeDir="false" afterPath="$PROJECT_DIR$/../spline_overlay/.idea/spline_overlay.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../spline_overlay/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../spline_overlay/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../spline_overlay/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/../spline_overlay/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../spline_overlay/src/app/editor.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../spline_overlay/src/app/editor.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../spline_overlay/src/app/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../spline_overlay/src/app/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/.idea/dictionaries/project.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/.idea/dictionaries/project.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/data/four_vec.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/data/four_vec.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/float/math/point.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/float/math/point.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/bezier/length.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/bezier/length.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/bezier/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/bezier/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/bezier/point.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/bezier/point.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/bezier/short.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/bezier/short.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/bezier/spline.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/bezier/spline.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/bezier/spline_cube.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/bezier/spline_cubic.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/bezier/spline_line.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/bezier/spline_line.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/bezier/spline_square.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/bezier/spline_square.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/collision/collider.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/collision/collider.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/collision/convex.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/collision/convex.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/collision/convex_hull.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/collision/four_convex_path.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/collision/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/collision/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/collision/solver/cross.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/collision/solver/cross.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/collision/solver/x_segment.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/collision/solver/x_segment.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/collision/spline.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/collision/x_segment.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/collision/x_segment.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/math/point.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/math/point.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/math/rect.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/math/rect.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/int/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/int/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../iCurve/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../../iCurve/src/lib.rs" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:dev" />
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Rust File in Dumb Mode" />
+        <option value="Rust File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="iqLQo1mF" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3
+}</component>
+  <component name="ProjectId" id="300jDKQBpyTTMRVgHAk4VDrUam9" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Cargo.Run.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
+    &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RunManager">
+    <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="command" value="run --package hull_intersection --bin hull_intersection" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="112d8c33-1ac4-4170-af66-3bb0d9b40aa1" name="Changes" comment="" />
+      <created>1752771264168</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1752771264168</updated>
+      <workItem from="1752771265601" duration="3341000" />
+      <workItem from="1752853124099" duration="3050000" />
+      <workItem from="1752906943101" duration="375000" />
+      <workItem from="1752919012400" duration="2693000" />
+      <workItem from="1753003386881" duration="112000" />
+      <workItem from="1753082945751" duration="17000" />
+      <workItem from="1753092080023" duration="640000" />
+      <workItem from="1753093949091" duration="3000" />
+      <workItem from="1753633190211" duration="551000" />
+      <workItem from="1753875284067" duration="650000" />
+    </task>
+    <servers />
+  </component>
+</project>

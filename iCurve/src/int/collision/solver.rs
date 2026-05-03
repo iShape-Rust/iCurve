@@ -95,11 +95,7 @@ impl Solver {
                     XOverlap::Point(point) => {
                         let a_pos = sa.position(point);
                         let b_pos = sb.position(point);
-                        let p0 = MarkPoint {
-                            point,
-                            a_pos,
-                            b_pos,
-                        };
+                        let p0 = MarkPoint { point, a_pos, b_pos };
                         self.marks.push(Mark { p0, p1: None });
                     }
                     XOverlap::Segment(s) => {

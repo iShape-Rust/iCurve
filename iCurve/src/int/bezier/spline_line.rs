@@ -1,15 +1,14 @@
-use crate::int::bezier::spline::{IntBezierSplineMath, SplitPosition};
 use crate::int::bezier::position::LineDivider;
+use crate::int::bezier::spline::{IntBezierSplineMath, SplitPosition};
 use crate::int::math::normalize::VectorNormalization16;
 use crate::int::math::point::IntPoint;
 
 #[derive(Debug, Clone)]
 pub struct IntLineSpline {
-    pub(crate) anchors: [IntPoint; 2]
+    pub(crate) anchors: [IntPoint; 2],
 }
 
 impl IntBezierSplineMath for IntLineSpline {
-
     #[inline]
     fn start_dir(&self) -> IntPoint {
         (self.anchors[1] - self.anchors[0]).normalized_16bit()

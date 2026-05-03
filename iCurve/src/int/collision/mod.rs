@@ -1,10 +1,10 @@
 pub mod approximation;
 mod collider;
+mod contains_point;
 pub mod convex;
 pub mod four_convex;
 mod pair;
 pub mod solver;
 pub mod space;
-pub mod x_segment;
-mod contains_point;
 mod split;
+pub mod x_segment;

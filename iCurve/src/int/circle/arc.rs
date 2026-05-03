@@ -6,5 +6,5 @@ pub struct IntArc {
     center: IntPoint,
     start: IntPoint,
     end: IntPoint,
-    direction: bool
+    direction: bool,
 }

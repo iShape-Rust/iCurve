@@ -1,11 +1,11 @@
-use crate::int::bezier::spline::{IntBezierSplineMath, SplitPosition};
 use crate::int::bezier::position::LineDivider;
+use crate::int::bezier::spline::{IntBezierSplineMath, SplitPosition};
 use crate::int::math::normalize::VectorNormalization16;
 use crate::int::math::point::IntPoint;
 
 #[derive(Debug, Clone)]
 pub struct IntSquareSpline {
-    pub(crate) anchors: [IntPoint; 3]
+    pub(crate) anchors: [IntPoint; 3],
 }
 
 impl IntBezierSplineMath for IntSquareSpline {
@@ -35,12 +35,12 @@ impl IntBezierSplineMath for IntSquareSpline {
         let a = self.anchors[0];
         let m = self.anchors[1];
         let b = self.anchors[2];
-        
+
         let ma = a.mid(&m);
         let mb = m.mid(&b);
-        
+
         let mm = ma.mid(&mb);
-        
+
         (Self { anchors: [a, ma, mm] }, Self { anchors: [mm, mb, b] })
     }
 
@@ -54,7 +54,7 @@ impl IntBezierSplineMath for IntSquareSpline {
         let mb = LineDivider::new(m, b).point_at(position);
 
         let mm = LineDivider::new(m, b).point_at(position);
-        
+
         (Self { anchors: [a, ma, mm] }, Self { anchors: [mm, mb, b] })
     }
 }

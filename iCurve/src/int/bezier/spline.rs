@@ -1,4 +1,5 @@
 use crate::int::bezier::anchor::IntBezierAnchor;
+use crate::int::bezier::curve::IntBezierCurveSpline;
 use crate::int::bezier::length::IntSplineLength;
 use crate::int::bezier::point::IntSplinePoints;
 use crate::int::bezier::short::{IntShort, IntSplineShorts};
@@ -7,7 +8,6 @@ use crate::int::bezier::spline_line::IntLineSpline;
 use crate::int::bezier::spline_square::IntSquareSpline;
 use crate::int::math::point::IntPoint;
 use alloc::vec::Vec;
-use crate::int::bezier::curve::IntBezierCurveSpline;
 
 #[derive(Debug, Clone)]
 pub(crate) enum IntBezierSpline {

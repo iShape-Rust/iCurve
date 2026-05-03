@@ -32,13 +32,13 @@ mod tests {
     #[test]
     fn test_00() {
         let spline = IntLineSpline {
-            anchors: [
-                IntPoint::new(0, 0),
-                IntPoint::new(100, 100),
-            ],
+            anchors: [IntPoint::new(0, 0), IntPoint::new(100, 100)],
         };
 
-        assert_eq!(spline.avg_length(VectorNormalization16Util::normalize_unit_value(0.8), 3) as usize, 141);
+        assert_eq!(
+            spline.avg_length(VectorNormalization16Util::normalize_unit_value(0.8), 3) as usize,
+            141
+        );
     }
 
     #[test]
@@ -51,7 +51,10 @@ mod tests {
             ],
         };
 
-        assert_eq!(spline.avg_length(VectorNormalization16Util::normalize_unit_value(0.8), 3) as usize, 161);
+        assert_eq!(
+            spline.avg_length(VectorNormalization16Util::normalize_unit_value(0.8), 3) as usize,
+            161
+        );
     }
 
     #[test]
@@ -65,6 +68,9 @@ mod tests {
             ],
         };
 
-        assert_eq!(spline.avg_length(VectorNormalization16Util::normalize_unit_value(0.8), 3) as usize, 153);
+        assert_eq!(
+            spline.avg_length(VectorNormalization16Util::normalize_unit_value(0.8), 3) as usize,
+            153
+        );
     }
 }
