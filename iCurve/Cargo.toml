@@ -5,10 +5,12 @@ edition = "2024"
 
 [features]
 default = []
+eframe = ["dep:eframe"]
 
 [dependencies]
 i_overlay = { path = "../../iOverlay/iOverlay" }
 serde = { version = "^1.0", default-features = false, features = ["derive"], optional = true }
+eframe = { optional = true, version = ">=0.30" }
 
 [dev-dependencies]
 rand = { version = "~0.10", features = ["alloc"] }

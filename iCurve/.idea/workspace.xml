@@ -12,63 +12,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="dceeef0d-6d00-4728-bff8-bba53a6178e4" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/flatten/collider.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/flatten/mod.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/flatten/segment.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dictionaries/project.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DebugApp/convex/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../DebugApp/convex/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DebugApp/convex/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/../DebugApp/convex/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/four_vec.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/link_list.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/eframe/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/eframe/point.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/float/math/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/float/math/offset.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/float/math/point.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/float/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/base/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/base/spline.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/bezier/anchor.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/bezier/curve.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/bezier/length.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/bezier/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/bezier/path.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/bezier/point.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/bezier/position.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/bezier/short.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/bezier/spline.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/bezier/spline_cubic.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/bezier/spline_line.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/bezier/spline_square.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/circle/arc.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/circle/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/collision/approximation.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/collision/collider.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/collision/contains_point.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/collision/convex.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/collision/four_convex.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/collision/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/collision/pair.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/collision/solver.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/collision/space.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/collision/split.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/collision/x_segment.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/math/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/math/normalize.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/math/offset.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/math/point.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/math/range.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/math/rect.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/math/segment.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/math/x_segment.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/util/closest_point.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/int/util/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/quant/mod.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/quant/space.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/flatten/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/flatten/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/flatten/segment.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/flatten/segment.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -152,7 +102,8 @@
       <option name="presentableId" value="Default" />
       <updated>1778346069506</updated>
       <workItem from="1778346070632" duration="6091000" />
-      <workItem from="1778434675251" duration="884000" />
+      <workItem from="1778434675251" duration="2066000" />
+      <workItem from="1778523414673" duration="3624000" />
     </task>
     <servers />
   </component>
