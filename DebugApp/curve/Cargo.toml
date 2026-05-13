@@ -1,8 +1,8 @@
 [package]
-name = "bezier_3_debug"
+name = "curve_debug"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-eframe = "^0.32.0"
+eframe = "^0.34.0"
 debug_ui = { path = "../debug_ui" }
