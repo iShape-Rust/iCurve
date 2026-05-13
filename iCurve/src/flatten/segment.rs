@@ -19,16 +19,16 @@ pub(crate) struct SubSegment<T: FloatNumber> {
     pub(crate) t0: T,
     pub(crate) t1: T,
 }
-pub(crate) struct LineSegment<P: FloatPointCompatible> {
-    pub(crate) control_points: [P; 2],
+pub struct LineSegment<P: FloatPointCompatible> {
+    pub control_points: [P; 2],
 }
 
-pub(crate) struct QuadSegment<P: FloatPointCompatible> {
-    pub(crate) control_points: [P; 3],
+pub struct QuadSegment<P: FloatPointCompatible> {
+    pub control_points: [P; 3],
 }
 
-pub(crate) struct CubicSegment<P: FloatPointCompatible> {
-    pub(crate) control_points: [P; 4],
+pub struct CubicSegment<P: FloatPointCompatible> {
+    pub control_points: [P; 4],
 }
 
 pub(crate) struct ArcSegment<P: FloatPointCompatible> {

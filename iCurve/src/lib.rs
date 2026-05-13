@@ -1,4 +1,5 @@
 #![no_std]
 extern crate alloc;
+pub mod collections;
 pub mod curve;
-mod flatten;
+pub mod flatten;
