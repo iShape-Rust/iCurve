@@ -1416,8 +1416,6 @@ dependencies = [
 [[package]]
 name = "i_float"
 version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36c8fc32799c6cde9c7604188e4ece27acf3ddcb2d40b038113e3f0bc525aac7"
 dependencies = [
  "libm",
 ]
@@ -1441,8 +1439,6 @@ dependencies = [
 [[package]]
 name = "i_shape"
 version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d12d0501b145b966d1801f90e4fcc20b65b39617055d131efa8699068bb1de1"
 dependencies = [
  "i_float",
 ]
@@ -1450,8 +1446,6 @@ dependencies = [
 [[package]]
 name = "i_tree"
 version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4804bdc1dc124eb7e1aa9e144ecc04096bcf787a10a15fa44af682b51f0f6cce"
 
 [[package]]
 name = "icu_collections"

@@ -8,6 +8,7 @@ use i_curve::flatten::{
     segment::{CubicSegment, LineSegment, QuadSegment},
 };
 use i_overlay::i_float::{adapter::FloatPointAdapter, float::rect::FloatRect};
+use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 const ADAPTER_SCALE: f32 = 1.0;
@@ -21,12 +22,12 @@ pub fn paint_convex_shape(painter: &Painter, rect: Rect, camera: &Camera, curve:
     }
 }
 
-trait CurveToIntConvexShape {
-    fn to_int_convex_shapes(&self, adapter: FloatPointAdapter<[f32; 2]>) -> Vec<Vec<IntPoint>>;
+trait CurveToIntConvexShape<I: IntNumber> {
+    fn to_int_convex_shapes(&self, adapter: FloatPointAdapter<[f32; 2], I>) -> Vec<Vec<IntPoint<I>>>;
 }
 
-impl CurveToIntConvexShape for DebugCurve {
-    fn to_int_convex_shapes(&self, adapter: FloatPointAdapter<[f32; 2]>) -> Vec<Vec<IntPoint>> {
+impl<I: IntNumber> CurveToIntConvexShape<I> for DebugCurve {
+    fn to_int_convex_shapes(&self, adapter: FloatPointAdapter<[f32; 2], I>) -> Vec<Vec<IntPoint<I>>> {
         match self {
             DebugCurve::Line(points) => vec![
                 LineSegment {
@@ -113,8 +114,8 @@ fn paint_int_convex(painter: &Painter, rect: Rect, camera: &Camera, hull: &[IntP
     }
 }
 
-fn unit_adapter() -> FloatPointAdapter<[f32; 2]> {
-    FloatPointAdapter {
+fn unit_adapter<I: IntNumber>() -> FloatPointAdapter<[f32; 2], I> {
+    FloatPointAdapter::wi {
         dir_scale: ADAPTER_SCALE,
         inv_scale: 1.0 / ADAPTER_SCALE,
         offset: [0.0, 0.0],
@@ -131,9 +132,9 @@ fn float_point(point: Pos2) -> [f32; 2] {
     [point.x, point.y]
 }
 
-fn int_to_float(point: IntPoint) -> Pos2 {
+fn int_to_float<I: IntNumber>(point: IntPoint<I>) -> Pos2 {
     Pos2::new(
-        point.x as f32 / ADAPTER_SCALE,
-        point.y as f32 / ADAPTER_SCALE,
+        point.x.to_f32() / ADAPTER_SCALE,
+        point.y.to_f32() / ADAPTER_SCALE,
     )
 }

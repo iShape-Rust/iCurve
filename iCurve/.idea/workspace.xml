@@ -12,19 +12,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="dceeef0d-6d00-4728-bff8-bba53a6178e4" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/flatten/convex.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../DebugApp/bezier_3/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../DebugApp/bezier_3/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../DebugApp/bezier_3/.idea/bezier_3.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../DebugApp/bezier_3/.idea/modules.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../DebugApp/bezier_3/.idea/vcs.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../DebugApp/bezier_3/Cargo.lock" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../DebugApp/bezier_3/Cargo.toml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../DebugApp/bezier_3/src/main.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DebugApp/convex/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../DebugApp/convex/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../DebugApp/convex/src/convex.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../DebugApp/convex/src/convex.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/flatten/collider.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/flatten/convex.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/flatten/convex.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/flatten/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/flatten/mod.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/flatten/segment.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/flatten/segment.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -111,7 +105,8 @@
       <workItem from="1778434675251" duration="2066000" />
       <workItem from="1778523414673" duration="3624000" />
       <workItem from="1778585653478" duration="9913000" />
-      <workItem from="1778655449556" duration="3067000" />
+      <workItem from="1778655449556" duration="3068000" />
+      <workItem from="1779557391674" duration="1921000" />
     </task>
     <servers />
   </component>

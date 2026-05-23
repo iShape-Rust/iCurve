@@ -3,39 +3,41 @@ use crate::flatten::segment::{CubicSegment, LineSegment, QuadSegment};
 use core::cmp::Ordering;
 use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
+use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
-pub trait ToIntConvex<P: FloatPointCompatible> {
-    fn to_int_convex(&self, adapter: FloatPointAdapter<P>) -> StackVec<IntPoint, 4>;
+pub trait ToIntConvex<P: FloatPointCompatible, I: IntNumber> {
+    fn to_int_convex(&self, adapter: FloatPointAdapter<P, I>) -> StackVec<IntPoint<I>, 4>;
 }
 
-impl<P: FloatPointCompatible> ToIntConvex<P> for CubicSegment<P> {
+impl<P: FloatPointCompatible, I: IntNumber> ToIntConvex<P, I> for CubicSegment<P> {
     #[inline]
-    fn to_int_convex(&self, adapter: FloatPointAdapter<P>) -> StackVec<IntPoint, 4> {
+    fn to_int_convex(&self, adapter: FloatPointAdapter<P, I>) -> StackVec<IntPoint<I>, 4> {
         self.control_points.map(|p| adapter.float_to_int(&p)).to_convex()
     }
 }
 
-impl<P: FloatPointCompatible> ToIntConvex<P> for QuadSegment<P> {
+impl<P: FloatPointCompatible, I: IntNumber> ToIntConvex<P, I> for QuadSegment<P> {
     #[inline]
-    fn to_int_convex(&self, adapter: FloatPointAdapter<P>) -> StackVec<IntPoint, 4> {
+    fn to_int_convex(&self, adapter: FloatPointAdapter<P, I>) -> StackVec<IntPoint<I>, 4> {
         self.control_points.map(|p| adapter.float_to_int(&p)).to_convex()
     }
 }
 
-impl<P: FloatPointCompatible> ToIntConvex<P> for LineSegment<P> {
+impl<P: FloatPointCompatible, I: IntNumber> ToIntConvex<P, I> for LineSegment<P> {
     #[inline]
-    fn to_int_convex(&self, adapter: FloatPointAdapter<P>) -> StackVec<IntPoint, 4> {
+    fn to_int_convex(&self, adapter: FloatPointAdapter<P, I>) -> StackVec<IntPoint<I>, 4> {
         self.control_points.map(|p| adapter.float_to_int(&p)).to_convex()
     }
 }
 
-trait ToConvex {
-    fn to_convex(&self) -> StackVec<IntPoint, 4>;
+trait ToConvex<I: IntNumber> {
+    fn to_convex(&self) -> StackVec<IntPoint<I>, 4>;
 }
 
-impl ToConvex for [IntPoint] {
-    fn to_convex(&self) -> StackVec<IntPoint, 4> {
+impl<I: IntNumber> ToConvex<I> for [IntPoint<I>] {
+    fn to_convex(&self) -> StackVec<IntPoint<I>, 4> {
         debug_assert!(!self.is_empty());
         debug_assert!(self.len() <= 4);
         let mut result = StackVec::new();
@@ -64,7 +66,7 @@ impl ToConvex for [IntPoint] {
             let bc = b - c;
             let bd = b - d;
             let cross = bd.cross_product(bc);
-            if cross > 0 {
+            if cross > I::Wide::ZERO {
                 result.push(d);
             }
         }
@@ -75,14 +77,14 @@ impl ToConvex for [IntPoint] {
     }
 }
 
-trait Util {
-    fn left_most(&mut self) -> IntPoint;
-    fn edge<const REVERSED: bool>(&mut self, a: IntPoint) -> IntPoint;
+trait Util<I: IntNumber> {
+    fn left_most(&mut self) -> IntPoint<I>;
+    fn edge<const REVERSED: bool>(&mut self, a: IntPoint<I>) -> IntPoint<I>;
 }
 
-impl Util for StackVec<IntPoint, 4> {
+impl<I: IntNumber> Util<I> for StackVec<IntPoint<I>, 4> {
     #[inline]
-    fn left_most(&mut self) -> IntPoint {
+    fn left_most(&mut self) -> IntPoint<I> {
         let mut a = self.buffer[0];
         let mut j = 0;
         let mut i = 1;
@@ -103,7 +105,7 @@ impl Util for StackVec<IntPoint, 4> {
     }
 
     #[inline]
-    fn edge<const REVERSED: bool>(&mut self, a: IntPoint) -> IntPoint {
+    fn edge<const REVERSED: bool>(&mut self, a: IntPoint<I>) -> IntPoint<I> {
         debug_assert!(!self.is_empty());
 
         let mut j = 0;
@@ -116,7 +118,7 @@ impl Util for StackVec<IntPoint, 4> {
             let v = p - a;
             let cross = v.cross_product(e);
 
-            let ord = if REVERSED { 0.cmp(&cross) } else { cross.cmp(&0) };
+            let ord = if REVERSED { I::Wide::ZERO.cmp(&cross) } else { cross.cmp(&I::Wide::ZERO) };
 
             match ord {
                 Ordering::Less => {
