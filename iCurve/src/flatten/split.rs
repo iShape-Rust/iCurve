@@ -2,7 +2,7 @@ use crate::flatten::segment::{CubicSegment, QuadSegment, SegmentKind};
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 
-pub(crate) trait SplitAt<T: FloatNumber> {
+pub trait SplitAt<T: FloatNumber> {
     type Output;
 
     fn split_at(&self, t: T) -> Self::Output;

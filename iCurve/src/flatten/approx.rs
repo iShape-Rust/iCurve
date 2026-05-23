@@ -4,12 +4,12 @@ use i_overlay::i_float::float::number::FloatNumber;
 use crate::flatten::segment::{CubicSegment, QuadSegment, SegmentKind};
 
 #[derive(Clone, Copy)]
-pub(crate) struct LineApproximation<T: FloatNumber> {
-    pub(crate) min_cos: T,
-    pub(crate) min_segment_sqr_length: T,
+pub struct LineApproximation<T: FloatNumber> {
+    pub min_cos: T,
+    pub min_segment_sqr_length: T,
 }
 
-pub(crate) trait LineApproximationSplit<T: FloatNumber> {
+pub trait LineApproximationSplit<T: FloatNumber> {
     fn is_split_required(&self, approximation: LineApproximation<T>) -> bool;
 }
 

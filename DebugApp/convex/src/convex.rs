@@ -7,14 +7,14 @@ use i_curve::flatten::{
     convex::ToIntConvex,
     segment::{CubicSegment, LineSegment, QuadSegment},
 };
-use i_overlay::i_float::{adapter::FloatPointAdapter, float::rect::FloatRect};
 use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::i_float::{adapter::FloatPointAdapter, float::rect::FloatRect};
 use i_overlay::i_shape::int::IntPoint;
 
 const ADAPTER_SCALE: f32 = 1.0;
 
 pub fn paint_convex_shape(painter: &Painter, rect: Rect, camera: &Camera, curve: &DebugCurve) {
-    let adapter = unit_adapter();
+    let adapter = unit_adapter::<i32>();
     let shapes = curve.to_int_convex_shapes(adapter);
 
     for shape in shapes {
@@ -23,11 +23,17 @@ pub fn paint_convex_shape(painter: &Painter, rect: Rect, camera: &Camera, curve:
 }
 
 trait CurveToIntConvexShape<I: IntNumber> {
-    fn to_int_convex_shapes(&self, adapter: FloatPointAdapter<[f32; 2], I>) -> Vec<Vec<IntPoint<I>>>;
+    fn to_int_convex_shapes(
+        &self,
+        adapter: FloatPointAdapter<[f32; 2], I>,
+    ) -> Vec<Vec<IntPoint<I>>>;
 }
 
 impl<I: IntNumber> CurveToIntConvexShape<I> for DebugCurve {
-    fn to_int_convex_shapes(&self, adapter: FloatPointAdapter<[f32; 2], I>) -> Vec<Vec<IntPoint<I>>> {
+    fn to_int_convex_shapes(
+        &self,
+        adapter: FloatPointAdapter<[f32; 2], I>,
+    ) -> Vec<Vec<IntPoint<I>>> {
         match self {
             DebugCurve::Line(points) => vec![
                 LineSegment {
@@ -58,10 +64,13 @@ impl<I: IntNumber> CurveToIntConvexShape<I> for DebugCurve {
     }
 }
 
-fn arc_to_int_convex_shape(
+fn arc_to_int_convex_shape<I>(
     arc: ArcCurve,
-    adapter: FloatPointAdapter<[f32; 2]>,
-) -> Vec<Vec<IntPoint>> {
+    adapter: FloatPointAdapter<[f32; 2], I>,
+) -> Vec<Vec<IntPoint<I>>>
+where
+    I: IntNumber,
+{
     let sample_count = 48;
     let mut points = Vec::with_capacity(sample_count + 1);
 
@@ -115,17 +124,15 @@ fn paint_int_convex(painter: &Painter, rect: Rect, camera: &Camera, hull: &[IntP
 }
 
 fn unit_adapter<I: IntNumber>() -> FloatPointAdapter<[f32; 2], I> {
-    FloatPointAdapter::wi {
-        dir_scale: ADAPTER_SCALE,
-        inv_scale: 1.0 / ADAPTER_SCALE,
-        offset: [0.0, 0.0],
-        rect: FloatRect {
+    FloatPointAdapter::with_scale(
+        FloatRect {
             min_x: -1_000_000.0,
             max_x: 1_000_000.0,
             min_y: -1_000_000.0,
             max_y: 1_000_000.0,
         },
-    }
+        ADAPTER_SCALE,
+    )
 }
 
 fn float_point(point: Pos2) -> [f32; 2] {

@@ -724,6 +724,7 @@ version = "0.1.0"
 dependencies = [
  "debug_ui",
  "eframe",
+ "i_curve",
 ]
 
 [[package]]
@@ -1406,6 +1407,47 @@ name = "hexf-parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
+
+[[package]]
+name = "i_curve"
+version = "0.1.0"
+dependencies = [
+ "i_overlay",
+]
+
+[[package]]
+name = "i_float"
+version = "2.0.0"
+dependencies = [
+ "libm",
+]
+
+[[package]]
+name = "i_key_sort"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d73d122b937fca067feb0ad74f62388920272b27c356d4df2d0cfdd59e044cf0"
+
+[[package]]
+name = "i_overlay"
+version = "6.0.0"
+dependencies = [
+ "i_float",
+ "i_key_sort",
+ "i_shape",
+ "i_tree",
+]
+
+[[package]]
+name = "i_shape"
+version = "2.0.0"
+dependencies = [
+ "i_float",
+]
+
+[[package]]
+name = "i_tree"
+version = "0.18.0"
 
 [[package]]
 name = "icu_collections"
