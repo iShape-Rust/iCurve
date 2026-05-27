@@ -2,6 +2,7 @@ use crate::curve::arc::EllipticArc;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
 use crate::flatten::cubic::{CubicSelfIntersection, find_cubic_self_intersection};
+use crate::flatten::rect::ShapeFloatRect;
 use crate::flatten::segment::{
     ArcSegment, CubicSegment, LineSegment, NormalizedSegment, QuadSegment, Segment,
 };
@@ -15,7 +16,7 @@ use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::triangle::Triangle;
 
-pub(crate) trait ShapeToSegments<P: FloatPointCompatible> {
+pub trait ShapeToSegments<P: FloatPointCompatible> {
     fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<Segment<P>>;
 
     fn to_normalize_segments_with_adapter<I: IntNumber>(
@@ -314,7 +315,7 @@ impl<P: FloatPointCompatible> From<Option<NormalizedSegment<P>>> for TryCubicRes
     }
 }
 
-trait ArcEndPoint<P: FloatPointCompatible> {
+pub(crate) trait ArcEndPoint<P: FloatPointCompatible> {
     fn end_point(&self) -> P;
 }
 
@@ -342,45 +343,6 @@ impl<P: FloatPointCompatible> ShapeSegmentCount for CurveShape<P> {
         self.contours
             .iter()
             .fold(0, |count, contour| count + contour.segments.len())
-    }
-}
-
-trait ShapeFloatRect<P: FloatPointCompatible> {
-    fn float_rect(&self) -> Option<FloatRect<P::Scalar>>;
-}
-
-impl<P: FloatPointCompatible> ShapeFloatRect<P> for CurveShape<P> {
-    fn float_rect(&self) -> Option<FloatRect<P::Scalar>> {
-        let mut rect = None;
-        for contour in &self.contours {
-            add_to_rect(&mut rect, contour.start);
-            for segment in &contour.segments {
-                match *segment {
-                    CurveSegment::Line { to } => add_to_rect(&mut rect, to),
-                    CurveSegment::Quad { ctrl, to } => {
-                        add_to_rect(&mut rect, ctrl);
-                        add_to_rect(&mut rect, to);
-                    }
-                    CurveSegment::Cubic { ctrl0, ctrl1, to } => {
-                        add_to_rect(&mut rect, ctrl0);
-                        add_to_rect(&mut rect, ctrl1);
-                        add_to_rect(&mut rect, to);
-                    }
-                    CurveSegment::Arc { ref arc } => {
-                        add_to_rect(&mut rect, arc.center);
-                        add_to_rect(&mut rect, arc.end_point());
-                    }
-                }
-            }
-        }
-        rect
-    }
-}
-
-fn add_to_rect<P: FloatPointCompatible>(rect: &mut Option<FloatRect<P::Scalar>>, point: P) {
-    match rect {
-        Some(rect) => rect.unsafe_add_point(&point),
-        None => *rect = Some(FloatRect::with_point(point)),
     }
 }
 

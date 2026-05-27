@@ -2,16 +2,16 @@ use i_overlay::core::overlay::ShapeType;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 
-pub(crate) enum NormalizedSegment<P: FloatPointCompatible> {
+pub enum NormalizedSegment<P: FloatPointCompatible> {
     Line(LineSegment<P>),
     Quad(QuadSegment<P>),
     Cubic(CubicSegment<P>),
     Arc(ArcSegment<P>),
 }
 
-pub(crate) struct Segment<P: FloatPointCompatible> {
-    pub(crate) normalized_segment: NormalizedSegment<P>,
-    pub(crate) shape_type: ShapeType,
+pub struct Segment<P: FloatPointCompatible> {
+    pub normalized_segment: NormalizedSegment<P>,
+    pub shape_type: ShapeType,
 }
 
 pub(crate) struct SubSegment<T: FloatNumber> {
@@ -31,12 +31,12 @@ pub struct CubicSegment<P: FloatPointCompatible> {
     pub control_points: [P; 4],
 }
 
-pub(crate) struct ArcSegment<P: FloatPointCompatible> {
-    pub(crate) p0: P,
-    pub(crate) p1: P,
-    pub(crate) center: P,
-    pub(crate) radii: P,
-    pub(crate) rotation: P::Scalar,
-    pub(crate) start_angle: P::Scalar,
-    pub(crate) sweep_angle: P::Scalar,
+pub struct ArcSegment<P: FloatPointCompatible> {
+    pub p0: P,
+    pub p1: P,
+    pub center: P,
+    pub radii: P,
+    pub rotation: P::Scalar,
+    pub start_angle: P::Scalar,
+    pub sweep_angle: P::Scalar,
 }
