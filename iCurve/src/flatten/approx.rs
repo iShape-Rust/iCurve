@@ -1,7 +1,7 @@
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 
-use crate::flatten::segment::{CubicSegment, QuadSegment, SegmentKind};
+use crate::flatten::segment::{CubicSegment, NormalizedSegment, QuadSegment};
 
 #[derive(Clone, Copy)]
 pub struct LineApproximation<T: FloatNumber> {
@@ -13,7 +13,7 @@ pub trait LineApproximationSplit<T: FloatNumber> {
     fn is_split_required(&self, approximation: LineApproximation<T>) -> bool;
 }
 
-impl<P: FloatPointCompatible> LineApproximationSplit<P::Scalar> for SegmentKind<P> {
+impl<P: FloatPointCompatible> LineApproximationSplit<P::Scalar> for NormalizedSegment<P> {
     fn is_split_required(&self, approximation: LineApproximation<P::Scalar>) -> bool {
         match self {
             Self::Line(_) => false,
@@ -131,8 +131,8 @@ mod tests {
     }
 
     #[test]
-    fn segment_kind_line_split_not_required() {
-        let segment = SegmentKind::Line(LineSegment {
+    fn segment_line_split_not_required() {
+        let segment = NormalizedSegment::Line(LineSegment {
             control_points: [[0.0, 0.0], [1.0, 0.0]],
         });
 
@@ -141,8 +141,8 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Arc segment approximation is not supported")]
-    fn segment_kind_arc_panics() {
-        let segment = SegmentKind::Arc(ArcSegment {
+    fn segment_arc_panics() {
+        let segment = NormalizedSegment::Arc(ArcSegment {
             p0: [1.0, 0.0],
             p1: [0.0, 1.0],
             center: [0.0, 0.0],

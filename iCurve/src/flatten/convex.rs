@@ -118,7 +118,11 @@ impl<I: IntNumber> Util<I> for StackVec<IntPoint<I>, 4> {
             let v = p - a;
             let cross = v.cross_product(e);
 
-            let ord = if REVERSED { I::Wide::ZERO.cmp(&cross) } else { cross.cmp(&I::Wide::ZERO) };
+            let ord = if REVERSED {
+                I::Wide::ZERO.cmp(&cross)
+            } else {
+                cross.cmp(&I::Wide::ZERO)
+            };
 
             match ord {
                 Ordering::Less => {

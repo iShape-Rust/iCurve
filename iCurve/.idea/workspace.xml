@@ -12,8 +12,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="dceeef0d-6d00-4728-bff8-bba53a6178e4" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/../DebugApp/convex/src/convex.rs" beforeDir="false" afterPath="$PROJECT_DIR$/../DebugApp/convex/src/convex.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/flatten/approx.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/flatten/approx.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/flatten/convert.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/flatten/convert.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/flatten/convex.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/flatten/convex.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/flatten/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/flatten/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/flatten/segment.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/flatten/segment.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/flatten/split.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/flatten/split.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -101,7 +106,10 @@
       <workItem from="1778523414673" duration="3624000" />
       <workItem from="1778585653478" duration="9913000" />
       <workItem from="1778655449556" duration="3068000" />
-      <workItem from="1779557391674" duration="2861000" />
+      <workItem from="1779557391674" duration="3577000" />
+      <workItem from="1779805074386" duration="10977000" />
+      <workItem from="1779822506998" duration="1883000" />
+      <workItem from="1779863555731" duration="2298000" />
     </task>
     <servers />
   </component>

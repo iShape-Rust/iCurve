@@ -2,16 +2,16 @@ use i_overlay::core::overlay::ShapeType;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 
-pub(crate) struct Segment<P: FloatPointCompatible> {
-    pub(crate) segment_kind: SegmentKind<P>,
-    pub(crate) shape_type: ShapeType,
-}
-
-pub(crate) enum SegmentKind<P: FloatPointCompatible> {
+pub(crate) enum NormalizedSegment<P: FloatPointCompatible> {
     Line(LineSegment<P>),
     Quad(QuadSegment<P>),
     Cubic(CubicSegment<P>),
     Arc(ArcSegment<P>),
+}
+
+pub(crate) struct Segment<P: FloatPointCompatible> {
+    pub(crate) normalized_segment: NormalizedSegment<P>,
+    pub(crate) shape_type: ShapeType,
 }
 
 pub(crate) struct SubSegment<T: FloatNumber> {

@@ -1,4 +1,4 @@
-use crate::flatten::segment::{CubicSegment, QuadSegment, SegmentKind};
+use crate::flatten::segment::{CubicSegment, NormalizedSegment, QuadSegment};
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 
@@ -12,7 +12,7 @@ pub trait SplitAt<T: FloatNumber> {
     }
 }
 
-impl<P: FloatPointCompatible> SplitAt<P::Scalar> for SegmentKind<P> {
+impl<P: FloatPointCompatible> SplitAt<P::Scalar> for NormalizedSegment<P> {
     type Output = [Self; 2];
 
     fn split_at(&self, t: P::Scalar) -> Self::Output {
@@ -127,15 +127,15 @@ mod tests {
     }
 
     #[test]
-    fn split_segment_kind_at_half() {
-        let segment = SegmentKind::Quad(QuadSegment {
+    fn split_segment_at_half() {
+        let segment = NormalizedSegment::Quad(QuadSegment {
             control_points: [[0.0, 0.0], [2.0, 2.0], [4.0, 0.0]],
         });
 
         let [a, b] = segment.split_at(0.5);
 
         match (a, b) {
-            (SegmentKind::Quad(a), SegmentKind::Quad(b)) => {
+            (NormalizedSegment::Quad(a), NormalizedSegment::Quad(b)) => {
                 assert_eq!(a.control_points, [[0.0, 0.0], [1.0, 1.0], [2.0, 1.0]]);
                 assert_eq!(b.control_points, [[2.0, 1.0], [3.0, 1.0], [4.0, 0.0]]);
             }
@@ -145,8 +145,8 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Line segment split is not supported")]
-    fn split_segment_kind_line_panics() {
-        let line = SegmentKind::Line(LineSegment {
+    fn split_segment_line_panics() {
+        let line = NormalizedSegment::Line(LineSegment {
             control_points: [[0.0, 0.0], [1.0, 1.0]],
         });
 
@@ -155,8 +155,8 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Arc segment split is not supported")]
-    fn split_segment_kind_arc_panics() {
-        let arc = SegmentKind::Arc(ArcSegment {
+    fn split_segment_arc_panics() {
+        let arc = NormalizedSegment::Arc(ArcSegment {
             p0: [1.0, 0.0],
             p1: [0.0, 1.0],
             center: [0.0, 0.0],
