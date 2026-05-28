@@ -5,6 +5,7 @@ use crate::flatten::rect::ShapeFloatRect;
 use crate::flatten::segment::Segment;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+use i_key_sort::sort::key::SortKey;
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::core::overlay_rule::OverlayRule;
@@ -13,6 +14,7 @@ use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
+use i_tree::{Expiration, LayoutNumber};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CurveSplitOptions<F: FloatNumber, I: IntNumber = i32> {
@@ -81,11 +83,16 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         }
     }
 
-    pub fn overlay(&mut self, _overlay_rule: OverlayRule, _fill_rule: FillRule) -> Vec<CurveShape<P>> {
-        Vec::new()
+    pub fn overlay(&mut self, overlay_rule: OverlayRule, fill_rule: FillRule) -> Vec<CurveShape<P>>
+    where
+        I: Expiration + LayoutNumber + SortKey,
+        P::Scalar: Send + Sync,
+    {
+        let resolved = self.resolve(overlay_rule, fill_rule);
+        self.recombine(resolved)
     }
 
-    fn append_resource_segments<R: CurveResource<P> + ?Sized>(
+    pub(super) fn append_resource_segments<R: CurveResource<P> + ?Sized>(
         resource: &R,
         shape_type: ShapeType,
         adapter: &FloatPointAdapter<P, I>,
@@ -96,7 +103,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         }
     }
 
-    fn resource_rect<R: CurveResource<P> + ?Sized>(resource: &R) -> Option<FloatRect<P::Scalar>> {
+    pub(super) fn resource_rect<R: CurveResource<P> + ?Sized>(resource: &R) -> Option<FloatRect<P::Scalar>> {
         let mut rect = None;
         for contour in resource.iter_contours() {
             rect = FloatRect::with_optional_rects(rect, contour.float_rect());
@@ -104,7 +111,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         rect
     }
 
-    fn resource_segments_count<R: CurveResource<P> + ?Sized>(resource: &R) -> usize {
+    pub(super) fn resource_segments_count<R: CurveResource<P> + ?Sized>(resource: &R) -> usize {
         resource
             .iter_contours()
             .fold(0, |count, contour| count + contour.segments.len())

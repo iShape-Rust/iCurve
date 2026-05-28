@@ -9,6 +9,11 @@ use i_overlay::i_float::int::number::int::IntNumber;
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
     pub(super) fn split(&self) -> Vec<SubSegment<P::Scalar>> {
+        let sub_segments = self.pre_split();
+        sub_segments
+    }
+
+    fn pre_split(&self) -> Vec<SubSegment<P::Scalar>> {
         let mut sub_segments = Vec::<SubSegment<P::Scalar>>::with_capacity(16 * self.segments.len());
 
         let min_segment_length = self.adapter.len_to_float(self.options.split.min_length);

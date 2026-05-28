@@ -1,4 +1,4 @@
-use crate::flatten::segment::{CubicSegment, NormalizedSegment, QuadSegment};
+use crate::flatten::segment::{CubicSegment, LineSegment, NormalizedSegment, QuadSegment};
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 
@@ -17,7 +17,10 @@ impl<P: FloatPointCompatible> SplitAt<P::Scalar> for NormalizedSegment<P> {
 
     fn split_at(&self, t: P::Scalar) -> Self::Output {
         match self {
-            Self::Line(_) => panic!("Line segment split is not supported"),
+            Self::Line(segment) => {
+                let [a, b] = segment.split_at(t);
+                [Self::Line(a), Self::Line(b)]
+            }
             Self::Arc(_) => panic!("Arc segment split is not supported"),
             Self::Quad(segment) => {
                 let [a, b] = segment.split_at(t);
@@ -28,6 +31,24 @@ impl<P: FloatPointCompatible> SplitAt<P::Scalar> for NormalizedSegment<P> {
                 [Self::Cubic(a), Self::Cubic(b)]
             }
         }
+    }
+}
+
+impl<P: FloatPointCompatible> SplitAt<P::Scalar> for LineSegment<P> {
+    type Output = [Self; 2];
+
+    fn split_at(&self, t: P::Scalar) -> Self::Output {
+        let [p0, p1] = self.control_points;
+        let p01 = point_at(p0, p1, t);
+
+        [
+            Self {
+                control_points: [p0, p01],
+            },
+            Self {
+                control_points: [p01, p1],
+            },
+        ]
     }
 }
 
@@ -144,13 +165,32 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Line segment split is not supported")]
-    fn split_segment_line_panics() {
+    fn split_line_at_half() {
+        let line = LineSegment {
+            control_points: [[0.0, 0.0], [2.0, 2.0]],
+        };
+
+        let [a, b] = line.split_at(0.5);
+
+        assert_eq!(a.control_points, [[0.0, 0.0], [1.0, 1.0]]);
+        assert_eq!(b.control_points, [[1.0, 1.0], [2.0, 2.0]]);
+    }
+
+    #[test]
+    fn split_segment_line() {
         let line = NormalizedSegment::Line(LineSegment {
             control_points: [[0.0, 0.0], [1.0, 1.0]],
         });
 
-        line.split_at(0.5);
+        let [a, b] = line.split_at(0.5);
+
+        match (a, b) {
+            (NormalizedSegment::Line(a), NormalizedSegment::Line(b)) => {
+                assert_eq!(a.control_points, [[0.0, 0.0], [0.5, 0.5]]);
+                assert_eq!(b.control_points, [[0.5, 0.5], [1.0, 1.0]]);
+            }
+            _ => panic!("Expected line segments"),
+        }
     }
 
     #[test]

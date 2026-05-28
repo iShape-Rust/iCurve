@@ -14,6 +14,7 @@ pub struct Segment<P: FloatPointCompatible> {
     pub shape_type: ShapeType,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct SubSegment<T: FloatNumber> {
     pub(crate) segment_index: usize,
     pub(crate) t0: T,
