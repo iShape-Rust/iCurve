@@ -1,4 +1,5 @@
 use crate::curve::arc::EllipticArc;
+use crate::curve::contour::CurveContour;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
 use crate::flatten::cubic::{CubicSelfIntersection, find_cubic_self_intersection};
@@ -40,25 +41,62 @@ impl<P: FloatPointCompatible> ShapeToSegments<P> for CurveShape<P> {
     ) -> Vec<Segment<P>> {
         let mut result = Vec::with_capacity(self.segments_count());
 
-        let mut buffer = Vec::with_capacity(8);
-
         for contour in &self.contours {
-            let mut point = contour.start;
-
-            for curve_segment in &contour.segments {
-                let next = curve_segment.normalize(point, adapter, &mut buffer);
-                for normalized_segment in buffer.drain(..) {
-                    result.push(Segment {
-                        normalized_segment,
-                        shape_type,
-                    });
-                }
-
-                point = next;
-            }
+            contour.extend_normalize_segments_with_adapter(shape_type, adapter, &mut result);
         }
 
         result
+    }
+}
+
+impl<P: FloatPointCompatible> ShapeToSegments<P> for CurveContour<P> {
+    fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<Segment<P>> {
+        let rect = self.float_rect().unwrap_or(FloatRect::zero());
+        let adapter = FloatPointAdapter::<P, i32>::new(rect);
+        self.to_normalize_segments_with_adapter(shape_type, &adapter)
+    }
+
+    fn to_normalize_segments_with_adapter<I: IntNumber>(
+        &self,
+        shape_type: ShapeType,
+        adapter: &FloatPointAdapter<P, I>,
+    ) -> Vec<Segment<P>> {
+        let mut result = Vec::with_capacity(self.segments_count());
+        self.extend_normalize_segments_with_adapter(shape_type, adapter, &mut result);
+        result
+    }
+}
+
+trait ContourToSegments<P: FloatPointCompatible> {
+    fn extend_normalize_segments_with_adapter<I: IntNumber>(
+        &self,
+        shape_type: ShapeType,
+        adapter: &FloatPointAdapter<P, I>,
+        output: &mut Vec<Segment<P>>,
+    );
+}
+
+impl<P: FloatPointCompatible> ContourToSegments<P> for CurveContour<P> {
+    fn extend_normalize_segments_with_adapter<I: IntNumber>(
+        &self,
+        shape_type: ShapeType,
+        adapter: &FloatPointAdapter<P, I>,
+        output: &mut Vec<Segment<P>>,
+    ) {
+        let mut point = self.start;
+        let mut buffer = Vec::with_capacity(8);
+
+        for curve_segment in &self.segments {
+            let next = curve_segment.normalize(point, adapter, &mut buffer);
+            for normalized_segment in buffer.drain(..) {
+                output.push(Segment {
+                    normalized_segment,
+                    shape_type,
+                });
+            }
+
+            point = next;
+        }
     }
 }
 
@@ -343,6 +381,12 @@ impl<P: FloatPointCompatible> ShapeSegmentCount for CurveShape<P> {
         self.contours
             .iter()
             .fold(0, |count, contour| count + contour.segments.len())
+    }
+}
+
+impl<P: FloatPointCompatible> ShapeSegmentCount for CurveContour<P> {
+    fn segments_count(&self) -> usize {
+        self.segments.len()
     }
 }
 
