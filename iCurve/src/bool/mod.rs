@@ -1,3 +1,4 @@
+mod meta;
 pub mod overlay;
 mod recombine;
 mod resolve;

@@ -455,6 +455,48 @@ mod tests {
     }
 
     #[test]
+    fn convert_closed_polygon_preserves_normalized_closing_endpoint() -> Result<(), CurveError> {
+        let shape = CurveShapeBuilder::new()
+            .move_to([-210.0_f32, -130.0])?
+            .line_to([70.0, -130.0])?
+            .line_to([70.0, 130.0])?
+            .line_to([-216.049_59, 129.983_02])?
+            .line_to([-210.0, -130.0])?
+            .build()?;
+        let clip_bounds = [[-70.0_f32, -170.0], [210.0, 90.0]];
+        let adapter = FloatPointAdapter::<[f32; 2], i32>::with_iter(
+            shape
+                .contours
+                .iter()
+                .flat_map(|contour| {
+                    core::iter::once(&contour.start).chain(contour.segments.iter().filter_map(|segment| {
+                        match segment {
+                            crate::curve::segment::CurveSegment::Line { to } => Some(to),
+                            _ => None,
+                        }
+                    }))
+                })
+                .chain(clip_bounds.iter()),
+        );
+
+        let segments = shape.to_normalize_segments_with_adapter(ShapeType::Subject, &adapter);
+
+        assert_eq!(segments.len(), 4);
+        let last = match &segments[3].normalized_segment {
+            NormalizedSegment::Line(segment) => segment,
+            _ => panic!("expected closing line segment"),
+        };
+
+        assert_eq!(last.control_points[1], shape.contours[0].start);
+        assert_eq!(
+            adapter.float_to_int(&last.control_points[1]),
+            adapter.float_to_int(&shape.contours[0].start)
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn convert_self_intersecting_cubic_segments() -> Result<(), CurveError> {
         let shape = CurveShapeBuilder::new()
             .move_to([0.0, 0.0])?

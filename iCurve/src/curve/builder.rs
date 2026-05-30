@@ -105,6 +105,7 @@ impl<P: FloatPointCompatible> Default for CurveShapeBuilder<P> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::curve::segment::CurveSegment;
 
     #[test]
     fn build_shape_with_multiple_contours() -> Result<(), CurveError> {
@@ -129,6 +130,27 @@ mod tests {
         assert_eq!(shape.contours[0].segments.len(), 2);
         assert_eq!(shape.contours[1].start, [2.0, 2.0]);
         assert_eq!(shape.contours[1].segments.len(), 2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn build_closed_polygon_preserves_explicit_closing_endpoint() -> Result<(), CurveError> {
+        let shape = CurveShapeBuilder::new()
+            .move_to([-210.0_f32, -130.0])?
+            .line_to([70.0, -130.0])?
+            .line_to([70.0, 130.0])?
+            .line_to([-216.049_59, 129.983_02])?
+            .line_to([-210.0, -130.0])?
+            .build()?;
+
+        assert_eq!(shape.contours.len(), 1);
+        let contour = &shape.contours[0];
+        assert_eq!(contour.start, [-210.0, -130.0]);
+        match contour.segments.last() {
+            Some(CurveSegment::Line { to }) => assert_eq!(*to, contour.start),
+            _ => panic!("expected closing line segment"),
+        }
 
         Ok(())
     }

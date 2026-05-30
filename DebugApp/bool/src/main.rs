@@ -3,7 +3,10 @@ mod examples;
 use crate::examples::{BoolExample, CurvePoint, load_examples};
 use debug_ui::{
     camera::Camera,
-    egui::{self, Color32, Painter, Pos2, Rect, Sense, Shape, Stroke, Vec2, epaint::PathShape},
+    egui::{
+        self, Color32, CursorIcon, Id, Painter, Pos2, Rect, Sense, Shape, Stroke, Ui, Vec2,
+        epaint::PathShape,
+    },
     grid::{Grid, paint_camera_readout},
 };
 use i_curve::{
@@ -166,14 +169,17 @@ impl eframe::App for BoolApp {
                     .handle_input(ui, &response, rect, &mut self.camera);
                 self.grid.paint(&painter, rect, &self.camera);
 
-                let active = self.active_example();
+                let camera = self.camera;
 
                 if matches!(self.show_mode, ShowMode::Inputs | ShowMode::Both) {
-                    paint_shapes(
+                    let active = self.active_example_mut();
+                    edit_shapes(
+                        ui,
                         &painter,
                         rect,
-                        &self.camera,
-                        &active.subject,
+                        &camera,
+                        "subject",
+                        &mut active.subject,
                         ShapeStyle {
                             fill: Color32::from_rgba_unmultiplied(73, 170, 255, 18),
                             stroke: Stroke::new(
@@ -183,11 +189,13 @@ impl eframe::App for BoolApp {
                             controls: ControlStyle::input(),
                         },
                     );
-                    paint_shapes(
+                    edit_shapes(
+                        ui,
                         &painter,
                         rect,
-                        &self.camera,
-                        &active.clip,
+                        &camera,
+                        "clip",
+                        &mut active.clip,
                         ShapeStyle {
                             fill: Color32::from_rgba_unmultiplied(255, 107, 107, 18),
                             stroke: Stroke::new(
@@ -204,7 +212,7 @@ impl eframe::App for BoolApp {
                     paint_shapes(
                         &painter,
                         rect,
-                        &self.camera,
+                        &camera,
                         &result,
                         ShapeStyle {
                             fill: Color32::TRANSPARENT,
@@ -222,6 +230,10 @@ impl eframe::App for BoolApp {
 impl BoolApp {
     fn active_example(&self) -> &BoolExample {
         &self.examples[self.active_example]
+    }
+
+    fn active_example_mut(&mut self) -> &mut BoolExample {
+        &mut self.examples[self.active_example]
     }
 
     fn result_shapes(&self) -> Vec<CurveShape<CurvePoint>> {
@@ -312,6 +324,238 @@ fn paint_shapes(
             paint_control_points(painter, rect, camera, contour, style.controls);
         }
     }
+}
+
+fn edit_shapes(
+    ui: &mut Ui,
+    painter: &Painter,
+    rect: Rect,
+    camera: &Camera,
+    id_source: &'static str,
+    shapes: &mut [CurveShape<CurvePoint>],
+    style: ShapeStyle,
+) {
+    interact_shapes(ui, rect, camera, id_source, shapes);
+    paint_shapes(painter, rect, camera, shapes, style);
+}
+
+fn interact_shapes(
+    ui: &mut Ui,
+    rect: Rect,
+    camera: &Camera,
+    id_source: &'static str,
+    shapes: &mut [CurveShape<CurvePoint>],
+) {
+    for (shape_index, shape) in shapes.iter_mut().enumerate() {
+        for (contour_index, contour) in shape.contours.iter_mut().enumerate() {
+            let id = Id::new(id_source).with(shape_index).with(contour_index);
+            interact_contour(ui, rect, camera, id, contour);
+        }
+    }
+}
+
+enum ControlEdit {
+    MoveMatching {
+        point: CurvePoint,
+        delta: Vec2,
+    },
+    MoveArcCenter {
+        center: CurvePoint,
+        start: CurvePoint,
+        end: CurvePoint,
+        delta: Vec2,
+    },
+}
+
+fn interact_contour(
+    ui: &mut Ui,
+    rect: Rect,
+    camera: &Camera,
+    id: Id,
+    contour: &mut CurveContour<CurvePoint>,
+) {
+    let mut edits = Vec::new();
+    let mut start = contour.start;
+    let mut handled_arc_centers = Vec::new();
+    let locks_anchors = contour
+        .segments
+        .iter()
+        .any(|segment| matches!(segment, CurveSegment::Arc { .. }));
+
+    if !locks_anchors
+        && let Some(delta) = interact_point_delta(ui, id.with("start"), rect, camera, start, 3.5)
+    {
+        edits.push(ControlEdit::MoveMatching {
+            point: start,
+            delta,
+        });
+    }
+
+    for (segment_index, segment) in contour.segments.iter().enumerate() {
+        let segment_id = id.with(segment_index);
+
+        match segment {
+            CurveSegment::Line { to } => {
+                if !locks_anchors
+                    && let Some(delta) =
+                        interact_point_delta(ui, segment_id.with("to"), rect, camera, *to, 3.5)
+                {
+                    edits.push(ControlEdit::MoveMatching { point: *to, delta });
+                }
+                start = *to;
+            }
+            CurveSegment::Quad { ctrl, to } => {
+                if let Some(delta) =
+                    interact_point_delta(ui, segment_id.with("ctrl"), rect, camera, *ctrl, 4.5)
+                {
+                    edits.push(ControlEdit::MoveMatching {
+                        point: *ctrl,
+                        delta,
+                    });
+                }
+                if !locks_anchors
+                    && let Some(delta) =
+                        interact_point_delta(ui, segment_id.with("to"), rect, camera, *to, 3.5)
+                {
+                    edits.push(ControlEdit::MoveMatching { point: *to, delta });
+                }
+                start = *to;
+            }
+            CurveSegment::Cubic { ctrl0, ctrl1, to } => {
+                if let Some(delta) =
+                    interact_point_delta(ui, segment_id.with("ctrl0"), rect, camera, *ctrl0, 4.5)
+                {
+                    edits.push(ControlEdit::MoveMatching {
+                        point: *ctrl0,
+                        delta,
+                    });
+                }
+                if let Some(delta) =
+                    interact_point_delta(ui, segment_id.with("ctrl1"), rect, camera, *ctrl1, 4.5)
+                {
+                    edits.push(ControlEdit::MoveMatching {
+                        point: *ctrl1,
+                        delta,
+                    });
+                }
+                if !locks_anchors
+                    && let Some(delta) =
+                        interact_point_delta(ui, segment_id.with("to"), rect, camera, *to, 3.5)
+                {
+                    edits.push(ControlEdit::MoveMatching { point: *to, delta });
+                }
+                start = *to;
+            }
+            CurveSegment::Arc { arc } => {
+                let end = arc_point(arc, 1.0);
+                if !handled_arc_centers
+                    .iter()
+                    .any(|center| same_point(*center, arc.center))
+                {
+                    if let Some(delta) = interact_point_delta(
+                        ui,
+                        segment_id.with("center"),
+                        rect,
+                        camera,
+                        arc.center,
+                        4.0,
+                    ) {
+                        edits.push(ControlEdit::MoveArcCenter {
+                            center: arc.center,
+                            start,
+                            end,
+                            delta,
+                        });
+                    }
+                    handled_arc_centers.push(arc.center);
+                }
+                start = end;
+            }
+        }
+    }
+
+    for edit in edits {
+        match edit {
+            ControlEdit::MoveMatching { point, delta } => {
+                apply_delta_to_matching(contour, point, delta);
+            }
+            ControlEdit::MoveArcCenter {
+                center,
+                start,
+                end,
+                delta,
+            } => {
+                apply_delta_to_matching(contour, center, delta);
+                apply_delta_to_matching(contour, start, delta);
+                apply_delta_to_matching(contour, end, delta);
+            }
+        }
+    }
+}
+
+fn interact_point_delta(
+    ui: &mut Ui,
+    id: Id,
+    rect: Rect,
+    camera: &Camera,
+    point: CurvePoint,
+    radius: f32,
+) -> Option<Vec2> {
+    let screen = camera.screen_from_world(rect, point_to_pos(point));
+    let hit_rect = Rect::from_center_size(screen, Vec2::splat(radius * 4.0));
+    let response = ui
+        .interact(hit_rect, id, Sense::drag())
+        .on_hover_cursor(CursorIcon::Grab);
+
+    let drag_state_id = id.with("last_drag_delta");
+
+    if response.dragged() {
+        let total_delta = response.drag_delta();
+        let previous_delta = ui
+            .data_mut(|data| data.get_temp::<Vec2>(drag_state_id))
+            .unwrap_or(Vec2::ZERO);
+        ui.data_mut(|data| data.insert_temp(drag_state_id, total_delta));
+
+        Some(camera.world_delta_from_screen_delta(total_delta - previous_delta))
+    } else {
+        ui.data_mut(|data| data.remove_temp::<Vec2>(drag_state_id));
+        None
+    }
+}
+
+fn apply_delta_to_matching(contour: &mut CurveContour<CurvePoint>, point: CurvePoint, delta: Vec2) {
+    move_if_matching(&mut contour.start, point, delta);
+
+    for segment in &mut contour.segments {
+        match segment {
+            CurveSegment::Line { to } => {
+                move_if_matching(to, point, delta);
+            }
+            CurveSegment::Quad { ctrl, to } => {
+                move_if_matching(ctrl, point, delta);
+                move_if_matching(to, point, delta);
+            }
+            CurveSegment::Cubic { ctrl0, ctrl1, to } => {
+                move_if_matching(ctrl0, point, delta);
+                move_if_matching(ctrl1, point, delta);
+                move_if_matching(to, point, delta);
+            }
+            CurveSegment::Arc { arc } => {
+                move_if_matching(&mut arc.center, point, delta);
+            }
+        }
+    }
+}
+
+fn move_if_matching(target: &mut CurvePoint, point: CurvePoint, delta: Vec2) {
+    if same_point(*target, point) {
+        target[0] += delta.x;
+        target[1] += delta.y;
+    }
+}
+
+fn same_point(a: CurvePoint, b: CurvePoint) -> bool {
+    (a[0] - b[0]).abs() < 0.001 && (a[1] - b[1]).abs() < 0.001
 }
 
 fn paint_control_points(
