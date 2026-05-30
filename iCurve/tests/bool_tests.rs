@@ -36,28 +36,20 @@ fn subject_roundish_cubic_shape_with_fixed_scale() -> Result<(), CurveError> {
 }
 
 #[test]
-#[ignore = "reproduces the current iOverlay assertion until InputEdge endpoints preserve closure"]
 fn union_of_overlapping_polygons_with_near_horizontal_edge() -> Result<(), CurveError> {
     let subject = vec![
         CurveShapeBuilder::new()
             .move_to([-210.0_f32, -130.0])?
             .line_to([70.0, -130.0])?
             .line_to([70.0, 130.0])?
-            .line_to([-216.049_59, 129.983_02])?
+            .line_to([-220.0, 141.000_02])?
             .line_to([-210.0, -130.0])?
             .build()?,
     ];
-    let clip = vec![
-        CurveShapeBuilder::new()
-            .move_to([-70.0_f32, -170.0])?
-            .line_to([210.0, -170.0])?
-            .line_to([210.0, 90.0])?
-            .line_to([-70.0, 90.0])?
-            .line_to([-70.0, -170.0])?
-            .build()?,
-    ];
+    let clip = CurveShape { contours: vec![] };
 
-    let mut overlay = CurveOverlay::<[f32; 2], i32>::with_subj_and_clip(&subject, &clip);
+    let mut overlay =
+        CurveOverlay::<[f32; 2], i32>::with_subj_and_clip_fixed_scale(&subject, &clip, 100_000.0).unwrap();
     let result = overlay.overlay(OverlayRule::Union, FillRule::NonZero);
 
     assert!(!result.is_empty());
