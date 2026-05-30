@@ -1,4 +1,4 @@
-use crate::flatten::segment::SubSegment;
+use crate::flatten::segment::{SegmentParam, SegmentRange};
 use alloc::vec::Vec;
 use i_overlay::core::edge_data::{EdgeDataMerge, EdgeDataSplit, OverlayEdgeData};
 use i_overlay::i_float::float::number::FloatNumber;
@@ -18,32 +18,32 @@ pub(crate) struct MetaId(usize);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum MetaSegment<F: FloatNumber> {
-    Single(SubSegment<F>),
+    Single(SegmentRange<F>),
     Multi(MetaId),
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct MetaStore<F: FloatNumber> {
-    sets: Vec<Vec<SubSegment<F>>>,
+    sets: Vec<Vec<SegmentRange<F>>>,
 }
 
 impl<F: FloatNumber> MetaSegment<F> {
     #[inline(always)]
-    pub(crate) fn single(segment: SubSegment<F>) -> Self {
+    pub(crate) fn single(segment: SegmentRange<F>) -> Self {
         Self::Single(segment)
     }
 }
 
 impl<F: FloatNumber> MetaStore<F> {
     #[inline(always)]
-    pub(crate) fn to_vec(&self, meta: MetaSegment<F>) -> Vec<SubSegment<F>> {
+    pub(crate) fn to_vec(&self, meta: MetaSegment<F>) -> Vec<SegmentRange<F>> {
         match meta {
             MetaSegment::Single(segment) => Vec::from([segment]),
             MetaSegment::Multi(id) => self.sets[id.0].clone(),
         }
     }
 
-    fn from_segments(&mut self, mut segments: Vec<SubSegment<F>>) -> MetaSegment<F> {
+    fn from_segments(&mut self, mut segments: Vec<SegmentRange<F>>) -> MetaSegment<F> {
         dedup_segments(&mut segments);
 
         if segments.len() == 1 {
@@ -79,7 +79,7 @@ impl<F: FloatNumber + Send + Sync> OverlayEdgeData for MetaSegment<F> {
                 let segments = store
                     .to_vec(self)
                     .into_iter()
-                    .map(SubSegmentMeta::reversed)
+                    .map(SegmentRangeMeta::reversed)
                     .collect();
                 store.from_segments(segments)
             }
@@ -102,14 +102,14 @@ impl<F: FloatNumber + Send + Sync> OverlayEdgeData for MetaSegment<F> {
     }
 }
 
-trait SubSegmentMeta<F: FloatNumber> {
+trait SegmentRangeMeta<F: FloatNumber> {
     fn reversed(self) -> Self;
     fn split_at_ratio(self, ratio: f64) -> (Self, Self)
     where
         Self: Sized;
 }
 
-impl<F: FloatNumber> SubSegmentMeta<F> for SubSegment<F> {
+impl<F: FloatNumber> SegmentRangeMeta<F> for SegmentRange<F> {
     fn reversed(self) -> Self {
         Self {
             segment_index: self.segment_index,
@@ -119,7 +119,15 @@ impl<F: FloatNumber> SubSegmentMeta<F> for SubSegment<F> {
     }
 
     fn split_at_ratio(self, ratio: f64) -> (Self, Self) {
-        let tm = self.t0 + (self.t1 - self.t0) * F::from_float(ratio);
+        let tm = if ratio <= 0.0 {
+            self.t0
+        } else if ratio >= 1.0 {
+            self.t1
+        } else {
+            let t0 = self.t0.value();
+            let t1 = self.t1.value();
+            SegmentParam::new(t0 + (t1 - t0) * F::from_float(ratio))
+        };
         (
             Self {
                 segment_index: self.segment_index,
@@ -135,7 +143,7 @@ impl<F: FloatNumber> SubSegmentMeta<F> for SubSegment<F> {
     }
 }
 
-fn dedup_segments<F: FloatNumber>(segments: &mut Vec<SubSegment<F>>) {
+fn dedup_segments<F: FloatNumber>(segments: &mut Vec<SegmentRange<F>>) {
     let mut i = 0;
     while i < segments.len() {
         let segment = segments[i];
@@ -168,12 +176,8 @@ fn split_ratio<I: IntNumber>(ctx: EdgeDataSplit<I>) -> f64 {
 mod tests {
     use super::*;
 
-    fn segment(segment_index: usize, t0: f64, t1: f64) -> SubSegment<f64> {
-        SubSegment {
-            segment_index,
-            t0,
-            t1,
-        }
+    fn segment(segment_index: usize, t0: f64, t1: f64) -> SegmentRange<f64> {
+        SegmentRange::new(segment_index, t0, t1)
     }
 
     #[test]

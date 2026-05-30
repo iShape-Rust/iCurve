@@ -1,6 +1,6 @@
 use crate::bool::overlay::CurveOverlay;
 use crate::flatten::approx::{LineApproximation, LineApproximationSplit};
-use crate::flatten::segment::{ArcSegment, CubicSegment, NormalizedSegment, QuadSegment, SubSegment};
+use crate::flatten::segment::{ArcSegment, CubicSegment, NormalizedSegment, QuadSegment, SegmentRange};
 use crate::flatten::split::SplitAt;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
@@ -8,13 +8,12 @@ use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::int::number::int::IntNumber;
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
-    pub(super) fn split(&self) -> Vec<SubSegment<P::Scalar>> {
-        let sub_segments = self.pre_split();
-        sub_segments
+    pub(super) fn split(&self) -> Vec<SegmentRange<P::Scalar>> {
+        let ranges = self.pre_split();
+        ranges
     }
-
-    fn pre_split(&self) -> Vec<SubSegment<P::Scalar>> {
-        let mut sub_segments = Vec::<SubSegment<P::Scalar>>::with_capacity(16 * self.segments.len());
+    fn pre_split(&self) -> Vec<SegmentRange<P::Scalar>> {
+        let mut ranges = Vec::<SegmentRange<P::Scalar>>::with_capacity(16 * self.segments.len());
 
         let min_segment_length = self.adapter.len_to_float(self.options.split.min_length);
         let min_segment_sqr_length = min_segment_length * min_segment_length;
@@ -28,11 +27,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         for (i, s) in self.segments.iter().enumerate() {
             match &s.normalized_segment {
                 NormalizedSegment::Line(_) => {
-                    sub_segments.push(SubSegment {
-                        segment_index: i,
-                        t0: P::Scalar::from_float(0.0),
-                        t1: P::Scalar::from_float(1.0),
-                    });
+                    ranges.push(SegmentRange::full(i));
                 }
                 NormalizedSegment::Quad(quad) => {
                     quad.split_range(
@@ -40,7 +35,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
                         P::Scalar::from_float(0.0),
                         P::Scalar::from_float(1.0),
                         line_approximation,
-                        &mut sub_segments,
+                        &mut ranges,
                     );
                 }
                 NormalizedSegment::Cubic(cubic) => {
@@ -49,7 +44,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
                         P::Scalar::from_float(0.0),
                         P::Scalar::from_float(1.0),
                         line_approximation,
-                        &mut sub_segments,
+                        &mut ranges,
                     );
                 }
                 NormalizedSegment::Arc(arc) => {
@@ -57,13 +52,13 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
                         i,
                         self.options.split.max_angle,
                         min_segment_sqr_length,
-                        &mut sub_segments,
+                        &mut ranges,
                     );
                 }
             }
         }
 
-        sub_segments
+        ranges
     }
 }
 
@@ -74,14 +69,10 @@ impl<P: FloatPointCompatible> QuadSegment<P> {
         t0: P::Scalar,
         t1: P::Scalar,
         line_approximation: LineApproximation<P::Scalar>,
-        output: &mut Vec<SubSegment<P::Scalar>>,
+        output: &mut Vec<SegmentRange<P::Scalar>>,
     ) {
         if !self.is_split_required(line_approximation) {
-            output.push(SubSegment {
-                segment_index: index,
-                t0,
-                t1,
-            });
+            output.push(SegmentRange::new(index, t0, t1));
             return;
         }
 
@@ -99,14 +90,10 @@ impl<P: FloatPointCompatible> CubicSegment<P> {
         t0: P::Scalar,
         t1: P::Scalar,
         line_approximation: LineApproximation<P::Scalar>,
-        output: &mut Vec<SubSegment<P::Scalar>>,
+        output: &mut Vec<SegmentRange<P::Scalar>>,
     ) {
         if !self.is_split_required(line_approximation) {
-            output.push(SubSegment {
-                segment_index: index,
-                t0,
-                t1,
-            });
+            output.push(SegmentRange::new(index, t0, t1));
             return;
         }
 
@@ -123,7 +110,7 @@ impl<P: FloatPointCompatible> ArcSegment<P> {
         index: usize,
         max_angle: P::Scalar,
         min_segment_sqr_length: P::Scalar,
-        output: &mut Vec<SubSegment<P::Scalar>>,
+        output: &mut Vec<SegmentRange<P::Scalar>>,
     ) {
         let zero = P::Scalar::from_float(0.0);
         let one = P::Scalar::from_float(1.0);
@@ -135,11 +122,7 @@ impl<P: FloatPointCompatible> ArcSegment<P> {
             || sweep_angle <= max_angle
             || max_arc_length * max_arc_length <= min_segment_sqr_length
         {
-            output.push(SubSegment {
-                segment_index: index,
-                t0: zero,
-                t1: one,
-            });
+            output.push(SegmentRange::full(index));
             return;
         }
 
@@ -158,11 +141,7 @@ impl<P: FloatPointCompatible> ArcSegment<P> {
             } else {
                 P::Scalar::from_usize(i) * step
             };
-            output.push(SubSegment {
-                segment_index: index,
-                t0,
-                t1,
-            });
+            output.push(SegmentRange::new(index, t0, t1));
             t0 = t1;
         }
     }
@@ -171,7 +150,7 @@ impl<P: FloatPointCompatible> ArcSegment<P> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::flatten::segment::ArcSegment;
+    use crate::flatten::segment::{ArcSegment, SegmentParam};
 
     #[test]
     fn arc_split_uses_sweep_angle_count() {
@@ -190,9 +169,9 @@ mod tests {
 
         assert_eq!(output.len(), 4);
         assert_eq!(output[0].segment_index, 7);
-        assert_eq!(output[0].t0, 0.0);
-        assert_eq!(output[0].t1, 0.25);
-        assert_eq!(output[3].t0, 0.75);
-        assert_eq!(output[3].t1, 1.0);
+        assert_eq!(output[0].t0, SegmentParam::Start);
+        assert_eq!(output[0].t1, SegmentParam::Inner(0.25));
+        assert_eq!(output[3].t0, SegmentParam::Inner(0.75));
+        assert_eq!(output[3].t1, SegmentParam::End);
     }
 }

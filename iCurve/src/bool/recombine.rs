@@ -5,7 +5,7 @@ use crate::curve::contour::CurveContour;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
 use crate::flatten::segment::{
-    ArcSegment, CubicSegment, LineSegment, NormalizedSegment, QuadSegment, SubSegment,
+    ArcSegment, CubicSegment, LineSegment, NormalizedSegment, QuadSegment, SegmentParam, SegmentRange,
 };
 use crate::flatten::split::SplitAt;
 use alloc::vec::Vec;
@@ -76,17 +76,17 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
     }
 }
 
-fn merge_segment_sets<F: FloatNumber>(sets: Vec<Vec<SubSegment<F>>>) -> Vec<SubSegment<F>> {
+fn merge_segment_sets<F: FloatNumber>(sets: Vec<Vec<SegmentRange<F>>>) -> Vec<SegmentRange<F>> {
     let mut ranges = narrow_segment_sets(sets)
         .into_iter()
         .filter_map(|set| set.first().copied())
         .collect();
 
-    merge_sub_segments(&mut ranges);
+    merge_segment_ranges(&mut ranges);
     ranges
 }
 
-fn narrow_segment_sets<F: FloatNumber>(mut sets: Vec<Vec<SubSegment<F>>>) -> Vec<Vec<SubSegment<F>>> {
+fn narrow_segment_sets<F: FloatNumber>(mut sets: Vec<Vec<SegmentRange<F>>>) -> Vec<Vec<SegmentRange<F>>> {
     if sets.len() < 2 {
         return sets;
     }
@@ -110,9 +110,9 @@ fn narrow_segment_sets<F: FloatNumber>(mut sets: Vec<Vec<SubSegment<F>>>) -> Vec
 }
 
 fn intersect_adjacent_sets<F: FloatNumber>(
-    lhs: &[SubSegment<F>],
-    rhs: &[SubSegment<F>],
-) -> Option<(Vec<SubSegment<F>>, Vec<SubSegment<F>>)> {
+    lhs: &[SegmentRange<F>],
+    rhs: &[SegmentRange<F>],
+) -> Option<(Vec<SegmentRange<F>>, Vec<SegmentRange<F>>)> {
     let mut lhs_out = Vec::new();
     let mut rhs_out = Vec::new();
 
@@ -132,18 +132,18 @@ fn intersect_adjacent_sets<F: FloatNumber>(
     }
 }
 
-fn push_unique<F: FloatNumber>(set: &mut Vec<SubSegment<F>>, segment: SubSegment<F>) {
+fn push_unique<F: FloatNumber>(set: &mut Vec<SegmentRange<F>>, segment: SegmentRange<F>) {
     if !set.contains(&segment) {
         set.push(segment);
     }
 }
 
-fn merge_sub_segments<F: FloatNumber>(ranges: &mut Vec<SubSegment<F>>) {
+fn merge_segment_ranges<F: FloatNumber>(ranges: &mut Vec<SegmentRange<F>>) {
     if ranges.len() < 2 {
         return;
     }
 
-    let mut merged: Vec<SubSegment<F>> = Vec::with_capacity(ranges.len());
+    let mut merged: Vec<SegmentRange<F>> = Vec::with_capacity(ranges.len());
     for range in ranges.drain(..) {
         if let Some(last) = merged.last_mut() {
             if can_merge_ranges(last, &range) {
@@ -167,16 +167,16 @@ fn merge_sub_segments<F: FloatNumber>(ranges: &mut Vec<SubSegment<F>>) {
     *ranges = merged;
 }
 
-fn can_merge_ranges<F: FloatNumber>(prev: &SubSegment<F>, next: &SubSegment<F>) -> bool {
+fn can_merge_ranges<F: FloatNumber>(prev: &SegmentRange<F>, next: &SegmentRange<F>) -> bool {
     prev.segment_index == next.segment_index && prev.t1 == next.t0
 }
 
 trait CurvePiece<P: FloatPointCompatible> {
-    fn to_curve_piece(&self, range: SubSegment<P::Scalar>) -> Option<(P, CurveSegment<P>)>;
+    fn to_curve_piece(&self, range: SegmentRange<P::Scalar>) -> Option<(P, CurveSegment<P>)>;
 }
 
 impl<P: FloatPointCompatible> CurvePiece<P> for NormalizedSegment<P> {
-    fn to_curve_piece(&self, range: SubSegment<P::Scalar>) -> Option<(P, CurveSegment<P>)> {
+    fn to_curve_piece(&self, range: SegmentRange<P::Scalar>) -> Option<(P, CurveSegment<P>)> {
         match self {
             Self::Line(segment) => {
                 let segment = segment.range(range.t0, range.t1)?;
@@ -213,13 +213,15 @@ impl<P: FloatPointCompatible> CurvePiece<P> for NormalizedSegment<P> {
                     return None;
                 }
 
+                let t0 = range.t0.value();
+                let t1 = range.t1.value();
                 let start = segment.point_at(range.t0);
                 let arc = EllipticArc {
                     center: segment.center,
                     radii: segment.radii,
                     rotation: segment.rotation,
-                    start_angle: segment.start_angle + segment.sweep_angle * range.t0,
-                    sweep_angle: segment.sweep_angle * (range.t1 - range.t0),
+                    start_angle: segment.start_angle + segment.sweep_angle * t0,
+                    sweep_angle: segment.sweep_angle * (t1 - t0),
                 };
 
                 Some((start, CurveSegment::Arc { arc }))
@@ -228,30 +230,39 @@ impl<P: FloatPointCompatible> CurvePiece<P> for NormalizedSegment<P> {
     }
 }
 
-trait SegmentRange<P: FloatPointCompatible>: SplitAt<P::Scalar, Output = [Self; 2]> + Sized {
-    fn range(&self, t0: P::Scalar, t1: P::Scalar) -> Option<Self> {
+trait SegmentRangeExtract<P: FloatPointCompatible>:
+    SplitAt<P::Scalar, Output = [Self; 2]> + Copy + Sized
+{
+    fn range(&self, t0: SegmentParam<P::Scalar>, t1: SegmentParam<P::Scalar>) -> Option<Self> {
         if t0 == t1 {
             return None;
         }
 
-        if t0 < t1 {
+        if t0.value() < t1.value() {
             Some(self.forward_range(t0, t1))
         } else {
             Some(self.forward_range(t1, t0).reversed())
         }
     }
 
-    fn forward_range(&self, t0: P::Scalar, t1: P::Scalar) -> Self {
-        let zero = P::Scalar::from_float(0.0);
-        let one = P::Scalar::from_float(1.0);
+    fn forward_range(&self, t0: SegmentParam<P::Scalar>, t1: SegmentParam<P::Scalar>) -> Self {
+        if t0 == SegmentParam::Start && t1 == SegmentParam::End {
+            return *self;
+        }
 
-        if t0 <= zero {
-            let [segment, _] = self.split_at(t1);
+        if t0 == SegmentParam::Start {
+            let [segment, _] = self.split_at(t1.value());
             return segment;
         }
 
-        let [_, right] = self.split_at(t0);
-        let local_t = (t1 - t0) / (one - t0);
+        let [_, right] = self.split_at(t0.value());
+        if t1 == SegmentParam::End {
+            return right;
+        }
+
+        let one = P::Scalar::from_float(1.0);
+        let t0 = t0.value();
+        let local_t = (t1.value() - t0) / (one - t0);
         let [segment, _] = right.split_at(local_t);
         segment
     }
@@ -259,7 +270,7 @@ trait SegmentRange<P: FloatPointCompatible>: SplitAt<P::Scalar, Output = [Self; 
     fn reversed(self) -> Self;
 }
 
-impl<P: FloatPointCompatible> SegmentRange<P> for LineSegment<P> {
+impl<P: FloatPointCompatible> SegmentRangeExtract<P> for LineSegment<P> {
     fn reversed(self) -> Self {
         let [p0, p1] = self.control_points;
         Self {
@@ -268,7 +279,7 @@ impl<P: FloatPointCompatible> SegmentRange<P> for LineSegment<P> {
     }
 }
 
-impl<P: FloatPointCompatible> SegmentRange<P> for QuadSegment<P> {
+impl<P: FloatPointCompatible> SegmentRangeExtract<P> for QuadSegment<P> {
     fn reversed(self) -> Self {
         let [p0, p1, p2] = self.control_points;
         Self {
@@ -277,7 +288,7 @@ impl<P: FloatPointCompatible> SegmentRange<P> for QuadSegment<P> {
     }
 }
 
-impl<P: FloatPointCompatible> SegmentRange<P> for CubicSegment<P> {
+impl<P: FloatPointCompatible> SegmentRangeExtract<P> for CubicSegment<P> {
     fn reversed(self) -> Self {
         let [p0, p1, p2, p3] = self.control_points;
         Self {
@@ -287,11 +298,19 @@ impl<P: FloatPointCompatible> SegmentRange<P> for CubicSegment<P> {
 }
 
 trait ArcPointAt<P: FloatPointCompatible> {
-    fn point_at(&self, t: P::Scalar) -> P;
+    fn point_at(&self, t: SegmentParam<P::Scalar>) -> P;
 }
 
 impl<P: FloatPointCompatible> ArcPointAt<P> for ArcSegment<P> {
-    fn point_at(&self, t: P::Scalar) -> P {
+    fn point_at(&self, t: SegmentParam<P::Scalar>) -> P {
+        if t == SegmentParam::Start {
+            return self.p0;
+        }
+        if t == SegmentParam::End {
+            return self.p1;
+        }
+
+        let t = t.value();
         let angle = self.start_angle + self.sweep_angle * t;
         let x = self.radii.x() * angle.cos();
         let y = self.radii.y() * angle.sin();
@@ -309,82 +328,43 @@ impl<P: FloatPointCompatible> ArcPointAt<P> for ArcSegment<P> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn merge_adjacent_sub_segments() {
-        let ranges = Vec::from([
-            SubSegment {
-                segment_index: 1,
-                t0: 0.0,
-                t1: 0.25,
-            },
-            SubSegment {
-                segment_index: 1,
-                t0: 0.25,
-                t1: 0.75,
-            },
-            SubSegment {
-                segment_index: 1,
-                t0: 0.75,
-                t1: 1.0,
-            },
-        ]);
-
-        let mut merged = ranges;
-        merge_sub_segments(&mut merged);
-
-        assert_eq!(merged.len(), 1);
-        assert_eq!(merged[0].segment_index, 1);
-        assert_eq!(merged[0].t0, 0.0);
-        assert_eq!(merged[0].t1, 1.0);
+    fn range(segment_index: usize, t0: f64, t1: f64) -> SegmentRange<f64> {
+        SegmentRange::new(segment_index, t0, t1)
     }
 
     #[test]
-    fn merge_wrapped_sub_segments() {
-        let ranges = Vec::from([
-            SubSegment {
-                segment_index: 1,
-                t0: 0.5,
-                t1: 1.0,
-            },
-            SubSegment {
-                segment_index: 2,
-                t0: 0.0,
-                t1: 1.0,
-            },
-            SubSegment {
-                segment_index: 1,
-                t0: 0.0,
-                t1: 0.5,
-            },
-        ]);
+    fn merge_adjacent_segment_ranges() {
+        let ranges = Vec::from([range(1, 0.0, 0.25), range(1, 0.25, 0.75), range(1, 0.75, 1.0)]);
 
         let mut merged = ranges;
-        merge_sub_segments(&mut merged);
+        merge_segment_ranges(&mut merged);
+
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].segment_index, 1);
+        assert_eq!(merged[0].t0, SegmentParam::Start);
+        assert_eq!(merged[0].t1, SegmentParam::End);
+    }
+
+    #[test]
+    fn merge_wrapped_segment_ranges() {
+        let ranges = Vec::from([range(1, 0.5, 1.0), range(2, 0.0, 1.0), range(1, 0.0, 0.5)]);
+
+        let mut merged = ranges;
+        merge_segment_ranges(&mut merged);
 
         assert_eq!(merged.len(), 2);
         assert_eq!(merged[0].segment_index, 2);
         assert_eq!(merged[1].segment_index, 1);
-        assert_eq!(merged[1].t0, 0.0);
-        assert_eq!(merged[1].t1, 1.0);
+        assert_eq!(merged[1].t0, SegmentParam::Start);
+        assert_eq!(merged[1].t1, SegmentParam::End);
     }
 
     #[test]
     fn do_not_merge_different_segments() {
-        let ranges = Vec::from([
-            SubSegment {
-                segment_index: 1,
-                t0: 0.0,
-                t1: 0.5,
-            },
-            SubSegment {
-                segment_index: 2,
-                t0: 0.5,
-                t1: 1.0,
-            },
-        ]);
+        let ranges = Vec::from([range(1, 0.0, 0.5), range(2, 0.5, 1.0)]);
 
         let mut merged = ranges;
-        merge_sub_segments(&mut merged);
+        merge_segment_ranges(&mut merged);
 
         assert_eq!(merged.len(), 2);
     }
@@ -392,57 +372,9 @@ mod tests {
     #[test]
     fn narrow_segment_sets_by_adjacent_intersection() {
         let sets = Vec::from([
-            Vec::from([
-                SubSegment {
-                    segment_index: 1,
-                    t0: 0.0,
-                    t1: 0.5,
-                },
-                SubSegment {
-                    segment_index: 2,
-                    t0: 0.0,
-                    t1: 0.5,
-                },
-                SubSegment {
-                    segment_index: 3,
-                    t0: 0.0,
-                    t1: 0.5,
-                },
-            ]),
-            Vec::from([
-                SubSegment {
-                    segment_index: 2,
-                    t0: 0.5,
-                    t1: 0.75,
-                },
-                SubSegment {
-                    segment_index: 3,
-                    t0: 0.5,
-                    t1: 0.75,
-                },
-                SubSegment {
-                    segment_index: 5,
-                    t0: 0.5,
-                    t1: 0.75,
-                },
-            ]),
-            Vec::from([
-                SubSegment {
-                    segment_index: 2,
-                    t0: 0.75,
-                    t1: 1.0,
-                },
-                SubSegment {
-                    segment_index: 4,
-                    t0: 0.75,
-                    t1: 1.0,
-                },
-                SubSegment {
-                    segment_index: 5,
-                    t0: 0.75,
-                    t1: 1.0,
-                },
-            ]),
+            Vec::from([range(1, 0.0, 0.5), range(2, 0.0, 0.5), range(3, 0.0, 0.5)]),
+            Vec::from([range(2, 0.5, 0.75), range(3, 0.5, 0.75), range(5, 0.5, 0.75)]),
+            Vec::from([range(2, 0.75, 1.0), range(4, 0.75, 1.0), range(5, 0.75, 1.0)]),
         ]);
 
         let narrowed = narrow_segment_sets(sets);

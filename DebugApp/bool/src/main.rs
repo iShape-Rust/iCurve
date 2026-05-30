@@ -507,20 +507,9 @@ fn interact_point_delta(
         .interact(hit_rect, id, Sense::drag())
         .on_hover_cursor(CursorIcon::Grab);
 
-    let drag_state_id = id.with("last_drag_delta");
-
-    if response.dragged() {
-        let total_delta = response.drag_delta();
-        let previous_delta = ui
-            .data_mut(|data| data.get_temp::<Vec2>(drag_state_id))
-            .unwrap_or(Vec2::ZERO);
-        ui.data_mut(|data| data.insert_temp(drag_state_id, total_delta));
-
-        Some(camera.world_delta_from_screen_delta(total_delta - previous_delta))
-    } else {
-        ui.data_mut(|data| data.remove_temp::<Vec2>(drag_state_id));
-        None
-    }
+    response
+        .dragged()
+        .then(|| camera.world_delta_from_screen_delta(response.drag_delta()))
 }
 
 fn apply_delta_to_matching(contour: &mut CurveContour<CurvePoint>, point: CurvePoint, delta: Vec2) {

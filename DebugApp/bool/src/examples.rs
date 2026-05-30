@@ -11,72 +11,203 @@ pub struct BoolExample {
 
 pub fn load_examples() -> Vec<BoolExample> {
     vec![
-        BoolExample {
-            name: "rect x rect",
-            subject: vec![polygon(&[
-                [-210.0, -130.0],
-                [70.0, -130.0],
-                [70.0, 130.0],
-                [-210.0, 130.0],
-            ])],
-            clip: vec![polygon(&[
-                [-70.0, -170.0],
-                [210.0, -170.0],
-                [210.0, 90.0],
-                [-70.0, 90.0],
-            ])],
-        },
-        BoolExample {
-            name: "circle x rect",
-            subject: vec![circle([-65.0, 0.0], 150.0)],
-            clip: vec![polygon(&[
-                [-10.0, -155.0],
-                [205.0, -80.0],
-                [145.0, 150.0],
-                [-85.0, 120.0],
-            ])],
-        },
-        BoolExample {
-            name: "cubic blobs",
-            subject: vec![blob(
-                [-210.0, 10.0],
-                [-130.0, -175.0],
-                [100.0, -145.0],
-                [170.0, 5.0],
-                [120.0, 160.0],
-                [-135.0, 165.0],
-            )],
-            clip: vec![blob(
-                [-145.0, -40.0],
-                [-15.0, -205.0],
-                [195.0, -100.0],
-                [170.0, 65.0],
-                [20.0, 205.0],
-                [-205.0, 95.0],
-            )],
-        },
-        BoolExample {
-            name: "two subjects",
-            subject: vec![circle([-135.0, -35.0], 105.0), circle([45.0, 35.0], 105.0)],
-            clip: vec![polygon(&[
-                [-85.0, -160.0],
-                [225.0, -110.0],
-                [160.0, 150.0],
-                [-160.0, 135.0],
-            ])],
-        },
-        BoolExample {
-            name: "arc capsule",
-            subject: vec![capsule([-215.0, -95.0], [135.0, 95.0], 82.0)],
-            clip: vec![circle([45.0, 0.0], 135.0)],
-        },
-        BoolExample {
-            name: "cubic solo",
-            subject: vec![scaled_cubic_solo(150.0)],
-            clip: Vec::new(),
-        },
+        example_0(),
+        example_1(),
+        example_2(),
+        example_3(),
+        example_4(),
+        example_5(),
+        example_6(),
+        example_7(),
     ]
 }
+
+fn example_0() -> BoolExample {
+    BoolExample {
+        name: "rect x rect",
+        subject: vec![polygon(&[
+            [-210.0, -130.0],
+            [70.0, -130.0],
+            [70.0, 130.0],
+            [-210.0, 130.0],
+        ])],
+        clip: vec![polygon(&[
+            [-70.0, -170.0],
+            [210.0, -170.0],
+            [210.0, 90.0],
+            [-70.0, 90.0],
+        ])],
+    }
+}
+
+fn example_1() -> BoolExample {
+    BoolExample {
+        name: "circle x rect",
+        subject: vec![circle([-65.0, 0.0], 150.0)],
+        clip: vec![polygon(&[
+            [-10.0, -155.0],
+            [205.0, -80.0],
+            [145.0, 150.0],
+            [-85.0, 120.0],
+        ])],
+    }
+}
+
+
+fn example_2() -> BoolExample {
+    let scale = 200.0;
+    let subject = CurveShapeBuilder::new()
+        .move_to(scaled([-1.0, 0.0], scale))
+        .expect("move_to")
+        .line_to(scaled([1.0, 0.0], scale))
+        .expect("line_to")
+        .quad_to(
+            scaled([0.0, 1.0], scale),
+            scaled([-1.0, 0.0], scale),
+        )
+        .expect("quad_to")
+        .build()
+        .expect("subject");
+
+    let clip = CurveShapeBuilder::new()
+        .move_to(scaled([-0.5, 0.5], scale))
+        .expect("move_to")
+        .line_to(scaled([0.5, 0.5], scale))
+        .expect("line_to")
+        .quad_to(
+            scaled([0.0, 2.0], scale),
+            scaled([-0.5, 0.5], scale),
+        )
+        .expect("quad_to")
+        .build()
+        .expect("clip");
+
+    BoolExample {
+        name: "quad x quad 0",
+        subject: vec![subject],
+        clip: vec![clip],
+    }
+}
+
+fn example_3() -> BoolExample {
+    let scale = 200.0;
+    let subject = CurveShapeBuilder::new()
+        .move_to(scaled([-1.0, 0.0], scale))
+        .expect("move_to")
+        .line_to(scaled([1.0, 0.0], scale))
+        .expect("line_to")
+        .quad_to(
+            scaled([0.0, 1.0], scale),
+            scaled([-1.0, 0.0], scale),
+        )
+        .expect("quad_to")
+        .build()
+        .expect("subject");
+
+    let clip = CurveShapeBuilder::new()
+        .move_to(scaled([-0.5, 0.0], scale))
+        .expect("move_to")
+        .line_to(scaled([0.5, 0.0], scale))
+        .expect("line_to")
+        .quad_to(
+            scaled([0.0, 2.0], scale),
+            scaled([-0.5, 0.0], scale),
+        )
+        .expect("quad_to")
+        .build()
+        .expect("clip");
+
+    BoolExample {
+        name: "quad x quad 1",
+        subject: vec![subject],
+        clip: vec![clip],
+    }
+}
+
+fn example_4() -> BoolExample {
+    BoolExample {
+        name: "cubic blobs",
+        subject: vec![blob(
+            [-210.0, 10.0],
+            [-130.0, -175.0],
+            [100.0, -145.0],
+            [170.0, 5.0],
+            [120.0, 160.0],
+            [-135.0, 165.0],
+        )],
+        clip: vec![blob(
+            [-145.0, -40.0],
+            [-15.0, -205.0],
+            [195.0, -100.0],
+            [170.0, 65.0],
+            [20.0, 205.0],
+            [-205.0, 95.0],
+        )],
+    }
+}
+
+
+fn example_5() -> BoolExample {
+    BoolExample {
+        name: "two subjects",
+        subject: vec![circle([-135.0, -35.0], 105.0), circle([45.0, 35.0], 105.0)],
+        clip: vec![polygon(&[
+            [-85.0, -160.0],
+            [225.0, -110.0],
+            [160.0, 150.0],
+            [-160.0, 135.0],
+        ])],
+    }
+}
+
+
+fn example_6() -> BoolExample {
+    BoolExample {
+        name: "arc capsule",
+        subject: vec![capsule([-215.0, -95.0], [135.0, 95.0], 82.0)],
+        clip: vec![circle([45.0, 0.0], 135.0)],
+    }
+}
+
+fn example_7() -> BoolExample {
+    let scale = 150.0;
+    let subject = CurveShapeBuilder::new()
+        .move_to(scaled([-1.0, 0.0], scale))
+        .expect("move_to")
+        .cubic_to(
+            scaled([-1.0, -0.5], scale),
+            scaled([-0.5, -1.0], scale),
+            scaled([0.0, -1.0], scale),
+        )
+        .expect("cubic_to")
+        .cubic_to(
+            scaled([0.5, -1.0], scale),
+            scaled([1.0, -0.5], scale),
+            scaled([1.0, 0.0], scale),
+        )
+        .expect("cubic_to")
+        .cubic_to(
+            scaled([1.0, 0.5], scale),
+            scaled([0.5, 1.0], scale),
+            scaled([0.0, 1.0], scale),
+        )
+        .expect("cubic_to")
+        .cubic_to(
+            scaled([-0.5, 1.0], scale),
+            scaled([-1.0, 0.5], scale),
+            scaled([-1.0, 0.0], scale),
+        )
+        .expect("cubic_to")
+        .build()
+        .expect("cubic solo");
+
+    BoolExample {
+        name: "cubic solo",
+        subject: vec![subject],
+        clip: Vec::new(),
+    }
+}
+
 
 fn polygon(points: &[CurvePoint]) -> CurveShape<CurvePoint> {
     assert!(points.len() >= 3, "polygon needs at least three points");
@@ -171,38 +302,6 @@ fn capsule(
         .expect("line_to")
         .build()
         .expect("capsule")
-}
-
-fn scaled_cubic_solo(scale: f32) -> CurveShape<CurvePoint> {
-    CurveShapeBuilder::new()
-        .move_to(scaled([-1.0, 0.0], scale))
-        .expect("move_to")
-        .cubic_to(
-            scaled([-1.0, -0.5], scale),
-            scaled([-0.5, -1.0], scale),
-            scaled([0.0, -1.0], scale),
-        )
-        .expect("cubic_to")
-        .cubic_to(
-            scaled([0.5, -1.0], scale),
-            scaled([1.0, -0.5], scale),
-            scaled([1.0, 0.0], scale),
-        )
-        .expect("cubic_to")
-        .cubic_to(
-            scaled([1.0, 0.5], scale),
-            scaled([0.5, 1.0], scale),
-            scaled([0.0, 1.0], scale),
-        )
-        .expect("cubic_to")
-        .cubic_to(
-            scaled([-0.5, 1.0], scale),
-            scaled([-1.0, 0.5], scale),
-            scaled([-1.0, 0.0], scale),
-        )
-        .expect("cubic_to")
-        .build()
-        .expect("cubic solo")
 }
 
 fn scaled(point: CurvePoint, scale: f32) -> CurvePoint {
