@@ -1,5 +1,7 @@
 use crate::flatten::segment::{SegmentParam, SegmentRange};
+use alloc::slice;
 use alloc::vec::Vec;
+use core::iter;
 use i_overlay::core::edge_data::{EdgeDataMerge, EdgeDataSplit, OverlayEdgeData};
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::int::number::int::IntNumber;
@@ -32,27 +34,16 @@ impl<F: FloatNumber> MetaSegment<F> {
     pub(crate) fn single(segment: SegmentRange<F>) -> Self {
         Self::Single(segment)
     }
-}
 
-impl<F: FloatNumber> MetaStore<F> {
-    #[inline(always)]
-    pub(crate) fn to_vec(&self, meta: MetaSegment<F>) -> Vec<SegmentRange<F>> {
-        match meta {
-            MetaSegment::Single(segment) => Vec::from([segment]),
-            MetaSegment::Multi(id) => self.sets[id.0].clone(),
-        }
-    }
-
-    fn from_segments(&mut self, mut segments: Vec<SegmentRange<F>>) -> MetaSegment<F> {
-        dedup_segments(&mut segments);
-
+    pub(crate) fn with_segments(segments: Vec<SegmentRange<F>>, store: &mut MetaStore<F>) -> Self {
+        debug_assert!(!segments.is_empty());
         if segments.len() == 1 {
-            return MetaSegment::Single(segments[0]);
+            MetaSegment::Single(segments[0])
+        } else {
+            let id = MetaId(store.sets.len());
+            store.sets.push(segments);
+            MetaSegment::Multi(id)
         }
-
-        let id = MetaId(self.sets.len());
-        self.sets.push(segments);
-        MetaSegment::Multi(id)
     }
 }
 
@@ -65,25 +56,19 @@ impl<F: FloatNumber> Default for MetaStore<F> {
 impl<F: FloatNumber + Send + Sync> OverlayEdgeData for MetaSegment<F> {
     type Store = MetaStore<F>;
 
-    fn merge(ctx: EdgeDataMerge<ShapeCountBoolean, Self>, store: &mut Self::Store) -> Self {
-        let mut segments = store.to_vec(ctx.lhs_data);
-        segments.extend(store.to_vec(ctx.rhs_data));
-        store.from_segments(segments)
-    }
-
     #[inline(always)]
-    fn reversed(self, store: &mut Self::Store) -> Self {
-        match self {
-            Self::Single(segment) => Self::Single(segment.reversed()),
-            Self::Multi(_) => {
-                let segments = store
-                    .to_vec(self)
-                    .into_iter()
-                    .map(SegmentRangeMeta::reversed)
-                    .collect();
-                store.from_segments(segments)
+    fn reversed(mut self, store: &mut Self::Store) -> Self {
+        match &mut self {
+            Self::Single(segment) => segment.reverse(),
+            Self::Multi(id) => {
+                let vec = &mut store.sets[id.0];
+                for s in vec.iter_mut() {
+                    s.reverse()
+                }
             }
         }
+
+        self
     }
 
     #[inline(always)]
@@ -92,32 +77,36 @@ impl<F: FloatNumber + Send + Sync> OverlayEdgeData for MetaSegment<F> {
         let mut lhs = Vec::new();
         let mut rhs = Vec::new();
 
-        for segment in store.to_vec(self) {
+        for segment in store.range_iter(self) {
             let (s0, s1) = segment.split_at_ratio(ratio);
             lhs.push(s0);
             rhs.push(s1);
         }
 
-        (store.from_segments(lhs), store.from_segments(rhs))
+        (Self::with_segments(lhs, store), Self::with_segments(rhs, store))
+    }
+
+    fn merge(ctx: EdgeDataMerge<ShapeCountBoolean, Self>, store: &mut Self::Store) -> Self {
+        let mut segments: Vec<_> = store.range_iter(ctx.lhs_data).collect();
+        let n = segments.len();
+        for s in store.range_iter(ctx.rhs_data) {
+            if !segments[0..n].contains(&s) {
+                segments.push(s);
+            }
+        }
+
+        Self::with_segments(segments, store)
     }
 }
 
 trait SegmentRangeMeta<F: FloatNumber> {
-    fn reversed(self) -> Self;
     fn split_at_ratio(self, ratio: f64) -> (Self, Self)
     where
         Self: Sized;
+    fn reverse(&mut self);
 }
 
 impl<F: FloatNumber> SegmentRangeMeta<F> for SegmentRange<F> {
-    fn reversed(self) -> Self {
-        Self {
-            segment_index: self.segment_index,
-            t0: self.t1,
-            t1: self.t0,
-        }
-    }
-
     fn split_at_ratio(self, ratio: f64) -> (Self, Self) {
         let tm = if ratio <= 0.0 {
             self.t0
@@ -141,17 +130,11 @@ impl<F: FloatNumber> SegmentRangeMeta<F> for SegmentRange<F> {
             },
         )
     }
-}
 
-fn dedup_segments<F: FloatNumber>(segments: &mut Vec<SegmentRange<F>>) {
-    let mut i = 0;
-    while i < segments.len() {
-        let segment = segments[i];
-        if segments[..i].contains(&segment) {
-            segments.remove(i);
-        } else {
-            i += 1;
-        }
+    fn reverse(&mut self) {
+        let t0 = self.t0;
+        self.t0 = self.t1;
+        self.t1 = t0;
     }
 }
 
@@ -172,9 +155,40 @@ fn split_ratio<I: IntNumber>(ctx: EdgeDataSplit<I>) -> f64 {
     (num.to_f64() / den.to_f64()).clamp(0.0, 1.0)
 }
 
+pub(crate) enum SegmentRangeIter<'a, F: FloatNumber> {
+    Single(iter::Once<SegmentRange<F>>),
+    Multi(slice::Iter<'a, SegmentRange<F>>),
+}
+
+impl<'a, F: FloatNumber> Iterator for SegmentRangeIter<'a, F>
+where
+    SegmentRange<F>: Clone,
+{
+    type Item = SegmentRange<F>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            SegmentRangeIter::Single(iter) => iter.next(),
+            SegmentRangeIter::Multi(iter) => iter.next().cloned(),
+        }
+    }
+}
+
+impl<F: FloatNumber> MetaStore<F> {
+    #[inline(always)]
+    pub(crate) fn range_iter(&self, meta: MetaSegment<F>) -> SegmentRangeIter<'_, F> {
+        match meta {
+            MetaSegment::Single(segment) => SegmentRangeIter::Single(iter::once(segment)),
+            MetaSegment::Multi(id) => SegmentRangeIter::Multi(self.sets[id.0].iter()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
 
     fn segment(segment_index: usize, t0: f64, t1: f64) -> SegmentRange<f64> {
         SegmentRange::new(segment_index, t0, t1)
@@ -183,36 +197,22 @@ mod tests {
     #[test]
     fn meta_store_compacts_single_segment() {
         let mut store = MetaStore::default();
-        let meta = store.from_segments(Vec::from([segment(1, 0.0, 1.0)]));
+
+        let meta = MetaSegment::with_segments(vec![segment(1, 0.0, 1.0)], &mut store);
 
         assert_eq!(meta, MetaSegment::Single(segment(1, 0.0, 1.0)));
     }
 
     #[test]
-    fn meta_store_deduplicates_multi_segments() {
-        let mut store = MetaStore::default();
-        let meta = store.from_segments(Vec::from([
-            segment(1, 0.0, 0.5),
-            segment(2, 0.0, 0.5),
-            segment(1, 0.0, 0.5),
-        ]));
-
-        assert_eq!(
-            store.to_vec(meta),
-            Vec::from([segment(1, 0.0, 0.5), segment(2, 0.0, 0.5)])
-        );
-    }
-
-    #[test]
     fn meta_segment_reverse_reverses_all_ranges() {
         let mut store = MetaStore::default();
-        let meta = store.from_segments(Vec::from([segment(1, 0.0, 0.4), segment(2, 0.2, 0.8)]));
+        let meta = MetaSegment::with_segments(vec![segment(1, 0.0, 0.4), segment(2, 0.2, 0.8)], &mut store);
 
         let reversed = meta.reversed(&mut store);
 
         assert_eq!(
-            store.to_vec(reversed),
-            Vec::from([segment(1, 0.4, 0.0), segment(2, 0.8, 0.2)])
+            store.range_iter(reversed).collect::<Vec<_>>(),
+            vec![segment(1, 0.4, 0.0), segment(2, 0.8, 0.2)]
         );
     }
 }

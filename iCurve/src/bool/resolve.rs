@@ -4,6 +4,7 @@ use crate::flatten::segment::{
     ArcSegment, CubicSegment, LineSegment, NormalizedSegment, QuadSegment, SegmentParam, SegmentRange,
 };
 use crate::flatten::split::SplitAt;
+use alloc::vec::Vec;
 use i_key_sort::sort::key::SortKey;
 use i_overlay::core::edge_overlay::{EdgeOverlay, InputEdge};
 use i_overlay::core::fill_rule::FillRule;
@@ -24,6 +25,19 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         I: Expiration + LayoutNumber + SortKey,
         P::Scalar: Send + Sync,
     {
+        let mut overlay = self.edge_overlay();
+
+        let shapes = overlay.build_vector_shapes(overlay_rule, fill_rule);
+        let store = overlay.into_data_store();
+
+        ResolvedCurveOverlay { shapes, store }
+    }
+
+    fn edge_overlay(&self) -> EdgeOverlay<I, MetaSegment<P::Scalar>>
+    where
+        I: Expiration + LayoutNumber + SortKey,
+        P::Scalar: Send + Sync,
+    {
         let ranges = self.split();
         let mut overlay = EdgeOverlay::<I, MetaSegment<P::Scalar>>::new(ranges.len());
 
@@ -33,10 +47,22 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
             overlay.add_edge(edge, segment.shape_type);
         }
 
-        let shapes = overlay.build_vector_shapes(overlay_rule, fill_rule);
-        let store = overlay.into_data_store();
+        overlay
+    }
 
-        ResolvedCurveOverlay { shapes, store }
+    pub fn linear_edges(&self) -> Vec<[[P::Scalar; 2]; 2]>
+    where
+        I: Expiration + LayoutNumber + SortKey,
+        P::Scalar: Send + Sync,
+    {
+        self.edge_overlay()
+            .edges()
+            .map(|[a, b]| {
+                let a = self.adapter.int_to_float(&a);
+                let b = self.adapter.int_to_float(&b);
+                [[a.x(), a.y()], [b.x(), b.y()]]
+            })
+            .collect()
     }
 }
 

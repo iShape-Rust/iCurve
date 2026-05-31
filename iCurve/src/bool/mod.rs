@@ -1,6 +1,7 @@
+mod merge;
 mod meta;
 pub mod overlay;
 mod recombine;
-mod resolve;
+pub mod resolve;
 pub mod scale;
 mod split;

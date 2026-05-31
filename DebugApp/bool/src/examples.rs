@@ -53,7 +53,6 @@ fn example_1() -> BoolExample {
     }
 }
 
-
 fn example_2() -> BoolExample {
     let scale = 200.0;
     let subject = CurveShapeBuilder::new()
@@ -61,10 +60,7 @@ fn example_2() -> BoolExample {
         .expect("move_to")
         .line_to(scaled([1.0, 0.0], scale))
         .expect("line_to")
-        .quad_to(
-            scaled([0.0, 1.0], scale),
-            scaled([-1.0, 0.0], scale),
-        )
+        .quad_to(scaled([0.0, 1.0], scale), scaled([-1.0, 0.0], scale))
         .expect("quad_to")
         .build()
         .expect("subject");
@@ -74,10 +70,7 @@ fn example_2() -> BoolExample {
         .expect("move_to")
         .line_to(scaled([0.5, 0.5], scale))
         .expect("line_to")
-        .quad_to(
-            scaled([0.0, 2.0], scale),
-            scaled([-0.5, 0.5], scale),
-        )
+        .quad_to(scaled([0.0, 2.0], scale), scaled([-0.5, 0.5], scale))
         .expect("quad_to")
         .build()
         .expect("clip");
@@ -96,10 +89,7 @@ fn example_3() -> BoolExample {
         .expect("move_to")
         .line_to(scaled([1.0, 0.0], scale))
         .expect("line_to")
-        .quad_to(
-            scaled([0.0, 1.0], scale),
-            scaled([-1.0, 0.0], scale),
-        )
+        .quad_to(scaled([0.0, 1.0], scale), scaled([-1.0, 0.0], scale))
         .expect("quad_to")
         .build()
         .expect("subject");
@@ -109,10 +99,7 @@ fn example_3() -> BoolExample {
         .expect("move_to")
         .line_to(scaled([0.5, 0.0], scale))
         .expect("line_to")
-        .quad_to(
-            scaled([0.0, 2.0], scale),
-            scaled([-0.5, 0.0], scale),
-        )
+        .quad_to(scaled([0.0, 2.0], scale), scaled([-0.5, 0.0], scale))
         .expect("quad_to")
         .build()
         .expect("clip");
@@ -146,7 +133,6 @@ fn example_4() -> BoolExample {
     }
 }
 
-
 fn example_5() -> BoolExample {
     BoolExample {
         name: "two subjects",
@@ -159,7 +145,6 @@ fn example_5() -> BoolExample {
         ])],
     }
 }
-
 
 fn example_6() -> BoolExample {
     BoolExample {
@@ -207,7 +192,6 @@ fn example_7() -> BoolExample {
         clip: Vec::new(),
     }
 }
-
 
 fn polygon(points: &[CurvePoint]) -> CurveShape<CurvePoint> {
     assert!(points.len() >= 3, "polygon needs at least three points");

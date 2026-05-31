@@ -10,6 +10,7 @@ use i_overlay::i_float::int::number::int::IntNumber;
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
     pub(super) fn split(&self) -> Vec<SegmentRange<P::Scalar>> {
         let ranges = self.pre_split();
+        // TODO more split logic
         ranges
     }
     fn pre_split(&self) -> Vec<SegmentRange<P::Scalar>> {

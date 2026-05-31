@@ -10,7 +10,7 @@ use debug_ui::{
     grid::{Grid, paint_camera_readout},
 };
 use i_curve::{
-    bool::overlay::CurveOverlay,
+    bool::overlay::{CurveOverlay, CurveOverlayOptions},
     curve::{arc::EllipticArc, contour::CurveContour, segment::CurveSegment, shape::CurveShape},
 };
 use i_overlay::core::{fill_rule::FillRule, overlay_rule::OverlayRule};
@@ -55,6 +55,8 @@ struct BoolApp {
     overlay_rule: OverlayRule,
     fill_rule: FillRule,
     show_mode: ShowMode,
+    show_linear_edges: bool,
+    max_angle_deg: f32,
 }
 
 impl Default for BoolApp {
@@ -71,6 +73,8 @@ impl Default for BoolApp {
             overlay_rule: OverlayRule::Union,
             fill_rule: FillRule::NonZero,
             show_mode: ShowMode::Both,
+            show_linear_edges: false,
+            max_angle_deg: 22.5,
         };
         app.fit_active_example();
         app
@@ -142,15 +146,21 @@ impl eframe::App for BoolApp {
                             ShowMode::Both.label(),
                         );
                     });
+                ui.checkbox(&mut self.show_linear_edges, "Linear edges");
+                ui.add(
+                    egui::Slider::new(&mut self.max_angle_deg, 1.0..=50.0).text("Max angle deg"),
+                );
 
                 ui.add_space(8.0);
                 ui.separator();
 
                 let result_count = self.result_shapes().len();
+                let edge_count = self.linear_edges().len();
                 let active = self.active_example();
                 ui.label(format!("Subject shapes: {}", active.subject.len()));
                 ui.label(format!("Clip shapes: {}", active.clip.len()));
                 ui.label(format!("Result shapes: {result_count}"));
+                ui.label(format!("Linear edges: {edge_count}"));
 
                 if ui.button("Fit view").clicked() {
                     self.fit_active_example();
@@ -207,6 +217,11 @@ impl eframe::App for BoolApp {
                     );
                 }
 
+                if self.show_linear_edges {
+                    let edges = self.linear_edges();
+                    paint_linear_edges(&painter, rect, &camera, &edges);
+                }
+
                 if matches!(self.show_mode, ShowMode::Result | ShowMode::Both) {
                     let result = self.result_shapes();
                     paint_shapes(
@@ -238,9 +253,29 @@ impl BoolApp {
 
     fn result_shapes(&self) -> Vec<CurveShape<CurvePoint>> {
         let active = self.active_example();
-        let mut overlay =
-            CurveOverlay::<CurvePoint, i32>::with_subj_and_clip(&active.subject, &active.clip);
+        let mut overlay = CurveOverlay::<CurvePoint, i32>::with_subj_and_clip_custom(
+            &active.subject,
+            &active.clip,
+            self.overlay_options(),
+        );
         overlay.overlay(self.overlay_rule, self.fill_rule)
+    }
+
+    fn linear_edges(&self) -> Vec<[CurvePoint; 2]> {
+        let active = self.active_example();
+        let overlay = CurveOverlay::<CurvePoint, i32>::with_subj_and_clip_custom(
+            &active.subject,
+            &active.clip,
+            self.overlay_options(),
+        );
+
+        overlay.linear_edges()
+    }
+
+    fn overlay_options(&self) -> CurveOverlayOptions<f32, i32> {
+        let mut options = CurveOverlayOptions::default();
+        options.split.max_angle = self.max_angle_deg.to_radians();
+        options
     }
 
     fn fit_active_example(&mut self) {
@@ -323,6 +358,19 @@ fn paint_shapes(
             painter.add(Shape::closed_line(screen_points, style.stroke));
             paint_control_points(painter, rect, camera, contour, style.controls);
         }
+    }
+}
+
+fn paint_linear_edges(painter: &Painter, rect: Rect, camera: &Camera, edges: &[[CurvePoint; 2]]) {
+    let stroke = Stroke::new(1.5, Color32::from_rgba_unmultiplied(255, 181, 79, 210));
+    let point_fill = Color32::from_rgba_unmultiplied(255, 220, 130, 170);
+
+    for edge in edges {
+        let a = camera.screen_from_world(rect, point_to_pos(edge[0]));
+        let b = camera.screen_from_world(rect, point_to_pos(edge[1]));
+        painter.line_segment([a, b], stroke);
+        painter.circle_filled(a, 2.5, point_fill);
+        painter.circle_filled(b, 2.5, point_fill);
     }
 }
 

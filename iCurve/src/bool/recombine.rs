@@ -47,7 +47,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         let ranges = merge_segment_sets(
             vector_path
                 .into_iter()
-                .map(|edge| store.to_vec(edge.data))
+                .map(|edge| store.range_iter(edge.data).collect())
                 .collect(),
         );
         let mut start = None;
@@ -109,10 +109,12 @@ fn narrow_segment_sets<F: FloatNumber>(mut sets: Vec<Vec<SegmentRange<F>>>) -> V
     sets
 }
 
+type SegmentRangeSet<F> = Vec<SegmentRange<F>>;
+
 fn intersect_adjacent_sets<F: FloatNumber>(
     lhs: &[SegmentRange<F>],
     rhs: &[SegmentRange<F>],
-) -> Option<(Vec<SegmentRange<F>>, Vec<SegmentRange<F>>)> {
+) -> Option<(SegmentRangeSet<F>, SegmentRangeSet<F>)> {
     let mut lhs_out = Vec::new();
     let mut rhs_out = Vec::new();
 
@@ -145,11 +147,11 @@ fn merge_segment_ranges<F: FloatNumber>(ranges: &mut Vec<SegmentRange<F>>) {
 
     let mut merged: Vec<SegmentRange<F>> = Vec::with_capacity(ranges.len());
     for range in ranges.drain(..) {
-        if let Some(last) = merged.last_mut() {
-            if can_merge_ranges(last, &range) {
-                last.t1 = range.t1;
-                continue;
-            }
+        if let Some(last) = merged.last_mut()
+            && can_merge_ranges(last, &range)
+        {
+            last.t1 = range.t1;
+            continue;
         }
 
         merged.push(range);
