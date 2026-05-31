@@ -319,11 +319,11 @@ impl ControlStyle {
 
     fn result() -> Self {
         Self {
-            arm_stroke: Stroke::new(1.0, Color32::from_rgba_unmultiplied(126, 231, 135, 95)),
-            anchor_fill: Color32::from_rgb(255, 219, 128),
-            control_fill: Color32::from_rgb(230, 122, 122),
-            center_fill: Color32::from_rgb(128, 212, 156),
-            point_stroke: Stroke::new(1.0, Color32::from_rgb(18, 20, 24)),
+            arm_stroke: Stroke::new(1.0, Color32::from_rgba_unmultiplied(150, 156, 166, 65)),
+            anchor_fill: Color32::from_rgba_unmultiplied(165, 171, 181, 105),
+            control_fill: Color32::from_rgba_unmultiplied(135, 141, 151, 90),
+            center_fill: Color32::from_rgba_unmultiplied(150, 156, 166, 95),
+            point_stroke: Stroke::new(1.0, Color32::from_rgba_unmultiplied(18, 20, 24, 120)),
         }
     }
 }

@@ -1412,7 +1412,9 @@ checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 name = "i_curve"
 version = "0.1.0"
 dependencies = [
+ "i_key_sort",
  "i_overlay",
+ "i_tree",
 ]
 
 [[package]]
