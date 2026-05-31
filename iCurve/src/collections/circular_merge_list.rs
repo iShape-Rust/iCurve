@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 
+#[allow(dead_code)]
 pub(crate) trait Merge {
     fn merge(&mut self, other: &mut Self) -> bool;
 }
@@ -14,7 +15,7 @@ pub(crate) struct CircularMergeList<T> {
     len: u32,
 }
 
-impl<T: Merge> CircularMergeList<T> {
+impl<T> CircularMergeList<T> {
     pub(crate) fn with_capacity(capacity: usize) -> Self {
         Self {
             nodes: Vec::with_capacity(capacity),
@@ -23,9 +24,12 @@ impl<T: Merge> CircularMergeList<T> {
         }
     }
 
-    pub(crate) fn merge(&mut self, values: Vec<T>) -> Vec<T> {
+    pub(crate) fn merge_with<M>(&mut self, values: Vec<T>, mut merge: M) -> Vec<T>
+    where
+        M: FnMut(&mut T, &mut T) -> bool,
+    {
         self.init(values);
-        self.merge_nodes();
+        self.merge_nodes(&mut merge);
         self.extract_vec()
     }
 
@@ -52,7 +56,10 @@ impl<T: Merge> CircularMergeList<T> {
         self.nodes[last_index].next = 0;
     }
 
-    fn merge_nodes(&mut self) {
+    fn merge_nodes<M>(&mut self, merge: &mut M)
+    where
+        M: FnMut(&mut T, &mut T) -> bool,
+    {
         if self.len < 2 {
             return;
         }
@@ -64,7 +71,7 @@ impl<T: Merge> CircularMergeList<T> {
             let next = self.nodes[index].next as usize;
             let next_next = self.nodes[next].next;
 
-            if self.merge_pair(index, next) {
+            if self.merge_pair(index, next, merge) {
                 self.nodes[index].next = next_next;
                 self.len -= 1;
                 checked_count = 0;
@@ -102,14 +109,24 @@ impl<T: Merge> CircularMergeList<T> {
         result
     }
 
-    fn merge_pair(&mut self, index: usize, next: usize) -> bool {
+    fn merge_pair<M>(&mut self, index: usize, next: usize, merge: &mut M) -> bool
+    where
+        M: FnMut(&mut T, &mut T) -> bool,
+    {
         if index < next {
             let (left, right) = self.nodes.split_at_mut(next);
-            left[index].value.merge(&mut right[0].value)
+            merge(&mut left[index].value, &mut right[0].value)
         } else {
             let (left, right) = self.nodes.split_at_mut(index);
-            right[0].value.merge(&mut left[next].value)
+            merge(&mut right[0].value, &mut left[next].value)
         }
+    }
+}
+
+impl<T: Merge> CircularMergeList<T> {
+    #[allow(dead_code)]
+    pub(crate) fn merge(&mut self, values: Vec<T>) -> Vec<T> {
+        self.merge_with(values, |a, b| a.merge(b))
     }
 }
 

@@ -1,18 +1,22 @@
+use crate::bool::compare::CurveGeometry;
 use crate::bool::meta::{MetaSegment, MetaStore, ResolvedCurveOverlay};
 use crate::bool::overlay::CurveOverlay;
-use crate::collections::circular_merge_list::{CircularMergeList, Merge};
+use crate::collections::circular_merge_list::CircularMergeList;
 use crate::curve::arc::EllipticArc;
 use crate::curve::contour::CurveContour;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
 use crate::flatten::segment::{
-    ArcSegment, CubicSegment, LineSegment, NormalizedSegment, QuadSegment, SegmentParam, SegmentRange,
+    ArcSegment, CubicSegment, LineSegment, NormalizedSegment, QuadSegment, Segment, SegmentParam,
+    SegmentRange,
 };
 use crate::flatten::split::SplitAt;
 use alloc::vec::Vec;
+use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::i_float::int::point::IntPoint;
 use i_overlay::vector::edge::DataVectorPath;
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
@@ -45,14 +49,18 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         &self,
         vector_path: DataVectorPath<I, MetaSegment<P::Scalar>>,
         store: &MetaStore<P::Scalar>,
-        merge_list: &mut CircularMergeList<Vec<SegmentRange<P::Scalar>>>,
+        merge_list: &mut CircularMergeList<SegmentData<P::Scalar, I>>,
     ) -> Option<CurveContour<P>> {
         let sets = vector_path
             .into_iter()
-            .map(|edge| store.range_iter(edge.data).collect())
+            .map(|edge| SegmentData {
+                ranges: store.range_iter(edge.data).collect(),
+                start: edge.a,
+                end: edge.b,
+            })
             .collect();
 
-        let ranges = merge_segment_sets(sets, merge_list);
+        let ranges = merge_segment_sets(sets, &self.segments, &self.adapter, merge_list);
         let mut start = None;
         let mut segments = Vec::with_capacity(ranges.len());
 
@@ -79,14 +87,27 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
     }
 }
 
-fn merge_segment_sets<F: FloatNumber>(
-    sets: Vec<Vec<SegmentRange<F>>>,
-    merge_list: &mut CircularMergeList<Vec<SegmentRange<F>>>,
-) -> Vec<SegmentRange<F>> {
+#[derive(Clone)]
+struct SegmentData<F: FloatNumber, I: IntNumber> {
+    ranges: Vec<SegmentRange<F>>,
+    start: IntPoint<I>,
+    end: IntPoint<I>,
+}
+
+fn merge_segment_sets<P, I>(
+    sets: Vec<SegmentData<P::Scalar, I>>,
+    segments: &[Segment<P>],
+    adapter: &FloatPointAdapter<P, I>,
+    merge_list: &mut CircularMergeList<SegmentData<P::Scalar, I>>,
+) -> Vec<SegmentRange<P::Scalar>>
+where
+    P: FloatPointCompatible,
+    I: IntNumber,
+{
     merge_list
-        .merge(sets)
+        .merge_with(sets, |prev, next| prev.merge(next, segments, adapter))
         .into_iter()
-        .filter_map(|set| set.first().copied())
+        .filter_map(|set| set.ranges.first().copied())
         .collect()
 }
 
@@ -94,12 +115,28 @@ fn can_merge_ranges<F: FloatNumber>(prev: &SegmentRange<F>, next: &SegmentRange<
     prev.segment_index == next.segment_index && prev.t1 == next.t0
 }
 
-impl<F: FloatNumber> Merge for Vec<SegmentRange<F>> {
-    fn merge(&mut self, other: &mut Self) -> bool {
+impl<F: FloatNumber, I: IntNumber> SegmentData<F, I> {
+    fn merge<P>(
+        &mut self,
+        other: &mut Self,
+        segments: &[Segment<P>],
+        adapter: &FloatPointAdapter<P, I>,
+    ) -> bool
+    where
+        P: FloatPointCompatible<Scalar = F>,
+    {
+        if self.merge_by_index(other) {
+            return true;
+        }
+
+        self.merge_by_geometry(other, segments, adapter)
+    }
+
+    fn merge_by_index(&mut self, other: &Self) -> bool {
         let mut result = Vec::new();
 
-        for l in self.iter() {
-            for r in other.iter() {
+        for l in self.ranges.iter() {
+            for r in other.ranges.iter() {
                 if can_merge_ranges(l, r) {
                     let mut range = *l;
                     range.t1 = r.t1;
@@ -114,9 +151,56 @@ impl<F: FloatNumber> Merge for Vec<SegmentRange<F>> {
         if result.is_empty() {
             false
         } else {
-            *self = result;
+            self.ranges = result;
+            self.end = other.end;
             true
         }
+    }
+
+    fn merge_by_geometry<P>(
+        &mut self,
+        other: &Self,
+        segments: &[Segment<P>],
+        adapter: &FloatPointAdapter<P, I>,
+    ) -> bool
+    where
+        P: FloatPointCompatible<Scalar = F>,
+    {
+        let mut result = Vec::new();
+
+        for l in self.ranges.iter() {
+            for r in other.ranges.iter() {
+                let prev_segment = &segments[l.segment_index].normalized_segment;
+                let next_segment = &segments[r.segment_index].normalized_segment;
+
+                let prev = CurveGeometry::new(self.start, self.end, prev_segment, *l);
+                let next = CurveGeometry::new(other.start, other.end, next_segment, *r);
+
+                if prev.compare(next, adapter) {
+                    let mut left = *l;
+                    left.t1 = r.t1;
+                    push_unique(&mut result, left);
+
+                    let mut right = *r;
+                    right.t0 = l.t0;
+                    push_unique(&mut result, right);
+                }
+            }
+        }
+
+        if result.is_empty() {
+            false
+        } else {
+            self.ranges = result;
+            self.end = other.end;
+            true
+        }
+    }
+}
+
+fn push_unique<F: FloatNumber>(ranges: &mut Vec<SegmentRange<F>>, range: SegmentRange<F>) {
+    if !ranges.contains(&range) {
+        ranges.push(range);
     }
 }
 
@@ -276,9 +360,38 @@ impl<P: FloatPointCompatible> ArcPointAt<P> for ArcSegment<P> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::collections::circular_merge_list::Merge;
+    use i_overlay::core::overlay::ShapeType;
+    use i_overlay::i_float::float::rect::FloatRect;
 
     fn range(segment_index: usize, t0: f64, t1: f64) -> SegmentRange<f64> {
         SegmentRange::new(segment_index, t0, t1)
+    }
+
+    fn data(ranges: Vec<SegmentRange<f64>>, x0: i32, x1: i32) -> SegmentData<f64, i32> {
+        SegmentData {
+            ranges,
+            start: IntPoint::new(x0, 0),
+            end: IntPoint::new(x1, 0),
+        }
+    }
+
+    fn line_segments(count: usize) -> Vec<Segment<[f64; 2]>> {
+        (0..count)
+            .map(|_| Segment {
+                normalized_segment: NormalizedSegment::Line(LineSegment {
+                    control_points: [[0.0, 0.0], [1.0, 0.0]],
+                }),
+                shape_type: ShapeType::Subject,
+            })
+            .collect()
+    }
+
+    fn segment(normalized_segment: NormalizedSegment<[f64; 2]>) -> Segment<[f64; 2]> {
+        Segment {
+            normalized_segment,
+            shape_type: ShapeType::Subject,
+        }
     }
 
     impl<F: FloatNumber> Merge for SegmentRange<F> {
@@ -332,17 +445,83 @@ mod tests {
     #[test]
     fn narrow_segment_sets_by_adjacent_intersection() {
         let sets = Vec::from([
-            Vec::from([range(1, 0.0, 0.5), range(2, 0.0, 0.5), range(3, 0.0, 0.5)]),
-            Vec::from([range(2, 0.5, 0.75), range(3, 0.5, 0.75), range(5, 0.5, 0.75)]),
-            Vec::from([range(2, 0.75, 1.0), range(4, 0.75, 1.0), range(5, 0.75, 1.0)]),
+            data(
+                Vec::from([range(1, 0.0, 0.5), range(2, 0.0, 0.5), range(3, 0.0, 0.5)]),
+                0,
+                1,
+            ),
+            data(
+                Vec::from([range(2, 0.5, 0.75), range(3, 0.5, 0.75), range(5, 0.5, 0.75)]),
+                1,
+                2,
+            ),
+            data(
+                Vec::from([range(2, 0.75, 1.0), range(4, 0.75, 1.0), range(5, 0.75, 1.0)]),
+                2,
+                3,
+            ),
         ]);
         let mut merge_list = CircularMergeList::with_capacity(sets.len());
+        let segments = line_segments(6);
+        let adapter =
+            FloatPointAdapter::<[f64; 2], i32>::with_scale(FloatRect::new(-10.0, 10.0, -10.0, 10.0), 1000.0);
 
-        let ranges = merge_segment_sets(sets, &mut merge_list);
+        let ranges = merge_segment_sets(sets, &segments, &adapter, &mut merge_list);
 
         assert_eq!(ranges.len(), 1);
         assert_eq!(ranges[0].segment_index, 2);
         assert_eq!(ranges[0].t0, SegmentParam::Start);
         assert_eq!(ranges[0].t1, SegmentParam::End);
+    }
+
+    #[test]
+    fn geometry_merge_keeps_expanded_line_alternatives() {
+        let adapter =
+            FloatPointAdapter::<[f64; 2], i32>::with_scale(FloatRect::new(-10.0, 10.0, -10.0, 10.0), 1000.0);
+        let segments = Vec::from([
+            segment(NormalizedSegment::Line(LineSegment {
+                control_points: [[0.0, 0.0], [2.0, 0.0]],
+            })),
+            segment(NormalizedSegment::Line(LineSegment {
+                control_points: [[0.0, 0.0], [2.0, 0.0]],
+            })),
+        ]);
+        let mut left = data(Vec::from([range(0, 0.0, 0.5)]), 0, 1000);
+        let mut right = data(Vec::from([range(1, 0.5, 1.0)]), 1000, 2000);
+
+        assert!(left.merge(&mut right, &segments, &adapter));
+
+        assert_eq!(left.start, IntPoint::new(0, 0));
+        assert_eq!(left.end, IntPoint::new(2000, 0));
+        assert_eq!(left.ranges, Vec::from([range(0, 0.0, 1.0), range(1, 0.0, 1.0)]));
+    }
+
+    #[test]
+    fn geometry_merge_keeps_expanded_quad_alternatives() {
+        let adapter =
+            FloatPointAdapter::<[f64; 2], i32>::with_scale(FloatRect::new(-10.0, 10.0, -10.0, 10.0), 1000.0);
+        let quad = QuadSegment {
+            control_points: [[0.0, 0.0], [2.0, 4.0], [6.0, 0.0]],
+        };
+        let segments = Vec::from([
+            segment(NormalizedSegment::Quad(quad)),
+            segment(NormalizedSegment::Quad(quad)),
+        ]);
+        let mut left = SegmentData {
+            ranges: Vec::from([range(0, 0.0, 0.5)]),
+            start: adapter.float_to_int(&[0.0, 0.0]),
+            end: adapter.float_to_int(&[2.5, 2.0]),
+        };
+        let mut right = SegmentData {
+            ranges: Vec::from([range(1, 0.5, 1.0)]),
+            start: adapter.float_to_int(&[2.5, 2.0]),
+            end: adapter.float_to_int(&[6.0, 0.0]),
+        };
+
+        assert!(left.merge(&mut right, &segments, &adapter));
+
+        assert_eq!(left.start, adapter.float_to_int(&[0.0, 0.0]));
+        assert_eq!(left.end, adapter.float_to_int(&[6.0, 0.0]));
+        assert_eq!(left.ranges, Vec::from([range(0, 0.0, 1.0), range(1, 0.0, 1.0)]));
     }
 }

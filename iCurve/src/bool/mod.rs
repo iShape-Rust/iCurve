@@ -1,3 +1,4 @@
+mod compare;
 mod merge;
 mod meta;
 pub mod overlay;

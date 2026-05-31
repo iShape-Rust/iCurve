@@ -19,6 +19,7 @@ pub fn load_examples() -> Vec<BoolExample> {
         example_5(),
         example_6(),
         example_7(),
+        example_8(),
     ]
 }
 
@@ -193,6 +194,43 @@ fn example_7() -> BoolExample {
     }
 }
 
+fn example_8() -> BoolExample {
+    let scale = 200.0;
+    let cubic = [
+        scaled([1.0, 0.0], scale),
+        scaled([0.5, 1.0], scale),
+        scaled([-0.5, 1.0], scale),
+        scaled([-1.0, 0.0], scale),
+    ];
+    let clip_cubic = cubic_range(cubic, 0.2, 0.8);
+
+    let subject = CurveShapeBuilder::new()
+        .move_to(scaled([-1.0, 0.0], scale))
+        .expect("move_to")
+        .line_to(cubic[0])
+        .expect("line_to")
+        .cubic_to(cubic[1], cubic[2], cubic[3])
+        .expect("cubic_to")
+        .build()
+        .expect("subject");
+
+    let clip = CurveShapeBuilder::new()
+        .move_to(clip_cubic[0])
+        .expect("move_to")
+        .cubic_to(clip_cubic[1], clip_cubic[2], clip_cubic[3])
+        .expect("cubic_to")
+        .line_to(clip_cubic[0])
+        .expect("line_to")
+        .build()
+        .expect("clip");
+
+    BoolExample {
+        name: "cubic shared range",
+        subject: vec![subject],
+        clip: vec![clip],
+    }
+}
+
 fn polygon(points: &[CurvePoint]) -> CurveShape<CurvePoint> {
     assert!(points.len() >= 3, "polygon needs at least three points");
 
@@ -290,4 +328,28 @@ fn capsule(
 
 fn scaled(point: CurvePoint, scale: f32) -> CurvePoint {
     [point[0] * scale, point[1] * scale]
+}
+
+fn cubic_range(cubic: [CurvePoint; 4], t0: f32, t1: f32) -> [CurvePoint; 4] {
+    debug_assert!(0.0 <= t0 && t0 < t1 && t1 <= 1.0);
+
+    let [left, _] = split_cubic_at(cubic, t1);
+    let local_t = t0 / t1;
+    let [_, range] = split_cubic_at(left, local_t);
+    range
+}
+
+fn split_cubic_at(cubic: [CurvePoint; 4], t: f32) -> [[CurvePoint; 4]; 2] {
+    let p01 = line_point(cubic[0], cubic[1], t);
+    let p12 = line_point(cubic[1], cubic[2], t);
+    let p23 = line_point(cubic[2], cubic[3], t);
+    let p012 = line_point(p01, p12, t);
+    let p123 = line_point(p12, p23, t);
+    let p0123 = line_point(p012, p123, t);
+
+    [[cubic[0], p01, p012, p0123], [p0123, p123, p23, cubic[3]]]
+}
+
+fn line_point(a: CurvePoint, b: CurvePoint, t: f32) -> CurvePoint {
+    [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]
 }
