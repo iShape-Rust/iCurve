@@ -8,9 +8,11 @@ default = []
 eframe = ["dep:eframe"]
 
 [dependencies]
-i_overlay = { path = "../../iOverlay/iOverlay" }
-i_tree = { path = "../../iTree" }
-i_key_sort = { version = "^0.10.1" }
+#i_overlay = { path = "../../iOverlay/iOverlay" }
+#i_tree = { path = "../../iTree" }
+i_overlay = "^7.0.0"
+i_tree = "^0.19.0"
+i_key_sort = { version = "^0.10.3" }
 serde = { version = "^1.0", default-features = false, features = ["derive"], optional = true }
 eframe = { optional = true, version = ">=0.30" }
 
