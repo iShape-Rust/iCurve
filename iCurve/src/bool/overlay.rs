@@ -9,7 +9,7 @@ use i_key_sort::sort::key::SortKey;
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::core::overlay_rule::OverlayRule;
-use i_overlay::i_float::adapter::FloatPointAdapter;
+use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterRangeError};
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::rect::FloatRect;
@@ -73,8 +73,10 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         let capacity = Self::resource_segments_count(subj) + Self::resource_segments_count(clip);
         let mut segments = Vec::with_capacity(capacity);
 
-        Self::append_resource_segments(subj, ShapeType::Subject, &adapter, &mut segments);
-        Self::append_resource_segments(clip, ShapeType::Clip, &adapter, &mut segments);
+        Self::append_resource_segments(subj, ShapeType::Subject, &adapter, &mut segments)
+            .expect("adapter rect must contain all subject points");
+        Self::append_resource_segments(clip, ShapeType::Clip, &adapter, &mut segments)
+            .expect("adapter rect must contain all clip points");
 
         Self {
             segments,
@@ -92,15 +94,28 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         self.recombine(resolved)
     }
 
+    pub fn add_shape<R: CurveResource<P> + ?Sized>(
+        &mut self,
+        resource: &R,
+        shape_type: ShapeType,
+    ) -> Result<(), FloatPointAdapterRangeError> {
+        for contour in resource.iter_contours() {
+            self.segments
+                .extend(contour.try_to_normalize_segments_with_adapter(shape_type, &self.adapter)?);
+        }
+        Ok(())
+    }
+
     pub(super) fn append_resource_segments<R: CurveResource<P> + ?Sized>(
         resource: &R,
         shape_type: ShapeType,
         adapter: &FloatPointAdapter<P, I>,
         output: &mut Vec<Segment<P>>,
-    ) {
+    ) -> Result<(), FloatPointAdapterRangeError> {
         for contour in resource.iter_contours() {
-            output.extend(contour.to_normalize_segments_with_adapter(shape_type, adapter));
+            output.extend(contour.try_to_normalize_segments_with_adapter(shape_type, adapter)?);
         }
+        Ok(())
     }
 
     pub(super) fn resource_rect<R: CurveResource<P> + ?Sized>(resource: &R) -> Option<FloatRect<P::Scalar>> {

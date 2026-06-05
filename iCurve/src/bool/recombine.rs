@@ -1,6 +1,8 @@
-use crate::bool::compare::CurveGeometry;
+mod span;
+
 use crate::bool::meta::{MetaSegment, MetaStore, ResolvedCurveOverlay};
 use crate::bool::overlay::CurveOverlay;
+use crate::bool::recombine::span::CurveSpan;
 use crate::collections::circular_merge_list::CircularMergeList;
 use crate::curve::arc::EllipticArc;
 use crate::curve::contour::CurveContour;
@@ -173,10 +175,10 @@ impl<F: FloatNumber, I: IntNumber> SegmentData<F, I> {
                 let prev_segment = &segments[l.segment_index].normalized_segment;
                 let next_segment = &segments[r.segment_index].normalized_segment;
 
-                let prev = CurveGeometry::new(self.start, self.end, prev_segment, *l);
-                let next = CurveGeometry::new(other.start, other.end, next_segment, *r);
+                let prev = CurveSpan::new(self.start, self.end, prev_segment, *l);
+                let next = CurveSpan::new(other.start, other.end, next_segment, *r);
 
-                if prev.compare(next, adapter) {
+                if prev.can_recombine_with(next, adapter) {
                     let mut left = *l;
                     left.t1 = r.t1;
                     push_unique(&mut result, left);

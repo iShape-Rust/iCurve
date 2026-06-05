@@ -6,7 +6,9 @@ use i_key_sort::sort::key::SortKey;
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::core::overlay_rule::OverlayRule;
-use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterScaleError};
+use i_overlay::i_float::adapter::{
+    FloatPointAdapter, FloatPointAdapterRangeError, FloatPointAdapterScaleError,
+};
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
@@ -20,6 +22,8 @@ pub enum FixedScaleCurveOverlayError {
     ScaleNonPositive,
     /// Requested scale is NaN or infinite.
     ScaleNotFinite,
+    /// A curve point is outside the adapter rectangle.
+    PointOutOfRange,
 }
 
 impl From<FloatPointAdapterScaleError> for FixedScaleCurveOverlayError {
@@ -29,6 +33,15 @@ impl From<FloatPointAdapterScaleError> for FixedScaleCurveOverlayError {
             FloatPointAdapterScaleError::ScaleTooLarge => Self::ScaleTooLarge,
             FloatPointAdapterScaleError::ScaleNonPositive => Self::ScaleNonPositive,
             FloatPointAdapterScaleError::ScaleNotFinite => Self::ScaleNotFinite,
+        }
+    }
+}
+
+impl From<FloatPointAdapterRangeError> for FixedScaleCurveOverlayError {
+    #[inline]
+    fn from(error: FloatPointAdapterRangeError) -> Self {
+        match error {
+            FloatPointAdapterRangeError::PointOutOfRange => Self::PointOutOfRange,
         }
     }
 }
@@ -175,8 +188,8 @@ where
         let capacity = Self::resource_segments_count(subj) + Self::resource_segments_count(clip);
         let mut segments = Vec::with_capacity(capacity);
 
-        Self::append_resource_segments(subj, ShapeType::Subject, &adapter, &mut segments);
-        Self::append_resource_segments(clip, ShapeType::Clip, &adapter, &mut segments);
+        Self::append_resource_segments(subj, ShapeType::Subject, &adapter, &mut segments)?;
+        Self::append_resource_segments(clip, ShapeType::Clip, &adapter, &mut segments)?;
 
         Ok(Self {
             segments,
