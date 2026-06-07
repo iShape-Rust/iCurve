@@ -1,11 +1,11 @@
 mod examples;
 
-use crate::examples::{CurveExample, load_examples};
+use crate::examples::{load_examples, CurveExample};
 use debug_ui::{
     camera::Camera,
-    curve::{ArcCurve, CurveEditor, CurvePointReadout, DebugCurve, paint_curve_point_readout},
+    curve::{paint_curve_point_readout, ArcCurve, CurveEditor, CurvePointReadout, DebugCurve},
     egui::{self, Color32, Painter, Pos2, Rect, Sense, Shape, Stroke, Vec2},
-    grid::{Grid, paint_camera_readout},
+    grid::{paint_camera_readout, Grid},
 };
 use i_curve::{
     curve::{
@@ -408,10 +408,12 @@ impl DebugCurveToShape for DebugCurve {
             Self::Line(points) => CurveShapeBuilder::new()
                 .move_to(pos_to_curve_point(points[0]))?
                 .line_to(pos_to_curve_point(points[1]))?
+                .close_with_line()?
                 .build(),
             Self::Quad(points) => CurveShapeBuilder::new()
                 .move_to(pos_to_curve_point(points[0]))?
                 .quad_to(pos_to_curve_point(points[1]), pos_to_curve_point(points[2]))?
+                .close_with_line()?
                 .build(),
             Self::Cubic(points) => CurveShapeBuilder::new()
                 .move_to(pos_to_curve_point(points[0]))?
@@ -420,6 +422,7 @@ impl DebugCurveToShape for DebugCurve {
                     pos_to_curve_point(points[2]),
                     pos_to_curve_point(points[3]),
                 )?
+                .close_with_line()?
                 .build(),
             Self::Arc(arc) => arc_to_curve_shape(*arc),
         }
@@ -436,6 +439,7 @@ fn arc_to_curve_shape(arc: ArcCurve) -> Result<CurveShape<CurvePoint>, CurveErro
             start_angle: arc.start_angle,
             sweep_angle: arc.sweep_angle,
         })?
+        .close_with_line()?
         .build()
 }
 

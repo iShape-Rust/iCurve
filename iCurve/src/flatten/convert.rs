@@ -365,25 +365,6 @@ impl<P: FloatPointCompatible> From<Option<NormalizedSegment<P>>> for TryCubicRes
     }
 }
 
-pub(crate) trait ArcEndPoint<P: FloatPointCompatible> {
-    fn end_point(&self) -> P;
-}
-
-impl<P: FloatPointCompatible> ArcEndPoint<P> for EllipticArc<P> {
-    fn end_point(&self) -> P {
-        let angle = self.start_angle + self.sweep_angle;
-        let x = self.radii.x() * angle.cos();
-        let y = self.radii.y() * angle.sin();
-        let cos = self.rotation.cos();
-        let sin = self.rotation.sin();
-
-        P::from_xy(
-            self.center.x() + x * cos - y * sin,
-            self.center.y() + x * sin + y * cos,
-        )
-    }
-}
-
 trait ShapeSegmentCount {
     fn segments_count(&self) -> usize;
 }
@@ -449,6 +430,7 @@ mod tests {
         let shape = CurveShapeBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
+            .close_with_line()?
             .build()?;
         let points = [[0.0, 0.0], [1.0, 0.0]];
         let adapter = FloatPointAdapter::<[f64; 2], i32>::with_iter(points.iter());
@@ -457,7 +439,7 @@ mod tests {
             .try_to_normalize_segments_with_adapter(ShapeType::Subject, &adapter)
             .expect("points must fit adapter rect");
 
-        assert_eq!(segments.len(), 1);
+        assert_eq!(segments.len(), 2);
         match &segments[0].normalized_segment {
             NormalizedSegment::Line(segment) => {
                 assert_eq!(segment.control_points, [[0.0, 0.0], [1.0, 0.0]])
@@ -517,6 +499,7 @@ mod tests {
         let shape = CurveShapeBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([2.0, 0.0])?
+            .close_with_line()?
             .build()?;
         let points = [[0.0, 0.0], [1.0, 0.0]];
         let adapter = FloatPointAdapter::<[f64; 2], i32>::with_iter(points.iter());
@@ -536,11 +519,12 @@ mod tests {
         let shape = CurveShapeBuilder::new()
             .move_to([0.0, 0.0])?
             .cubic_to([-3.0, -3.0], [-3.0, -2.0], [-2.0, -2.0])?
+            .close_with_line()?
             .build()?;
 
         let segments = shape.to_normalize_segments(ShapeType::Subject);
 
-        assert_eq!(segments.len(), 4);
+        assert_eq!(segments.len(), 5);
         let point = [-2.3615160349854225, -2.0466472303206995];
         match (
             &segments[0].normalized_segment,
@@ -560,6 +544,12 @@ mod tests {
                 assert_point_eq(last.control_points[0], point);
             }
             _ => panic!("Expected cubic segments"),
+        }
+        match &segments[4].normalized_segment {
+            NormalizedSegment::Line(segment) => {
+                assert_eq!(segment.control_points, [[-2.0, -2.0], [0.0, 0.0]])
+            }
+            _ => panic!("Expected closing line segment"),
         }
 
         Ok(())
@@ -633,6 +623,7 @@ mod tests {
                 start_angle: 0.0,
                 sweep_angle: core::f64::consts::FRAC_PI_2,
             })?
+            .close_with_line()?
             .build()?;
 
         let segments = shape.to_normalize_segments(ShapeType::Subject);

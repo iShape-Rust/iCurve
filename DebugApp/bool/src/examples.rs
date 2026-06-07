@@ -269,7 +269,11 @@ fn ellipse(center: CurvePoint, radii: CurvePoint) -> CurveShape<CurvePoint> {
             .expect("arc_to");
     }
 
-    builder.build().expect("ellipse")
+    builder
+        .close_with_line()
+        .expect("close")
+        .build()
+        .expect("ellipse")
 }
 
 fn blob(

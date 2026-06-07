@@ -48,6 +48,19 @@ pub struct CurveOverlay<P: FloatPointCompatible, I: IntNumber = i32> {
 }
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
+
+    pub fn with_adapter(adapter: FloatPointAdapter<P, I>) -> Self {
+        Self::with_adapter_custom(adapter, Default::default())
+    }
+
+    pub fn with_adapter_custom(adapter: FloatPointAdapter<P, I>, options: CurveOverlayOptions<P::Scalar, I>,) -> Self {
+        Self {
+            segments: Vec::new(),
+            adapter,
+            options,
+        }
+    }
+
     pub fn with_subj_and_clip<R0, R1>(subj: &R0, clip: &R1) -> Self
     where
         R0: CurveResource<P> + ?Sized,

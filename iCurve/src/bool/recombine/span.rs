@@ -41,8 +41,8 @@ where
         debug_assert!(self.end == next.start);
 
         match (self.segment, next.segment) {
-            (NormalizedSegment::Line(a), NormalizedSegment::Line(b)) => {
-                line_line::can_recombine(self, next, a, b, adapter)
+            (NormalizedSegment::Line(_), NormalizedSegment::Line(_)) => {
+                line_line::can_recombine(self, next)
             }
             (NormalizedSegment::Quad(a), NormalizedSegment::Quad(b)) => {
                 quad_quad::can_recombine(self, next, a, b, adapter)

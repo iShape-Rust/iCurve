@@ -10,7 +10,7 @@ use i_overlay::i_float::int::point::IntPoint;
 pub(super) fn can_recombine<P, I>(
     prev: CurveSpan<P, I>,
     next: CurveSpan<P, I>,
-    full_quad: &QuadSegment<P>,
+    full_prev_quad: &QuadSegment<P>,
     full_next_quad: &QuadSegment<P>,
     adapter: &FloatPointAdapter<P, I>,
 ) -> bool
@@ -18,7 +18,9 @@ where
     P: FloatPointCompatible,
     I: IntNumber,
 {
-    let Some(quad) = full_quad.range(prev.range.t0, prev.range.t1) else {
+    debug_assert!(prev.end == next.start);
+
+    let Some(prev_quad) = full_prev_quad.range(prev.range.t0, prev.range.t1) else {
         return false;
     };
     let Some(next_quad) = full_next_quad.range(next.range.t0, next.range.t1) else {
@@ -26,7 +28,7 @@ where
     };
 
     let p0 = adapter.int_to_float(&prev.start);
-    let c0 = quad.control_points[1];
+    let c0 = prev_quad.control_points[1];
     let p1 = adapter.int_to_float(&prev.end);
     let c1 = next_quad.control_points[1];
     let p2 = adapter.int_to_float(&next.end);
@@ -59,7 +61,7 @@ where
     );
 
     close_parameter(t, expected_t)
-        && close_point(quad_point_at(full_quad, next.range.t1), p2, adapter)
+        && close_point(quad_point_at(full_prev_quad, next.range.t1), p2, adapter)
         && close_point(quad_point_at(full_next_quad, prev.range.t0), p0, adapter)
         && close_point(left.control_points[0], p0, adapter)
         && close_point(left.control_points[1], c0, adapter)
@@ -208,14 +210,16 @@ fn reverse_quad<P: FloatPointCompatible>(quad: QuadSegment<P>) -> QuadSegment<P>
 
 #[cfg(test)]
 mod tests {
+    use i_overlay::core::fill_rule::FillRule;
+    use i_overlay::core::overlay::ShapeType;
+    use i_overlay::core::overlay_rule::OverlayRule;
     use super::super::CurveSpan;
     use crate::flatten::segment::{NormalizedSegment, QuadSegment, SegmentRange};
     use i_overlay::i_float::adapter::FloatPointAdapter;
-    use i_overlay::i_float::float::rect::FloatRect;
-
-    fn adapter() -> FloatPointAdapter<[f64; 2], i32> {
-        FloatPointAdapter::with_scale(FloatRect::new(-10.0, 10.0, -10.0, 10.0), 1000.0)
-    }
+    use crate::bool::overlay::CurveOverlay;
+    use crate::curve::builder::{CurveError, CurveShapeBuilder};
+    use crate::flatten::split::SplitAt;
+    use crate::util::adapter::TestAdapter;
 
     fn span<'a>(
         start: [f64; 2],
@@ -233,8 +237,8 @@ mod tests {
     }
 
     #[test]
-    fn adjacent_quad_ranges_match_when_they_are_split_from_one_quad() {
-        let adapter = adapter();
+    fn test_0() {
+        let adapter = FloatPointAdapter::with_radius_and_scale(10.0, 1000.0);
         let source = QuadSegment {
             control_points: [[0.0, 0.0], [2.0, 4.0], [6.0, 0.0]],
         };
@@ -262,8 +266,8 @@ mod tests {
     }
 
     #[test]
-    fn adjacent_quad_ranges_match_with_non_half_split() {
-        let adapter = adapter();
+    fn test_1() {
+        let adapter = FloatPointAdapter::with_radius_and_scale(10.0, 1000.0);
         let source = QuadSegment {
             control_points: [[0.0, 0.0], [2.0, 4.0], [6.0, 0.0]],
         };
@@ -291,8 +295,8 @@ mod tests {
     }
 
     #[test]
-    fn adjacent_quads_do_not_match_when_tangent_is_broken() {
-        let adapter = adapter();
+    fn test_2() {
+        let adapter = FloatPointAdapter::with_radius_and_scale(10.0, 1000.0);
         let left = NormalizedSegment::Quad(QuadSegment {
             control_points: [[0.0, 0.0], [1.0, 2.0], [2.0, 2.0]],
         });
@@ -322,8 +326,8 @@ mod tests {
     }
 
     #[test]
-    fn adjacent_quads_do_not_match_when_they_do_not_reconstruct_one_quad() {
-        let adapter = adapter();
+    fn test_3() {
+        let adapter = FloatPointAdapter::with_radius_and_scale(10.0, 1000.0);
         let left = NormalizedSegment::Quad(QuadSegment {
             control_points: [[0.0, 0.0], [1.0, 2.0], [2.0, 2.0]],
         });
@@ -350,5 +354,35 @@ mod tests {
                 &adapter
             )
         );
+    }
+
+    #[test]
+    fn test_4() -> Result<(), CurveError> {
+        let [q0, q1] = QuadSegment { control_points: [[4.0, 0.0], [0.0, 4.0], [-4.0, 0.0]] }.split_at(0.5);
+
+        let shape_0 = CurveShapeBuilder::new()
+            .move_to([0.0, 0.0])?
+            .line_to(q0.control_points[0])?
+            .quad_to(q0.control_points[1], q0.control_points[2])?
+            .close_with_line()?
+            .build()?;
+
+        let shape_1 = CurveShapeBuilder::new()
+            .move_to(q1.control_points[0])?
+            .quad_to(q1.control_points[1], q1.control_points[2])?
+            .line_to([0.0, 0.0])?
+            .close_with_line()?
+            .build()?;
+
+        let mut overlay: CurveOverlay<_, i32> = CurveOverlay::with_adapter(FloatPointAdapter::with_radius_and_scale(100.0, 1000.0));
+
+        _ =overlay.add_shape(&shape_0, ShapeType::Subject);
+        _ =overlay.add_shape(&shape_1, ShapeType::Clip);
+
+        let result = overlay.overlay(OverlayRule::Union, FillRule::NonZero);
+
+        debug_assert_eq!(result.len(), 1);
+
+        Ok(())
     }
 }

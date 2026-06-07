@@ -153,13 +153,15 @@ mod tests {
         let shape = CurveShapeBuilder::new()
             .move_to([0.0, 0.0])?
             .quad_to([0.0, 2.0], [4.0, 0.0])?
+            .close_with_line()?
             .build()?;
 
         let contour = shape.contours[0].approximate_to_contour(approximation());
 
         assert_eq!(contour[0], [0.0, 0.0]);
-        assert_eq!(*contour.last().unwrap(), [4.0, 0.0]);
-        assert!(contour.len() > 2);
+        assert_eq!(contour[contour.len() - 2], [4.0, 0.0]);
+        assert_eq!(*contour.last().unwrap(), [0.0, 0.0]);
+        assert!(contour.len() > 3);
         Ok(())
     }
 
@@ -168,9 +170,10 @@ mod tests {
         let shape = CurveShapeBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
-            .close()?
+            .close_with_line()?
             .move_to([2.0, 0.0])?
             .line_to([3.0, 0.0])?
+            .close_with_line()?
             .build()?;
 
         let contours = shape.approximate_to_shape(approximation());
@@ -178,8 +181,8 @@ mod tests {
         assert_eq!(
             contours,
             Vec::from([
-                Vec::from([[0.0, 0.0], [1.0, 0.0]]),
-                Vec::from([[2.0, 0.0], [3.0, 0.0]])
+                Vec::from([[0.0, 0.0], [1.0, 0.0], [0.0, 0.0]]),
+                Vec::from([[2.0, 0.0], [3.0, 0.0], [2.0, 0.0]])
             ])
         );
         Ok(())
@@ -196,6 +199,7 @@ mod tests {
                 start_angle: 0.0,
                 sweep_angle: core::f64::consts::FRAC_PI_2,
             })?
+            .close_with_line()?
             .build()?;
 
         let contour = shape.contours[0].approximate_to_contour(LineApproximation {
@@ -203,10 +207,11 @@ mod tests {
             min_segment_sqr_length: 0.0,
         });
 
-        assert_eq!(contour.len(), 5);
+        assert_eq!(contour.len(), 6);
         assert_eq!(contour[0], [1.0, 0.0]);
         assert!(contour[4][0].abs() < 0.000001);
         assert!((contour[4][1] - 1.0).abs() < 0.000001);
+        assert_eq!(contour[5], [1.0, 0.0]);
         Ok(())
     }
 }

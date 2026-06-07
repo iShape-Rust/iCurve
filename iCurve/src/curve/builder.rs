@@ -15,6 +15,7 @@ pub struct CurveShapeBuilder<P: FloatPointCompatible> {
 pub enum CurveError {
     MissingMoveTo,
     EmptyContour,
+    UnclosedContour,
 }
 
 impl<P: FloatPointCompatible> CurveShapeBuilder<P> {
@@ -64,6 +65,25 @@ impl<P: FloatPointCompatible> CurveShapeBuilder<P> {
         Ok(self)
     }
 
+    pub fn close_with_line(mut self) -> Result<Self, CurveError> {
+        let Some(contour) = self.current.as_mut() else {
+            return Err(CurveError::MissingMoveTo);
+        };
+
+        if contour.segments.is_empty() {
+            return Err(CurveError::EmptyContour);
+        }
+
+        if let Some(end_point) = contour.end_point() {
+            if !same_point(end_point, contour.start) {
+                contour.segments.push(CurveSegment::Line { to: contour.start });
+            }
+        }
+
+        self.flush_current()?;
+        Ok(self)
+    }
+
     pub fn build(mut self) -> Result<CurveShape<P>, CurveError> {
         self.flush_current()?;
 
@@ -91,9 +111,37 @@ impl<P: FloatPointCompatible> CurveShapeBuilder<P> {
             return Err(CurveError::EmptyContour);
         }
 
+        if !contour.is_closed() {
+            return Err(CurveError::UnclosedContour);
+        }
+
         self.contours.push(contour);
         Ok(())
     }
+}
+
+impl<P: FloatPointCompatible> CurveContour<P> {
+    fn is_closed(&self) -> bool {
+        self.end_point()
+            .is_some_and(|end_point| same_point(end_point, self.start))
+    }
+
+    fn end_point(&self) -> Option<P> {
+        self.segments.last().map(CurveSegment::end_point)
+    }
+}
+
+impl<P: FloatPointCompatible> CurveSegment<P> {
+    fn end_point(&self) -> P {
+        match self {
+            Self::Line { to } | Self::Quad { to, .. } | Self::Cubic { to, .. } => *to,
+            Self::Arc { arc } => arc.end_point(),
+        }
+    }
+}
+
+fn same_point<P: FloatPointCompatible>(a: P, b: P) -> bool {
+    a.x() == b.x() && a.y() == b.y()
 }
 
 impl<P: FloatPointCompatible> Default for CurveShapeBuilder<P> {
@@ -113,7 +161,7 @@ mod tests {
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
             .quad_to([1.0, 1.0], [0.0, 1.0])?
-            .close()?
+            .close_with_line()?
             .move_to([2.0, 2.0])?
             .cubic_to([3.0, 2.0], [3.0, 3.0], [2.0, 3.0])?
             .arc_to(EllipticArc {
@@ -123,13 +171,14 @@ mod tests {
                 start_angle: 0.0,
                 sweep_angle: 1.0,
             })?
+            .close_with_line()?
             .build()?;
 
         assert_eq!(shape.contours.len(), 2);
         assert_eq!(shape.contours[0].start, [0.0, 0.0]);
-        assert_eq!(shape.contours[0].segments.len(), 2);
+        assert_eq!(shape.contours[0].segments.len(), 3);
         assert_eq!(shape.contours[1].start, [2.0, 2.0]);
-        assert_eq!(shape.contours[1].segments.len(), 2);
+        assert_eq!(shape.contours[1].segments.len(), 3);
 
         Ok(())
     }
@@ -160,6 +209,47 @@ mod tests {
         let result = CurveShapeBuilder::<[f64; 2]>::new().line_to([1.0, 0.0]);
 
         assert!(matches!(result, Err(CurveError::MissingMoveTo)));
+    }
+
+    #[test]
+    fn close_requires_closed_contour() -> Result<(), CurveError> {
+        let result = CurveShapeBuilder::new()
+            .move_to([0.0, 0.0])?
+            .line_to([1.0, 0.0])?
+            .close();
+
+        assert!(matches!(result, Err(CurveError::UnclosedContour)));
+        Ok(())
+    }
+
+    #[test]
+    fn close_with_line_closes_open_contour() -> Result<(), CurveError> {
+        let shape = CurveShapeBuilder::new()
+            .move_to([0.0, 0.0])?
+            .line_to([1.0, 0.0])?
+            .close_with_line()?
+            .build()?;
+
+        assert_eq!(shape.contours.len(), 1);
+        let contour = &shape.contours[0];
+        assert_eq!(contour.segments.len(), 2);
+        match contour.segments.last() {
+            Some(CurveSegment::Line { to }) => assert_eq!(*to, contour.start),
+            _ => panic!("expected closing line segment"),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn build_requires_closed_contour() -> Result<(), CurveError> {
+        let result = CurveShapeBuilder::new()
+            .move_to([0.0, 0.0])?
+            .line_to([1.0, 0.0])?
+            .build();
+
+        assert!(matches!(result, Err(CurveError::UnclosedContour)));
+        Ok(())
     }
 
     #[test]

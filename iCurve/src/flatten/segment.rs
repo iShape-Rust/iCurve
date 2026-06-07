@@ -68,6 +68,12 @@ impl<T: FloatNumber> SegmentParam<T> {
             Self::End => T::from_float(1.0),
         }
     }
+
+    #[inline(always)]
+    pub(crate) fn compare_with_epsilon(self, other: Self, epsilon: T) -> bool {
+        (self.value() - other.value()).abs() < epsilon
+    }
+
 }
 
 #[derive(Clone, Copy)]

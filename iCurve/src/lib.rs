@@ -6,3 +6,4 @@ pub mod curve;
 pub mod flatten;
 #[cfg(test)]
 mod util;
+mod math;

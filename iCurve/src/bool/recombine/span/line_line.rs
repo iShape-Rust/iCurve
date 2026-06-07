@@ -1,6 +1,5 @@
-use super::{CurveSpan, close_parameter, close_point, point_at};
+use super::{CurveSpan, point_at};
 use crate::flatten::segment::{LineSegment, SegmentParam};
-use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
@@ -8,23 +7,17 @@ use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 pub(super) fn can_recombine<P, I>(
     prev: CurveSpan<P, I>,
     next: CurveSpan<P, I>,
-    line: &LineSegment<P>,
-    next_line: &LineSegment<P>,
-    adapter: &FloatPointAdapter<P, I>,
 ) -> bool
 where
     P: FloatPointCompatible,
     I: IntNumber,
 {
+    debug_assert!(next.start == prev.end);
+
     let v0 = prev.end - prev.start;
     let v1 = next.end - prev.end;
-    let p0 = adapter.int_to_float(&prev.start);
-    let p2 = adapter.int_to_float(&next.end);
 
     v0.cross_product(v1) == I::Wide::ZERO
-        && close_parameter(prev.range.t1.value(), next.range.t0.value())
-        && close_point(line_point_at(line, next.range.t1), p2, adapter)
-        && close_point(line_point_at(next_line, prev.range.t0), p0, adapter)
 }
 
 fn line_point_at<P: FloatPointCompatible>(line: &LineSegment<P>, t: SegmentParam<P::Scalar>) -> P {
@@ -37,14 +30,15 @@ fn line_point_at<P: FloatPointCompatible>(line: &LineSegment<P>, t: SegmentParam
 
 #[cfg(test)]
 mod tests {
+    use i_overlay::core::fill_rule::FillRule;
+    use i_overlay::core::overlay::{ShapeType};
+    use i_overlay::core::overlay_rule::OverlayRule;
     use super::super::CurveSpan;
-    use crate::bool::overlay::CurveOverlay;
-    use crate::bool::scale::FixedScaleCurveOverlay;
-    use crate::curve::arc::EllipticArc;
     use crate::curve::builder::{CurveError, CurveShapeBuilder};
     use crate::flatten::segment::{LineSegment, NormalizedSegment, SegmentRange};
     use crate::util::adapter::TestAdapter;
     use i_overlay::i_float::adapter::FloatPointAdapter;
+    use crate::bool::overlay::CurveOverlay;
 
     fn span<'a>(
         start: [f64; 2],
@@ -120,8 +114,6 @@ mod tests {
 
     #[test]
     fn test_2() -> Result<(), CurveError> {
-        let adapter = FloatPointAdapter::with_radius_and_scale(10.0, 1000.0);
-
         let square_0 = CurveShapeBuilder::new()
             .move_to([-10.0, 0.0])?
             .line_to([0.0, 0.0])?
@@ -140,7 +132,44 @@ mod tests {
             .close()?
             .build()?;
 
-        let result = square_0.overlay_with_fixed_scale(&square_1);
+        let mut overlay: CurveOverlay<_, i32> = CurveOverlay::with_adapter(FloatPointAdapter::with_radius_and_scale(100.0, 1000.0));
+
+        _ = overlay.add_shape(&square_0, ShapeType::Subject);
+        _ = overlay.add_shape(&square_1, ShapeType::Clip);
+
+        let result = overlay.overlay(OverlayRule::Union, FillRule::NonZero);
+
+        debug_assert_eq!(result.len(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_3() -> Result<(), CurveError> {
+        let square_0 = CurveShapeBuilder::new()
+            .move_to([-10.0, 0.0])?
+            .line_to([0.0, 0.0])?
+            .line_to([0.0, 10.0])?
+            .line_to([-10.0, 10.0])?
+            .close_with_line()?
+            .build()?;
+
+        let square_1 = CurveShapeBuilder::new()
+            .move_to([0.0, 0.0])?
+            .line_to([0.0, 10.0])?
+            .line_to([10.0, 10.0])?
+            .line_to([10.0, 0.0])?
+            .close_with_line()?
+            .build()?;
+
+        let mut overlay: CurveOverlay<_, i32> = CurveOverlay::with_adapter(FloatPointAdapter::with_radius_and_scale(100.0, 1000.0));
+
+        _ =overlay.add_shape(&square_0, ShapeType::Subject);
+        _ =overlay.add_shape(&square_1, ShapeType::Clip);
+
+        let result = overlay.overlay(OverlayRule::Union, FillRule::NonZero);
+
+        debug_assert_eq!(result.len(), 1);
 
         Ok(())
     }
