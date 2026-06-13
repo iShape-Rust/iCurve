@@ -34,10 +34,6 @@ impl<P: FloatPointCompatible> ShapeFloatRect<P> for CurveContour<P> {
                     FloatRect::optional_add_point(&mut rect, &ctrl1);
                     FloatRect::optional_add_point(&mut rect, &to);
                 }
-                CurveSegment::Arc { ref arc } => {
-                    FloatRect::optional_add_point(&mut rect, &arc.center);
-                    FloatRect::optional_add_point(&mut rect, &arc.end_point());
-                }
             }
         }
         rect

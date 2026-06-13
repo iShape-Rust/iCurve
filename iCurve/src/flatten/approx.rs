@@ -1,7 +1,9 @@
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
-
-use crate::flatten::segment::{CubicSegment, NormalizedSegment, QuadSegment};
+use i_overlay::i_float::float::point::FloatPoint;
+use crate::flatten::segment::NormalizedSegment;
+use crate::kernel::curve::cubic::CubicSegment;
+use crate::kernel::curve::quad::QuadSegment;
 
 #[derive(Clone, Copy)]
 pub struct LineApproximation<T: FloatNumber> {
@@ -13,67 +15,53 @@ pub trait LineApproximationSplit<T: FloatNumber> {
     fn is_split_required(&self, approximation: LineApproximation<T>) -> bool;
 }
 
-impl<P: FloatPointCompatible> LineApproximationSplit<P::Scalar> for NormalizedSegment<P> {
-    fn is_split_required(&self, approximation: LineApproximation<P::Scalar>) -> bool {
+impl<T: FloatNumber> LineApproximationSplit<T> for NormalizedSegment<T> {
+    fn is_split_required(&self, approximation: LineApproximation<T>) -> bool {
         match self {
             Self::Line(_) => false,
-            Self::Arc(_) => panic!("Arc segment approximation is not supported"),
             Self::Quad(segment) => segment.is_split_required(approximation),
             Self::Cubic(segment) => segment.is_split_required(approximation),
         }
     }
 }
 
-impl<P: FloatPointCompatible> LineApproximationSplit<P::Scalar> for QuadSegment<P> {
-    fn is_split_required(&self, approximation: LineApproximation<P::Scalar>) -> bool {
+impl<T: FloatNumber> LineApproximationSplit<T> for QuadSegment<T> {
+    fn is_split_required(&self, approximation: LineApproximation<T>) -> bool {
         let [p0, p1, p2] = self.control_points;
-        let chord = vector(p0, p2);
+        let chord = p0 - p2;
 
-        if sqr_length(chord) <= approximation.min_segment_sqr_length {
+        if chord.sqr_length() <= approximation.min_segment_sqr_length {
             return false;
         }
 
-        !is_angle_accepted(chord, vector(p0, p1), approximation.min_cos)
-            || !is_angle_accepted(chord, vector(p1, p2), approximation.min_cos)
+        !is_angle_accepted(chord, p0 - p1, approximation.min_cos)
+            || !is_angle_accepted(chord, p1 - p2, approximation.min_cos)
     }
 }
 
-impl<P: FloatPointCompatible> LineApproximationSplit<P::Scalar> for CubicSegment<P> {
-    fn is_split_required(&self, approximation: LineApproximation<P::Scalar>) -> bool {
+impl<T: FloatNumber> LineApproximationSplit<T> for CubicSegment<T> {
+    fn is_split_required(&self, approximation: LineApproximation<T>) -> bool {
         let [p0, p1, p2, p3] = self.control_points;
-        let chord = vector(p0, p3);
+        let chord = p0 - p3;
 
-        if sqr_length(chord) <= approximation.min_segment_sqr_length {
+        if chord.sqr_length() <= approximation.min_segment_sqr_length {
             return false;
         }
 
-        !is_angle_accepted(chord, vector(p0, p1), approximation.min_cos)
-            || !is_angle_accepted(chord, vector(p2, p3), approximation.min_cos)
+        !is_angle_accepted(chord, p0 - p1, approximation.min_cos)
+            || !is_angle_accepted(chord, p2 - p3, approximation.min_cos)
     }
 }
 
-fn is_angle_accepted<P: FloatPointCompatible>(chord: P, derivative: P, min_cos: P::Scalar) -> bool {
-    let dot = dot_product(chord, derivative);
-    dot >= P::Scalar::from_float(0.0)
-        && dot * dot >= min_cos * min_cos * sqr_length(chord) * sqr_length(derivative)
-}
-
-fn vector<P: FloatPointCompatible>(a: P, b: P) -> P {
-    P::from_xy(b.x() - a.x(), b.y() - a.y())
-}
-
-fn dot_product<P: FloatPointCompatible>(a: P, b: P) -> P::Scalar {
-    a.x() * b.x() + a.y() * b.y()
-}
-
-fn sqr_length<P: FloatPointCompatible>(p: P) -> P::Scalar {
-    dot_product(p, p)
+fn is_angle_accepted<T: FloatNumber>(chord: FloatPoint<T>, derivative: FloatPoint<T>, min_cos: T) -> bool {
+    let dot = chord.dot_product(derivative);
+    dot >= T::ZERO && dot * dot >= min_cos * min_cos * chord.sqr_length() * derivative.sqr_length()
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::kernel::curve::line::LineSegment;
     use super::*;
-    use crate::flatten::segment::{ArcSegment, LineSegment};
 
     fn approximation() -> LineApproximation<f64> {
         LineApproximation {
@@ -85,7 +73,7 @@ mod tests {
     #[test]
     fn quad_split_not_required_for_flat_segment() {
         let segment = QuadSegment {
-            control_points: [[0.0, 0.0], [2.0, 0.0], [4.0, 0.0]],
+            control_points: [[0.0, 0.0].into(), [2.0, 0.0].into(), [4.0, 0.0].into()],
         };
 
         assert!(!segment.is_split_required(approximation()));
@@ -94,7 +82,7 @@ mod tests {
     #[test]
     fn quad_split_required_for_sharp_tangent() {
         let segment = QuadSegment {
-            control_points: [[0.0, 0.0], [0.0, 2.0], [4.0, 0.0]],
+            control_points: [[0.0, 0.0].into(), [0.0, 2.0].into(), [4.0, 0.0].into()],
         };
 
         assert!(segment.is_split_required(approximation()));
@@ -103,7 +91,7 @@ mod tests {
     #[test]
     fn cubic_split_not_required_for_flat_segment() {
         let segment = CubicSegment {
-            control_points: [[0.0, 0.0], [2.0, 0.0], [4.0, 0.0], [6.0, 0.0]],
+            control_points: [[0.0, 0.0].into(), [2.0, 0.0].into(), [4.0, 0.0].into(), [6.0, 0.0].into()],
         };
 
         assert!(!segment.is_split_required(approximation()));
@@ -112,7 +100,7 @@ mod tests {
     #[test]
     fn cubic_split_required_for_sharp_tangent() {
         let segment = CubicSegment {
-            control_points: [[0.0, 0.0], [0.0, 2.0], [4.0, 2.0], [6.0, 0.0]],
+            control_points: [[0.0, 0.0].into(), [0.0, 2.0].into(), [4.0, 2.0].into(), [6.0, 0.0].into()],
         };
 
         assert!(segment.is_split_required(approximation()));
@@ -121,7 +109,7 @@ mod tests {
     #[test]
     fn split_not_required_for_short_segment() {
         let segment = QuadSegment {
-            control_points: [[0.0, 0.0], [0.0, 2.0], [0.01, 0.0]],
+            control_points: [[0.0, 0.0].into(), [0.0, 2.0].into(), [0.01, 0.0].into()],
         };
 
         assert!(!segment.is_split_required(LineApproximation {
@@ -133,25 +121,9 @@ mod tests {
     #[test]
     fn segment_line_split_not_required() {
         let segment = NormalizedSegment::Line(LineSegment {
-            control_points: [[0.0, 0.0], [1.0, 0.0]],
+            control_points: [[0.0, 0.0].into(), [1.0, 0.0].into()],
         });
 
         assert!(!segment.is_split_required(approximation()));
-    }
-
-    #[test]
-    #[should_panic(expected = "Arc segment approximation is not supported")]
-    fn segment_arc_panics() {
-        let segment = NormalizedSegment::Arc(ArcSegment {
-            p0: [1.0, 0.0],
-            p1: [0.0, 1.0],
-            center: [0.0, 0.0],
-            radii: [1.0, 1.0],
-            rotation: 0.0,
-            start_angle: 0.0,
-            sweep_angle: core::f64::consts::FRAC_PI_2,
-        });
-
-        segment.is_split_required(approximation());
     }
 }

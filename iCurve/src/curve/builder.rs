@@ -1,7 +1,6 @@
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 
-use crate::curve::arc::EllipticArc;
 use crate::curve::contour::CurveContour;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
@@ -50,12 +49,6 @@ impl<P: FloatPointCompatible> CurveShapeBuilder<P> {
         self.push_segment(CurveSegment::Cubic { ctrl0, ctrl1, to })?;
         Ok(self)
     }
-
-    pub fn arc_to(mut self, arc: EllipticArc<P>) -> Result<Self, CurveError> {
-        self.push_segment(CurveSegment::Arc { arc })?;
-        Ok(self)
-    }
-
     pub fn close(mut self) -> Result<Self, CurveError> {
         if self.current.is_none() {
             return Err(CurveError::MissingMoveTo);
@@ -135,7 +128,6 @@ impl<P: FloatPointCompatible> CurveSegment<P> {
     fn end_point(&self) -> P {
         match self {
             Self::Line { to } | Self::Quad { to, .. } | Self::Cubic { to, .. } => *to,
-            Self::Arc { arc } => arc.end_point(),
         }
     }
 }
@@ -164,13 +156,6 @@ mod tests {
             .close_with_line()?
             .move_to([2.0, 2.0])?
             .cubic_to([3.0, 2.0], [3.0, 3.0], [2.0, 3.0])?
-            .arc_to(EllipticArc {
-                center: [2.0, 2.0],
-                radii: [1.0, 1.0],
-                rotation: 0.0,
-                start_angle: 0.0,
-                sweep_angle: 1.0,
-            })?
             .close_with_line()?
             .build()?;
 

@@ -1,36 +1,39 @@
-use crate::curve::arc::EllipticArc;
 use crate::curve::contour::CurveContour;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
 use crate::flatten::cubic::{CubicSelfIntersection, find_cubic_self_intersection};
 use crate::flatten::rect::ShapeFloatRect;
 use crate::flatten::segment::{
-    ArcSegment, CubicSegment, LineSegment, NormalizedSegment, QuadSegment, Segment,
+    NormalizedSegment, Segment,
 };
-use crate::flatten::split::SplitAt;
 use alloc::vec::Vec;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterRangeError};
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
+use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::triangle::Triangle;
+use crate::kernel::curve::cubic::CubicSegment;
+use crate::kernel::curve::line::LineSegment;
+use crate::kernel::curve::quad::QuadSegment;
+use crate::kernel::curve::split_at::SplitAt;
 
 pub trait ShapeToSegments<P: FloatPointCompatible> {
-    fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<Segment<P>>;
+    fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<Segment<P::Scalar>>;
 
     fn try_to_normalize_segments_with_adapter<I: IntNumber>(
         &self,
         shape_type: ShapeType,
-        adapter: &FloatPointAdapter<P, I>,
-    ) -> Result<Vec<Segment<P>>, FloatPointAdapterRangeError>;
+        adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>,
+    ) -> Result<Vec<Segment<P::Scalar>>, FloatPointAdapterRangeError>;
 }
 
 impl<P: FloatPointCompatible> ShapeToSegments<P> for CurveShape<P> {
-    fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<Segment<P>> {
+    fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<Segment<P::Scalar>> {
         let rect = self.float_rect().unwrap_or(FloatRect::zero());
-        let adapter = FloatPointAdapter::<P, i32>::new(rect);
+        let adapter = FloatPointAdapter::<FloatPoint<P::Scalar>, i32>::new(rect);
         self.try_to_normalize_segments_with_adapter(shape_type, &adapter)
             .expect("adapter rect must contain all curve points")
     }
@@ -38,8 +41,8 @@ impl<P: FloatPointCompatible> ShapeToSegments<P> for CurveShape<P> {
     fn try_to_normalize_segments_with_adapter<I: IntNumber>(
         &self,
         shape_type: ShapeType,
-        adapter: &FloatPointAdapter<P, I>,
-    ) -> Result<Vec<Segment<P>>, FloatPointAdapterRangeError> {
+        adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>,
+    ) -> Result<Vec<Segment<P::Scalar>>, FloatPointAdapterRangeError> {
         let mut result = Vec::with_capacity(self.segments_count());
 
         for contour in &self.contours {
@@ -51,9 +54,9 @@ impl<P: FloatPointCompatible> ShapeToSegments<P> for CurveShape<P> {
 }
 
 impl<P: FloatPointCompatible> ShapeToSegments<P> for CurveContour<P> {
-    fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<Segment<P>> {
+    fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<Segment<P::Scalar>> {
         let rect = self.float_rect().unwrap_or(FloatRect::zero());
-        let adapter = FloatPointAdapter::<P, i32>::new(rect);
+        let adapter = FloatPointAdapter::<FloatPoint<P::Scalar>, i32>::new(rect);
         self.try_to_normalize_segments_with_adapter(shape_type, &adapter)
             .expect("adapter rect must contain all curve points")
     }
@@ -61,8 +64,8 @@ impl<P: FloatPointCompatible> ShapeToSegments<P> for CurveContour<P> {
     fn try_to_normalize_segments_with_adapter<I: IntNumber>(
         &self,
         shape_type: ShapeType,
-        adapter: &FloatPointAdapter<P, I>,
-    ) -> Result<Vec<Segment<P>>, FloatPointAdapterRangeError> {
+        adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>,
+    ) -> Result<Vec<Segment<P::Scalar>>, FloatPointAdapterRangeError> {
         let mut result = Vec::with_capacity(self.segments_count());
         self.try_extend_normalize_segments_with_adapter(shape_type, adapter, &mut result)?;
         Ok(result)
@@ -73,8 +76,8 @@ trait ContourToSegments<P: FloatPointCompatible> {
     fn try_extend_normalize_segments_with_adapter<I: IntNumber>(
         &self,
         shape_type: ShapeType,
-        adapter: &FloatPointAdapter<P, I>,
-        output: &mut Vec<Segment<P>>,
+        adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>,
+        output: &mut Vec<Segment<P::Scalar>>,
     ) -> Result<(), FloatPointAdapterRangeError>;
 }
 
@@ -82,14 +85,14 @@ impl<P: FloatPointCompatible> ContourToSegments<P> for CurveContour<P> {
     fn try_extend_normalize_segments_with_adapter<I: IntNumber>(
         &self,
         shape_type: ShapeType,
-        adapter: &FloatPointAdapter<P, I>,
-        output: &mut Vec<Segment<P>>,
+        adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>,
+        output: &mut Vec<Segment<P::Scalar>>,
     ) -> Result<(), FloatPointAdapterRangeError> {
         let mut point = self.start;
         let mut buffer = Vec::with_capacity(8);
 
         for curve_segment in &self.segments {
-            let next = curve_segment.try_normalize(point, adapter, &mut buffer)?;
+            let next = curve_segment.try_normalize(FloatPoint::from_point(point), adapter, &mut buffer)?;
             for normalized_segment in buffer.drain(..) {
                 output.push(Segment {
                     normalized_segment,
@@ -107,56 +110,55 @@ impl<P: FloatPointCompatible> ContourToSegments<P> for CurveContour<P> {
 trait CurveSegmentNormalization<P: FloatPointCompatible, I: IntNumber> {
     fn try_normalize(
         &self,
-        p0: P,
-        adapter: &FloatPointAdapter<P, I>,
-        output: &mut Vec<NormalizedSegment<P>>,
+        p0: FloatPoint<P::Scalar>,
+        adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>,
+        output: &mut Vec<NormalizedSegment<P::Scalar>>,
     ) -> Result<P, FloatPointAdapterRangeError>;
 }
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveSegmentNormalization<P, I> for CurveSegment<P> {
     fn try_normalize(
         &self,
-        p0: P,
-        adapter: &FloatPointAdapter<P, I>,
-        output: &mut Vec<NormalizedSegment<P>>,
+        p0: FloatPoint<P::Scalar>,
+        adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>,
+        output: &mut Vec<NormalizedSegment<P::Scalar>>,
     ) -> Result<P, FloatPointAdapterRangeError> {
         match *self {
             CurveSegment::Line { to } => {
-                if let Some(segment) = NormalizedSegment::try_line_with_adapter(p0, to, adapter)? {
+                let p1 = FloatPoint::from_point(to);
+                if let Some(segment) = NormalizedSegment::try_line_with_adapter(p0, p1, adapter)? {
                     output.push(segment);
                 };
                 Ok(to)
             }
             CurveSegment::Quad { ctrl, to } => {
-                if let Some(segment) = NormalizedSegment::try_quad_with_adapter(p0, ctrl, to, adapter)? {
+                let p1 = FloatPoint::from_point(ctrl);
+                let p2 = FloatPoint::from_point(to);
+                if let Some(segment) = NormalizedSegment::try_quad_with_adapter(p0, p1, p2, adapter)? {
                     output.push(segment);
                 };
                 Ok(to)
             }
             CurveSegment::Cubic { ctrl0, ctrl1, to } => {
-                match NormalizedSegment::try_cubic_with_adapter(p0, ctrl0, ctrl1, to, adapter)? {
+                let p1 = FloatPoint::from_point(ctrl0);
+                let p2 = FloatPoint::from_point(ctrl1);
+                let p3 = FloatPoint::from_point(to);
+                match NormalizedSegment::try_cubic_with_adapter(p0, p1, p2, p3, adapter)? {
                     TryCubicResult::None => {}
                     TryCubicResult::Segment(segment) => output.push(segment),
                     TryCubicResult::Segments(mut segments) => output.append(&mut segments),
                 }
                 Ok(to)
             }
-            CurveSegment::Arc { ref arc } => {
-                let p1 = arc.end_point();
-                if let Some(segment) = NormalizedSegment::try_arc_with_adapter(p0, arc, adapter)? {
-                    output.push(segment);
-                };
-                Ok(p1)
-            }
         }
     }
 }
 
-impl<P: FloatPointCompatible> NormalizedSegment<P> {
+impl<T: FloatNumber> NormalizedSegment<T> {
     fn try_line_with_adapter<I: IntNumber>(
-        p0: P,
-        p1: P,
-        adapter: &FloatPointAdapter<P, I>,
+        p0: FloatPoint<T>,
+        p1: FloatPoint<T>,
+        adapter: &FloatPointAdapter<FloatPoint<T>, I>,
     ) -> Result<Option<Self>, FloatPointAdapterRangeError> {
         let q0 = adapter.try_float_to_int(&p0)?;
         let q1 = adapter.try_float_to_int(&p1)?;
@@ -170,10 +172,10 @@ impl<P: FloatPointCompatible> NormalizedSegment<P> {
     }
 
     fn try_quad_with_adapter<I: IntNumber>(
-        p0: P,
-        p1: P,
-        p2: P,
-        adapter: &FloatPointAdapter<P, I>,
+        p0: FloatPoint<T>,
+        p1: FloatPoint<T>,
+        p2: FloatPoint<T>,
+        adapter: &FloatPointAdapter<FloatPoint<T>, I>,
     ) -> Result<Option<Self>, FloatPointAdapterRangeError> {
         let q0 = adapter.try_float_to_int(&p0)?;
         let q1 = adapter.try_float_to_int(&p1)?;
@@ -190,12 +192,12 @@ impl<P: FloatPointCompatible> NormalizedSegment<P> {
     }
 
     fn try_cubic_with_adapter<I: IntNumber>(
-        p0: P,
-        p1: P,
-        p2: P,
-        p3: P,
-        adapter: &FloatPointAdapter<P, I>,
-    ) -> Result<TryCubicResult<P>, FloatPointAdapterRangeError> {
+        p0: FloatPoint<T>,
+        p1: FloatPoint<T>,
+        p2: FloatPoint<T>,
+        p3: FloatPoint<T>,
+        adapter: &FloatPointAdapter<FloatPoint<T>, I>,
+    ) -> Result<TryCubicResult<T>, FloatPointAdapterRangeError> {
         let q0 = adapter.try_float_to_int(&p0)?;
         let q1 = adapter.try_float_to_int(&p1)?;
         let q2 = adapter.try_float_to_int(&p2)?;
@@ -208,7 +210,7 @@ impl<P: FloatPointCompatible> NormalizedSegment<P> {
             let cubic = CubicSegment {
                 control_points: [p0, p1, p2, p3],
             };
-            let [first, last] = cubic.split_at_half();
+            let [first, last] = cubic.split_at(T::HALF);
             let mut segments = Vec::with_capacity(2);
             Self::push_cubic_without_self_intersection(first, adapter, &mut segments)?;
             Self::push_cubic_without_self_intersection(last, adapter, &mut segments)?;
@@ -243,13 +245,13 @@ impl<P: FloatPointCompatible> NormalizedSegment<P> {
     }
 
     fn split_self_intersecting_cubic_with_adapter<I: IntNumber>(
-        p0: P,
-        p1: P,
-        p2: P,
-        p3: P,
-        intersection: CubicSelfIntersection<P>,
-        adapter: &FloatPointAdapter<P, I>,
-    ) -> Result<Vec<NormalizedSegment<P>>, FloatPointAdapterRangeError> {
+        p0: FloatPoint<T>,
+        p1: FloatPoint<T>,
+        p2: FloatPoint<T>,
+        p3: FloatPoint<T>,
+        intersection: CubicSelfIntersection<T>,
+        adapter: &FloatPointAdapter<FloatPoint<T>, I>,
+    ) -> Result<Vec<NormalizedSegment<T>>, FloatPointAdapterRangeError> {
         let (t0, t1) = if intersection.t0 < intersection.t1 {
             (intersection.t0, intersection.t1)
         } else {
@@ -260,7 +262,7 @@ impl<P: FloatPointCompatible> NormalizedSegment<P> {
             control_points: [p0, p1, p2, p3],
         };
         let [mut first, rest] = cubic.split_at(t0);
-        let t = (t1 - t0) / (P::Scalar::from_float(1.0) - t0);
+        let t = (t1 - t0) / (T::ONE - t0);
         let [mut middle, mut last] = rest.split_at(t);
 
         let point = intersection.point;
@@ -269,7 +271,7 @@ impl<P: FloatPointCompatible> NormalizedSegment<P> {
         middle.control_points[3] = point;
         last.control_points[0] = point;
 
-        let [middle_0, middle_1] = middle.split_at_half();
+        let [middle_0, middle_1] = middle.split_at(T::HALF);
 
         let mut segments = Vec::with_capacity(6);
         Self::push_split_cubic_part(first, adapter, &mut segments)?;
@@ -280,13 +282,13 @@ impl<P: FloatPointCompatible> NormalizedSegment<P> {
     }
 
     fn push_split_cubic_part<I: IntNumber>(
-        cubic: CubicSegment<P>,
-        adapter: &FloatPointAdapter<P, I>,
-        output: &mut Vec<NormalizedSegment<P>>,
+        cubic: CubicSegment<T>,
+        adapter: &FloatPointAdapter<FloatPoint<T>, I>,
+        output: &mut Vec<NormalizedSegment<T>>,
     ) -> Result<(), FloatPointAdapterRangeError> {
         let [p0, _, _, p3] = cubic.control_points;
         if adapter.try_float_to_int(&p0)? == adapter.try_float_to_int(&p3)? {
-            let [first, last] = cubic.split_at_half();
+            let [first, last] = cubic.split_at(T::HALF);
             Self::push_cubic_without_self_intersection(first, adapter, output)?;
             Self::push_cubic_without_self_intersection(last, adapter, output)?;
         } else {
@@ -297,9 +299,9 @@ impl<P: FloatPointCompatible> NormalizedSegment<P> {
     }
 
     fn push_cubic_without_self_intersection<I: IntNumber>(
-        cubic: CubicSegment<P>,
-        adapter: &FloatPointAdapter<P, I>,
-        output: &mut Vec<NormalizedSegment<P>>,
+        cubic: CubicSegment<T>,
+        adapter: &FloatPointAdapter<FloatPoint<T>, I>,
+        output: &mut Vec<NormalizedSegment<T>>,
     ) -> Result<(), FloatPointAdapterRangeError> {
         let [p0, p1, p2, p3] = cubic.control_points;
         let q0 = adapter.try_float_to_int(&p0)?;
@@ -324,40 +326,16 @@ impl<P: FloatPointCompatible> NormalizedSegment<P> {
 
         Ok(())
     }
-
-    fn try_arc_with_adapter<I: IntNumber>(
-        p0: P,
-        arc: &EllipticArc<P>,
-        adapter: &FloatPointAdapter<P, I>,
-    ) -> Result<Option<Self>, FloatPointAdapterRangeError> {
-        let q0 = adapter.try_float_to_int(&p0)?;
-        let p1 = arc.end_point();
-        let q1 = adapter.try_float_to_int(&p1)?;
-        let center = adapter.try_float_to_int(&arc.center)?;
-        if q0 == q1 || center == q0 || center == q1 {
-            return Ok(None);
-        }
-
-        Ok(Some(NormalizedSegment::Arc(ArcSegment {
-            p0,
-            p1,
-            center: arc.center,
-            radii: arc.radii,
-            rotation: arc.rotation,
-            start_angle: arc.start_angle,
-            sweep_angle: arc.sweep_angle,
-        })))
-    }
 }
 
-enum TryCubicResult<P: FloatPointCompatible> {
+enum TryCubicResult<T: FloatNumber> {
     None,
-    Segment(NormalizedSegment<P>),
-    Segments(Vec<NormalizedSegment<P>>),
+    Segment(NormalizedSegment<T>),
+    Segments(Vec<NormalizedSegment<T>>),
 }
 
-impl<P: FloatPointCompatible> From<Option<NormalizedSegment<P>>> for TryCubicResult<P> {
-    fn from(segment: Option<NormalizedSegment<P>>) -> Self {
+impl<T: FloatNumber> From<Option<NormalizedSegment<T>>> for TryCubicResult<T> {
+    fn from(segment: Option<NormalizedSegment<T>>) -> Self {
         match segment {
             Some(segment) => Self::Segment(segment),
             None => Self::None,
@@ -403,13 +381,13 @@ mod tests {
         assert_eq!(segments.len(), 3);
 
         match &segments[0].normalized_segment {
-            NormalizedSegment::Line(segment) => assert_eq!(segment.control_points, [[0.0, 0.0], [1.0, 0.0]]),
+            NormalizedSegment::Line(segment) => assert_eq!(segment.control_points, [[0.0, 0.0].into(), [1.0, 0.0].into()]),
             _ => panic!("Expected line segment"),
         }
 
         match &segments[1].normalized_segment {
             NormalizedSegment::Quad(segment) => {
-                assert_eq!(segment.control_points, [[1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])
+                assert_eq!(segment.control_points, [[1.0, 0.0].into(), [1.0, 1.0].into(), [0.0, 1.0].into()])
             }
             _ => panic!("Expected quad segment"),
         }
@@ -610,34 +588,6 @@ mod tests {
                 assert_ne!(q0, q1);
             }
         }
-    }
-
-    #[test]
-    fn convert_arc_endpoint() -> Result<(), CurveError> {
-        let shape = CurveShapeBuilder::new()
-            .move_to([1.0, 0.0])?
-            .arc_to(EllipticArc {
-                center: [0.0, 0.0],
-                radii: [1.0, 1.0],
-                rotation: 0.0,
-                start_angle: 0.0,
-                sweep_angle: core::f64::consts::FRAC_PI_2,
-            })?
-            .close_with_line()?
-            .build()?;
-
-        let segments = shape.to_normalize_segments(ShapeType::Subject);
-
-        match &segments[0].normalized_segment {
-            NormalizedSegment::Arc(segment) => {
-                assert_eq!(segment.p0, [1.0, 0.0]);
-                assert!(segment.p1[0].abs() < 0.000001);
-                assert!((segment.p1[1] - 1.0).abs() < 0.000001);
-            }
-            _ => panic!("Expected arc segment"),
-        }
-
-        Ok(())
     }
 
     fn assert_point_eq(a: [f64; 2], b: [f64; 2]) {

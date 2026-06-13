@@ -1,19 +1,20 @@
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
+use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::vector::FloatPointMath;
 
-pub(crate) struct CubicSelfIntersection<P: FloatPointCompatible> {
-    pub(crate) t0: P::Scalar,
-    pub(crate) t1: P::Scalar,
-    pub(crate) point: P,
+pub(crate) struct CubicSelfIntersection<T: FloatNumber> {
+    pub(crate) t0: T,
+    pub(crate) t1: T,
+    pub(crate) point: FloatPoint<T>,
 }
 
-pub(crate) fn find_cubic_self_intersection<P: FloatPointCompatible>(
-    p0: P,
-    p1: P,
-    p2: P,
-    p3: P,
-) -> Option<CubicSelfIntersection<P>> {
+pub(crate) fn find_cubic_self_intersection<T: FloatNumber>(
+    p0: FloatPoint<T>,
+    p1: FloatPoint<T>,
+    p2: FloatPoint<T>,
+    p3: FloatPoint<T>,
+) -> Option<CubicSelfIntersection<T>> {
     let a = FloatPointMath::add(
         &FloatPointMath::sub(&scale_float(p1, 3.0), &p0),
         &FloatPointMath::sub(&p3, &scale_float(p2, 3.0)),
@@ -24,10 +25,10 @@ pub(crate) fn find_cubic_self_intersection<P: FloatPointCompatible>(
     );
     let c = scale_float(FloatPointMath::sub(&p1, &p0), 3.0);
 
-    let zero = P::Scalar::from_float(0.0);
-    let one = P::Scalar::from_float(1.0);
-    let two = P::Scalar::from_float(2.0);
-    let four = P::Scalar::from_float(4.0);
+    let zero = T::from_float(0.0);
+    let one = T::from_float(1.0);
+    let two = T::from_float(2.0);
+    let four = T::from_float(4.0);
 
     let ab = FloatPointMath::cross_product(&a, &b);
     if ab == zero {
@@ -89,17 +90,17 @@ mod tests {
     #[test]
     fn finds_cubic_self_intersection() {
         let intersection =
-            find_cubic_self_intersection([0.0, 0.0], [-3.0, -3.0], [-3.0, -2.0], [-2.0, -2.0]).unwrap();
+            find_cubic_self_intersection([0.0f64, 0.0].into(), [-3.0, -3.0].into(), [-3.0, -2.0].into(), [-2.0, -2.0].into()).unwrap();
 
-        assert!((intersection.t0 - 3.0 / 7.0).abs() < 0.000001);
-        assert!((intersection.t1 - 6.0 / 7.0).abs() < 0.000001);
-        assert!((intersection.point[0] + 2.3615160349854225).abs() < 0.000001);
-        assert!((intersection.point[1] + 2.0466472303206995).abs() < 0.000001);
+        assert!((intersection.t0.to_f64() - 3.0 / 7.0).abs() < 0.000001);
+        assert!((intersection.t1.to_f64() - 6.0 / 7.0).abs() < 0.000001);
+        assert!((intersection.point.x.to_f64() + 2.3615160349854225).abs() < 0.000001);
+        assert!((intersection.point.y.to_f64() + 2.0466472303206995).abs() < 0.000001);
     }
 
     #[test]
     fn ignores_non_intersecting_cubic() {
-        let intersection = find_cubic_self_intersection([0.0, 0.0], [1.0, 2.0], [3.0, 2.0], [4.0, 0.0]);
+        let intersection = find_cubic_self_intersection([0.0, 0.0].into(), [1.0, 2.0].into(), [3.0, 2.0].into(), [4.0, 0.0].into());
 
         assert!(intersection.is_none());
     }

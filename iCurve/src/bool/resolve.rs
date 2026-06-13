@@ -1,9 +1,8 @@
 use crate::bool::meta::{MetaSegment, ResolvedCurveOverlay};
 use crate::bool::overlay::CurveOverlay;
 use crate::flatten::segment::{
-    ArcSegment, CubicSegment, LineSegment, NormalizedSegment, QuadSegment, SegmentParam, SegmentRange,
+    NormalizedSegment, SegmentRange,
 };
-use crate::flatten::split::SplitAt;
 use alloc::vec::Vec;
 use i_key_sort::sort::key::SortKey;
 use i_overlay::core::edge_overlay::{EdgeOverlay, InputEdge};
@@ -12,8 +11,11 @@ use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
+use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_tree::{Expiration, LayoutNumber};
+use crate::kernel::curve::param::SegmentParam;
+use crate::kernel::curve::point::PointAt;
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
     pub(super) fn resolve(
@@ -38,7 +40,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         I: Expiration + LayoutNumber + SortKey,
         P::Scalar: Send + Sync,
     {
-        let ranges = self.split();
+        let ranges = self.make_ranges();
         let mut overlay = EdgeOverlay::<I, MetaSegment<P::Scalar>>::new(ranges.len());
 
         for range in ranges {
@@ -85,7 +87,7 @@ impl<F: FloatNumber> SegmentRange<F> {
 }
 
 trait SegmentPointAt<P: FloatPointCompatible> {
-    fn point_at(&self, t: SegmentParam<P::Scalar>) -> P;
+    fn point_at(&self, t: SegmentParam<P::Scalar>) -> FloatPoint<P::Scalar>;
 }
 
 impl<P: FloatPointCompatible> SegmentPointAt<P> for NormalizedSegment<P> {
@@ -94,85 +96,19 @@ impl<P: FloatPointCompatible> SegmentPointAt<P> for NormalizedSegment<P> {
             Self::Line(segment) => segment.point_at(t),
             Self::Quad(segment) => segment.point_at(t),
             Self::Cubic(segment) => segment.point_at(t),
-            Self::Arc(segment) => segment.point_at(t),
         }
     }
 }
-
-impl<P: FloatPointCompatible> SegmentPointAt<P> for LineSegment<P> {
-    fn point_at(&self, t: SegmentParam<P::Scalar>) -> P {
-        if t == SegmentParam::Start {
-            return self.control_points[0];
-        }
-        if t == SegmentParam::End {
-            return self.control_points[1];
-        }
-
-        let [left, _] = self.split_at(t.value());
-        left.control_points[1]
-    }
-}
-
-impl<P: FloatPointCompatible> SegmentPointAt<P> for QuadSegment<P> {
-    fn point_at(&self, t: SegmentParam<P::Scalar>) -> P {
-        if t == SegmentParam::Start {
-            return self.control_points[0];
-        }
-        if t == SegmentParam::End {
-            return self.control_points[2];
-        }
-
-        let [left, _] = self.split_at(t.value());
-        left.control_points[2]
-    }
-}
-
-impl<P: FloatPointCompatible> SegmentPointAt<P> for CubicSegment<P> {
-    fn point_at(&self, t: SegmentParam<P::Scalar>) -> P {
-        if t == SegmentParam::Start {
-            return self.control_points[0];
-        }
-        if t == SegmentParam::End {
-            return self.control_points[3];
-        }
-
-        let [left, _] = self.split_at(t.value());
-        left.control_points[3]
-    }
-}
-
-impl<P: FloatPointCompatible> SegmentPointAt<P> for ArcSegment<P> {
-    fn point_at(&self, t: SegmentParam<P::Scalar>) -> P {
-        if t == SegmentParam::Start {
-            return self.p0;
-        }
-        if t == SegmentParam::End {
-            return self.p1;
-        }
-
-        let t = t.value();
-        let angle = self.start_angle + self.sweep_angle * t;
-        let x = self.radii.x() * angle.cos();
-        let y = self.radii.y() * angle.sin();
-        let cos = self.rotation.cos();
-        let sin = self.rotation.sin();
-
-        P::from_xy(
-            self.center.x() + x * cos - y * sin,
-            self.center.y() + x * sin + y * cos,
-        )
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use i_overlay::i_float::float::rect::FloatRect;
+    use crate::kernel::curve::line::LineSegment;
 
     #[test]
     fn input_edge_uses_exact_segment_endpoint_at_one() {
         let segment = NormalizedSegment::Line(LineSegment {
-            control_points: [[-220.0_f32, 141.000_02], [-210.0, -130.0]],
+            control_points: [[-220.0_f32, 141.000_02].into(), [-210.0, -130.0].into()],
         });
         let adapter = FloatPointAdapter::<[f32; 2], i32>::with_scale(
             FloatRect::new(-220.0, 70.0, -130.0, 141.000_02),

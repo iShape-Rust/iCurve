@@ -1,4 +1,3 @@
-pub mod arc;
 pub mod builder;
 pub mod contour;
 pub mod resource;

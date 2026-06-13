@@ -12,6 +12,7 @@ use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterRangeError};
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
+use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_tree::{Expiration, LayoutNumber};
@@ -48,12 +49,14 @@ pub struct CurveOverlay<P: FloatPointCompatible, I: IntNumber = i32> {
 }
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
-
     pub fn with_adapter(adapter: FloatPointAdapter<P, I>) -> Self {
         Self::with_adapter_custom(adapter, Default::default())
     }
 
-    pub fn with_adapter_custom(adapter: FloatPointAdapter<P, I>, options: CurveOverlayOptions<P::Scalar, I>,) -> Self {
+    pub fn with_adapter_custom(
+        adapter: FloatPointAdapter<P, I>,
+        options: CurveOverlayOptions<P::Scalar, I>,
+    ) -> Self {
         Self {
             segments: Vec::new(),
             adapter,
@@ -86,9 +89,11 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         let capacity = Self::resource_segments_count(subj) + Self::resource_segments_count(clip);
         let mut segments = Vec::with_capacity(capacity);
 
-        Self::append_resource_segments(subj, ShapeType::Subject, &adapter, &mut segments)
+        let point_adapter: FloatPointAdapter<FloatPoint<P::Scalar>, I> = adapter.to_float_point_adapter();
+
+        Self::append_resource_segments(subj, ShapeType::Subject, &point_adapter, &mut segments)
             .expect("adapter rect must contain all subject points");
-        Self::append_resource_segments(clip, ShapeType::Clip, &adapter, &mut segments)
+        Self::append_resource_segments(clip, ShapeType::Clip, &point_adapter, &mut segments)
             .expect("adapter rect must contain all clip points");
 
         Self {
@@ -112,9 +117,12 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         resource: &R,
         shape_type: ShapeType,
     ) -> Result<(), FloatPointAdapterRangeError> {
+
+        let point_adapter: FloatPointAdapter<FloatPoint<P::Scalar>, I> = self.adapter.to_float_point_adapter();
+
         for contour in resource.iter_contours() {
             self.segments
-                .extend(contour.try_to_normalize_segments_with_adapter(shape_type, &self.adapter)?);
+                .extend(contour.try_to_normalize_segments_with_adapter(shape_type, &point_adapter)?);
         }
         Ok(())
     }
@@ -122,7 +130,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
     pub(super) fn append_resource_segments<R: CurveResource<P> + ?Sized>(
         resource: &R,
         shape_type: ShapeType,
-        adapter: &FloatPointAdapter<P, I>,
+        adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>,
         output: &mut Vec<Segment<P>>,
     ) -> Result<(), FloatPointAdapterRangeError> {
         for contour in resource.iter_contours() {
