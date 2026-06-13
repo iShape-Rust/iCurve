@@ -1,4 +1,3 @@
-use crate::curve::contour::CurveContour;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
 use crate::flatten::cubic::{CubicSelfIntersection, find_cubic_self_intersection};
@@ -18,6 +17,7 @@ use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::triangle::Triangle;
+use crate::curve::contour::CurveContour;
 
 pub trait ShapeToSegments<P: FloatPointCompatible> {
     fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<ShapeSegment<P::Scalar>>;
@@ -373,7 +373,7 @@ mod tests {
             .line_to([1.0, 0.0])?
             .quad_to([1.0, 1.0], [0.0, 1.0])?
             .cubic_to([-1.0, 1.0], [-1.0, 0.0], [0.0, 0.0])?
-            .build()?;
+            .build_shape()?;
 
         let segments = shape.to_normalize_segments(ShapeType::Subject);
 
@@ -409,8 +409,8 @@ mod tests {
         let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
-            .close_with_line()?
-            .build()?;
+            .close_contour()?
+            .build_shape()?;
         let points = [FloatPoint::new(0.0, 0.0), FloatPoint::new(1.0, 0.0)];
         let adapter = FloatPointAdapter::<FloatPoint<f64>, i32>::with_iter(points.iter());
 
@@ -437,7 +437,7 @@ mod tests {
             .line_to([70.0, 130.0])?
             .line_to([-216.049_59, 129.983_02])?
             .line_to([-210.0, -130.0])?
-            .build()?;
+            .build_shape()?;
         let clip_bounds = [[-70.0_f32, -170.0], [210.0, 90.0]];
         let points: Vec<_> = shape
             .contours
@@ -479,8 +479,8 @@ mod tests {
         let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([2.0, 0.0])?
-            .close_with_line()?
-            .build()?;
+            .close_contour()?
+            .build_shape()?;
         let points = [FloatPoint::new(0.0, 0.0), FloatPoint::new(1.0, 0.0)];
         let adapter = FloatPointAdapter::<FloatPoint<f64>, i32>::with_iter(points.iter());
 
@@ -499,8 +499,8 @@ mod tests {
         let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .cubic_to([-3.0, -3.0], [-3.0, -2.0], [-2.0, -2.0])?
-            .close_with_line()?
-            .build()?;
+            .close_contour()?
+            .build_shape()?;
 
         let segments = shape.to_normalize_segments(ShapeType::Subject);
 
@@ -540,7 +540,7 @@ mod tests {
         let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .cubic_to([1.0, 2.0], [-1.0, 2.0], [0.0, 0.0])?
-            .build()?;
+            .build_shape()?;
 
         let segments = shape.to_normalize_segments(ShapeType::Subject);
 

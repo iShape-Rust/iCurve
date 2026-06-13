@@ -1,4 +1,3 @@
-use crate::curve::contour::CurveContour;
 use crate::curve::shape::CurveShape;
 use crate::flatten::approx::{LineApproximation, LineApproximationSplit};
 use crate::flatten::convert::ShapeToSegments;
@@ -11,6 +10,7 @@ use alloc::vec::Vec;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
+use crate::curve::contour::CurveContour;
 
 impl<P: FloatPointCompatible> CurveContour<P> {
     pub fn approximate_to_contour(&self, approximation: LineApproximation<P::Scalar>) -> Vec<P> {
@@ -101,8 +101,8 @@ mod tests {
         let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .quad_to([0.0, 2.0], [4.0, 0.0])?
-            .close_with_line()?
-            .build()?;
+            .close_contour()?
+            .build_shape()?;
 
         let contour = shape.contours[0].approximate_to_contour(approximation());
 
@@ -118,11 +118,11 @@ mod tests {
         let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
-            .close_with_line()?
+            .close_contour()?
             .move_to([2.0, 0.0])?
             .line_to([3.0, 0.0])?
-            .close_with_line()?
-            .build()?;
+            .close_contour()?
+            .build_shape()?;
 
         let contours = shape.approximate_to_shape(approximation());
 

@@ -253,7 +253,7 @@ mod tests {
             .unwrap()
             .line_to([x, y])
             .unwrap()
-            .build()
+            .build_shape()
             .unwrap()
     }
 }

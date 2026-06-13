@@ -44,7 +44,7 @@ fn union_of_overlapping_polygons_with_near_horizontal_edge() -> Result<(), Curve
             .line_to([70.0, 130.0])?
             .line_to([-220.0, 141.000_02])?
             .line_to([-210.0, -130.0])?
-            .build()?,
+            .build_shape()?,
     ];
     let clip = CurveShape { contours: vec![] };
 
@@ -72,5 +72,5 @@ fn roundish_cubic_shape() -> Result<CurveShape<[f64; 2]>, CurveError> {
         .cubic_to([0.5, -1.0], [1.0, -0.5], [1.0, 0.0])?
         .cubic_to([1.0, 0.5], [0.5, 1.0], [0.0, 1.0])?
         .cubic_to([-0.5, 1.0], [-1.0, 0.5], [-1.0, 0.0])?
-        .build()
+        .build_shape()
 }

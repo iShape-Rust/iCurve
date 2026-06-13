@@ -1,8 +1,8 @@
-use crate::curve::contour::CurveContour;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::rect::FloatRect;
+use crate::curve::contour::CurveContour;
 
 pub(crate) trait ShapeFloatRect<P: FloatPointCompatible> {
     fn float_rect(&self) -> Option<FloatRect<P::Scalar>>;
