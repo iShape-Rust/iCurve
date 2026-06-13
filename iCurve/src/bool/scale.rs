@@ -187,9 +187,10 @@ where
 
         let capacity = Self::resource_segments_count(subj) + Self::resource_segments_count(clip);
         let mut segments = Vec::with_capacity(capacity);
+        let point_adapter = adapter.to_float_point_adapter();
 
-        Self::append_resource_segments(subj, ShapeType::Subject, &adapter, &mut segments)?;
-        Self::append_resource_segments(clip, ShapeType::Clip, &adapter, &mut segments)?;
+        Self::append_resource_segments(subj, ShapeType::Subject, &point_adapter, &mut segments)?;
+        Self::append_resource_segments(clip, ShapeType::Clip, &point_adapter, &mut segments)?;
 
         Ok(Self {
             segments,

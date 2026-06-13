@@ -1,12 +1,13 @@
 use crate::bool::overlay::CurveOverlay;
 use crate::flatten::approx::{LineApproximation, LineApproximationSplit};
-use crate::flatten::segment::{NormalizedSegment, SegmentRange};
+use crate::flatten::segment::SegmentRange;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::int::number::int::IntNumber;
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::quad::QuadSegment;
+use crate::kernel::curve::segment::Segment;
 use crate::kernel::curve::split_at::SplitAt;
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
@@ -23,11 +24,11 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         };
 
         for (i, s) in self.segments.iter().enumerate() {
-            match &s.normalized_segment {
-                NormalizedSegment::Line(_) => {
+            match &s.segment {
+                Segment::Line(_) => {
                     ranges.push(SegmentRange::full(i));
                 }
-                NormalizedSegment::Quad(quad) => {
+                Segment::Quad(quad) => {
                     quad.split_range(
                         i,
                         P::Scalar::from_float(0.0),
@@ -36,7 +37,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
                         &mut ranges,
                     );
                 }
-                NormalizedSegment::Cubic(cubic) => {
+                Segment::Cubic(cubic) => {
                     cubic.split_range(
                         i,
                         P::Scalar::from_float(0.0),

@@ -1,19 +1,10 @@
-use core::cmp::Ordering;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::i_float::float::number::FloatNumber;
-use crate::kernel::curve::cubic::CubicSegment;
-use crate::kernel::curve::line::LineSegment;
 use crate::kernel::curve::param::SegmentParam;
-use crate::kernel::curve::quad::QuadSegment;
+use crate::kernel::curve::segment::Segment;
 
-pub enum NormalizedSegment<T: FloatNumber> {
-    Line(LineSegment<T>),
-    Quad(QuadSegment<T>),
-    Cubic(CubicSegment<T>),
-}
-
-pub struct Segment<T: FloatNumber> {
-    pub normalized_segment: NormalizedSegment<T>,
+pub struct ShapeSegment<T: FloatNumber> {
+    pub segment: Segment<T>,
     pub shape_type: ShapeType,
 }
 

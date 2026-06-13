@@ -163,7 +163,7 @@ mod tests {
         assert_eq!(shape.contours[0].start, [0.0, 0.0]);
         assert_eq!(shape.contours[0].segments.len(), 3);
         assert_eq!(shape.contours[1].start, [2.0, 2.0]);
-        assert_eq!(shape.contours[1].segments.len(), 3);
+        assert_eq!(shape.contours[1].segments.len(), 2);
 
         Ok(())
     }

@@ -1,9 +1,8 @@
-use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
-use crate::flatten::segment::NormalizedSegment;
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::quad::QuadSegment;
+use crate::kernel::curve::segment::Segment;
 
 #[derive(Clone, Copy)]
 pub struct LineApproximation<T: FloatNumber> {
@@ -15,7 +14,7 @@ pub trait LineApproximationSplit<T: FloatNumber> {
     fn is_split_required(&self, approximation: LineApproximation<T>) -> bool;
 }
 
-impl<T: FloatNumber> LineApproximationSplit<T> for NormalizedSegment<T> {
+impl<T: FloatNumber> LineApproximationSplit<T> for Segment<T> {
     fn is_split_required(&self, approximation: LineApproximation<T>) -> bool {
         match self {
             Self::Line(_) => false,
@@ -120,7 +119,7 @@ mod tests {
 
     #[test]
     fn segment_line_split_not_required() {
-        let segment = NormalizedSegment::Line(LineSegment {
+        let segment = Segment::Line(LineSegment {
             control_points: [[0.0, 0.0].into(), [1.0, 0.0].into()],
         });
 

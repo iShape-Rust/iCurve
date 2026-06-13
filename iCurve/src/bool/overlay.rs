@@ -2,7 +2,7 @@ use crate::curve::resource::CurveResource;
 use crate::curve::shape::CurveShape;
 use crate::flatten::convert::ShapeToSegments;
 use crate::flatten::rect::ShapeFloatRect;
-use crate::flatten::segment::Segment;
+use crate::flatten::segment::ShapeSegment;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use i_key_sort::sort::key::SortKey;
@@ -43,7 +43,7 @@ pub struct CurveOverlayOptions<F: FloatNumber, I: IntNumber = i32> {
 }
 
 pub struct CurveOverlay<P: FloatPointCompatible, I: IntNumber = i32> {
-    pub(crate) segments: Vec<Segment<P>>,
+    pub(crate) segments: Vec<ShapeSegment<P::Scalar>>,
     pub(super) adapter: FloatPointAdapter<P, I>,
     pub(crate) options: CurveOverlayOptions<P::Scalar, I>,
 }
@@ -117,8 +117,8 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         resource: &R,
         shape_type: ShapeType,
     ) -> Result<(), FloatPointAdapterRangeError> {
-
-        let point_adapter: FloatPointAdapter<FloatPoint<P::Scalar>, I> = self.adapter.to_float_point_adapter();
+        let point_adapter: FloatPointAdapter<FloatPoint<P::Scalar>, I> =
+            self.adapter.to_float_point_adapter();
 
         for contour in resource.iter_contours() {
             self.segments
@@ -131,7 +131,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         resource: &R,
         shape_type: ShapeType,
         adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>,
-        output: &mut Vec<Segment<P>>,
+        output: &mut Vec<ShapeSegment<P::Scalar>>,
     ) -> Result<(), FloatPointAdapterRangeError> {
         for contour in resource.iter_contours() {
             output.extend(contour.try_to_normalize_segments_with_adapter(shape_type, adapter)?);

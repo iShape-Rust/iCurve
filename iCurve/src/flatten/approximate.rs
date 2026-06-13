@@ -2,15 +2,15 @@ use crate::curve::contour::CurveContour;
 use crate::curve::shape::CurveShape;
 use crate::flatten::approx::{LineApproximation, LineApproximationSplit};
 use crate::flatten::convert::ShapeToSegments;
-use crate::flatten::segment::{NormalizedSegment};
-use alloc::vec::Vec;
-use i_overlay::core::overlay::ShapeType;
-use i_overlay::i_float::float::compatible::FloatPointCompatible;
-use i_overlay::i_float::float::number::FloatNumber;
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::line::LineSegment;
 use crate::kernel::curve::quad::QuadSegment;
 use crate::kernel::curve::split_at::SplitAt;
+use alloc::vec::Vec;
+use i_overlay::core::overlay::ShapeType;
+use i_overlay::i_float::float::compatible::FloatPointCompatible;
+use i_overlay::i_float::float::number::FloatNumber;
+use crate::kernel::curve::segment::Segment;
 
 impl<P: FloatPointCompatible> CurveContour<P> {
     pub fn approximate_to_contour(&self, approximation: LineApproximation<P::Scalar>) -> Vec<P> {
@@ -20,7 +20,7 @@ impl<P: FloatPointCompatible> CurveContour<P> {
 
         for segment in segments {
             segment
-                .normalized_segment
+                .segment
                 .append_approximated_points(approximation, &mut output);
         }
 
@@ -41,7 +41,7 @@ trait AppendApproximatedPoints<P: FloatPointCompatible> {
     fn append_approximated_points(&self, approximation: LineApproximation<P::Scalar>, output: &mut Vec<P>);
 }
 
-impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for NormalizedSegment<P::Scalar> {
+impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for Segment<P::Scalar> {
     fn append_approximated_points(&self, approximation: LineApproximation<P::Scalar>, output: &mut Vec<P>) {
         match self {
             Self::Line(segment) => segment.append_approximated_points(approximation, output),
@@ -53,7 +53,8 @@ impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for NormalizedSegment<
 
 impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for LineSegment<P::Scalar> {
     fn append_approximated_points(&self, _approximation: LineApproximation<P::Scalar>, output: &mut Vec<P>) {
-        output.push(self.control_points[1].into());
+        let point = self.control_points[1];
+        output.push(P::from_xy(point.x, point.y));
     }
 }
 
@@ -64,7 +65,8 @@ impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for QuadSegment<P::Sca
             left.append_approximated_points(approximation, output);
             right.append_approximated_points(approximation, output);
         } else {
-            output.push(self.control_points[2].into());
+            let point = self.control_points[2];
+            output.push(P::from_xy(point.x, point.y));
         }
     }
 }
@@ -76,7 +78,8 @@ impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for CubicSegment<P::Sc
             left.append_approximated_points(approximation, output);
             right.append_approximated_points(approximation, output);
         } else {
-            output.push(self.control_points[3].into());
+            let point = self.control_points[3];
+            output.push(P::from_xy(point.x, point.y));
         }
     }
 }

@@ -1,8 +1,9 @@
 use crate::bool::meta::{MetaSegment, ResolvedCurveOverlay};
 use crate::bool::overlay::CurveOverlay;
-use crate::flatten::segment::{
-    NormalizedSegment, SegmentRange,
-};
+use crate::flatten::segment::SegmentRange;
+use crate::kernel::curve::param::SegmentParam;
+use crate::kernel::curve::point::PointAt;
+use crate::kernel::curve::segment::Segment;
 use alloc::vec::Vec;
 use i_key_sort::sort::key::SortKey;
 use i_overlay::core::edge_overlay::{EdgeOverlay, InputEdge};
@@ -14,8 +15,6 @@ use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_tree::{Expiration, LayoutNumber};
-use crate::kernel::curve::param::SegmentParam;
-use crate::kernel::curve::point::PointAt;
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
     pub(super) fn resolve(
@@ -42,10 +41,11 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
     {
         let ranges = self.make_ranges();
         let mut overlay = EdgeOverlay::<I, MetaSegment<P::Scalar>>::new(ranges.len());
+        let point_adapter = self.adapter.to_float_point_adapter();
 
         for range in ranges {
             let segment = &self.segments[range.segment_index];
-            let edge = range.edge(&segment.normalized_segment, &self.adapter);
+            let edge = range.edge(&segment.segment, &point_adapter);
             overlay.add_edge(edge, segment.shape_type);
         }
 
@@ -68,14 +68,13 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
     }
 }
 
-impl<F: FloatNumber> SegmentRange<F> {
-    fn edge<P, I>(
+impl<T: FloatNumber> SegmentRange<T> {
+    fn edge<I>(
         self,
-        segment: &NormalizedSegment<P>,
-        adapter: &FloatPointAdapter<P, I>,
-    ) -> InputEdge<I, MetaSegment<F>>
+        segment: &Segment<T>,
+        adapter: &FloatPointAdapter<FloatPoint<T>, I>,
+    ) -> InputEdge<I, MetaSegment<T>>
     where
-        P: FloatPointCompatible<Scalar = F>,
         I: IntNumber,
     {
         InputEdge {
@@ -86,12 +85,12 @@ impl<F: FloatNumber> SegmentRange<F> {
     }
 }
 
-trait SegmentPointAt<P: FloatPointCompatible> {
-    fn point_at(&self, t: SegmentParam<P::Scalar>) -> FloatPoint<P::Scalar>;
+trait SegmentPointAt<T: FloatNumber> {
+    fn point_at(&self, t: SegmentParam<T>) -> FloatPoint<T>;
 }
 
-impl<P: FloatPointCompatible> SegmentPointAt<P> for NormalizedSegment<P> {
-    fn point_at(&self, t: SegmentParam<P::Scalar>) -> P {
+impl<T: FloatNumber> SegmentPointAt<T> for Segment<T> {
+    fn point_at(&self, t: SegmentParam<T>) -> FloatPoint<T> {
         match self {
             Self::Line(segment) => segment.point_at(t),
             Self::Quad(segment) => segment.point_at(t),
@@ -102,15 +101,15 @@ impl<P: FloatPointCompatible> SegmentPointAt<P> for NormalizedSegment<P> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use i_overlay::i_float::float::rect::FloatRect;
     use crate::kernel::curve::line::LineSegment;
+    use i_overlay::i_float::float::rect::FloatRect;
 
     #[test]
     fn input_edge_uses_exact_segment_endpoint_at_one() {
-        let segment = NormalizedSegment::Line(LineSegment {
+        let segment = Segment::Line(LineSegment {
             control_points: [[-220.0_f32, 141.000_02].into(), [-210.0, -130.0].into()],
         });
-        let adapter = FloatPointAdapter::<[f32; 2], i32>::with_scale(
+        let adapter = FloatPointAdapter::<_, i32>::with_scale(
             FloatRect::new(-220.0, 70.0, -130.0, 141.000_02),
             100_000.0,
         );
@@ -121,7 +120,10 @@ mod tests {
 
         let edge = sub_segment.edge(&segment, &adapter);
 
-        assert_eq!(segment.point_at(SegmentParam::End), [-210.0, -130.0]);
-        assert_eq!(edge.b, adapter.float_to_int(&[-210.0, -130.0]));
+        let expected = FloatPoint::new(-210.0, -130.0);
+        let actual = segment.point_at(SegmentParam::End);
+        assert_eq!(actual.x, expected.x);
+        assert_eq!(actual.y, expected.y);
+        assert_eq!(edge.b, adapter.float_to_int(&expected));
     }
 }
