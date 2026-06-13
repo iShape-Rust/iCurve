@@ -1,8 +1,7 @@
+use crate::kernel::curve::quad::QuadSegment;
 use crate::math::quadratic_equation::QuadraticEquation;
-use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
-use crate::kernel::curve::quad::QuadSegment;
 
 impl<T: FloatNumber> QuadSegment<T> {
     pub fn contains(&self, p: FloatPoint<T>, eps: T) -> Option<T> {

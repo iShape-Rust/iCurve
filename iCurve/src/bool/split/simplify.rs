@@ -1,14 +1,14 @@
 use crate::bool::overlay::CurveOverlay;
 use crate::flatten::approx::{LineApproximation, LineApproximationSplit};
 use crate::flatten::segment::SegmentRange;
-use alloc::vec::Vec;
-use i_overlay::i_float::float::compatible::FloatPointCompatible;
-use i_overlay::i_float::float::number::FloatNumber;
-use i_overlay::i_float::int::number::int::IntNumber;
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::quad::QuadSegment;
 use crate::kernel::curve::segment::Segment;
 use crate::kernel::curve::split_at::SplitAt;
+use alloc::vec::Vec;
+use i_overlay::i_float::float::compatible::FloatPointCompatible;
+use i_overlay::i_float::float::number::FloatNumber;
+use i_overlay::i_float::int::number::int::IntNumber;
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
     pub(crate) fn simplify_segments(&self) -> Vec<SegmentRange<P::Scalar>> {

@@ -1,6 +1,6 @@
 use i_curve::bool::overlay::CurveOverlay;
 use i_curve::bool::scale::FixedScaleCurveOverlay;
-use i_curve::curve::builder::{CurveError, CurveShapeBuilder};
+use i_curve::curve::builder::{CurveError, CurveBuilder};
 use i_curve::curve::shape::CurveShape;
 use i_curve::flatten::approx::LineApproximation;
 use i_overlay::core::fill_rule::FillRule;
@@ -38,7 +38,7 @@ fn subject_roundish_cubic_shape_with_fixed_scale() -> Result<(), CurveError> {
 #[test]
 fn union_of_overlapping_polygons_with_near_horizontal_edge() -> Result<(), CurveError> {
     let subject = vec![
-        CurveShapeBuilder::new()
+        CurveBuilder::new()
             .move_to([-210.0_f32, -130.0])?
             .line_to([70.0, -130.0])?
             .line_to([70.0, 130.0])?
@@ -66,7 +66,7 @@ fn approximation() -> LineApproximation<f64> {
 }
 
 fn roundish_cubic_shape() -> Result<CurveShape<[f64; 2]>, CurveError> {
-    CurveShapeBuilder::new()
+    CurveBuilder::new()
         .move_to([-1.0, 0.0])?
         .cubic_to([-1.0, -0.5], [-0.5, -1.0], [0.0, -1.0])?
         .cubic_to([0.5, -1.0], [1.0, -0.5], [1.0, 0.0])?

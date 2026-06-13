@@ -1,8 +1,8 @@
+use crate::flatten::segment::SegmentRange;
 use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::rect::IntRect;
-use crate::flatten::segment::SegmentRange;
 
 pub struct Collider<I: IntNumber> {
     index: usize, // index to in ranges and collider vecs

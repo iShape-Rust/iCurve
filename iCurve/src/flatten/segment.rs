@@ -1,7 +1,7 @@
-use i_overlay::core::overlay::ShapeType;
-use i_overlay::i_float::float::number::FloatNumber;
 use crate::kernel::curve::param::SegmentParam;
 use crate::kernel::curve::segment::Segment;
+use i_overlay::core::overlay::ShapeType;
+use i_overlay::i_float::float::number::FloatNumber;
 
 pub struct ShapeSegment<T: FloatNumber> {
     pub segment: Segment<T>,

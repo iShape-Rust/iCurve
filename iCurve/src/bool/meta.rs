@@ -1,4 +1,5 @@
 use crate::flatten::segment::SegmentRange;
+use crate::kernel::curve::param::SegmentParam;
 use alloc::slice;
 use alloc::vec::Vec;
 use core::iter;
@@ -8,7 +9,6 @@ use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::segm::boolean::ShapeCountBoolean;
 use i_overlay::vector::edge::DataVectorShape;
-use crate::kernel::curve::param::SegmentParam;
 
 #[derive(Debug, Clone)]
 pub(crate) struct ResolvedCurveOverlay<I: IntNumber, F: FloatNumber> {

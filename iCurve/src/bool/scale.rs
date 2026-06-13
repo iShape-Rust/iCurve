@@ -203,7 +203,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::curve::builder::CurveShapeBuilder;
+    use crate::curve::builder::CurveBuilder;
 
     #[test]
     fn fixed_scale_constructor_uses_requested_scale() {
@@ -242,7 +242,7 @@ mod tests {
     }
 
     fn square(x: f64, y: f64, size: f64) -> CurveShape<[f64; 2]> {
-        CurveShapeBuilder::new()
+        CurveBuilder::new()
             .move_to([x, y])
             .unwrap()
             .line_to([x + size, y])

@@ -89,8 +89,13 @@ mod tests {
 
     #[test]
     fn finds_cubic_self_intersection() {
-        let intersection =
-            find_cubic_self_intersection([0.0f64, 0.0].into(), [-3.0, -3.0].into(), [-3.0, -2.0].into(), [-2.0, -2.0].into()).unwrap();
+        let intersection = find_cubic_self_intersection(
+            [0.0f64, 0.0].into(),
+            [-3.0, -3.0].into(),
+            [-3.0, -2.0].into(),
+            [-2.0, -2.0].into(),
+        )
+        .unwrap();
 
         assert!((intersection.t0.to_f64() - 3.0 / 7.0).abs() < 0.000001);
         assert!((intersection.t1.to_f64() - 6.0 / 7.0).abs() < 0.000001);
@@ -100,7 +105,12 @@ mod tests {
 
     #[test]
     fn ignores_non_intersecting_cubic() {
-        let intersection = find_cubic_self_intersection([0.0, 0.0].into(), [1.0, 2.0].into(), [3.0, 2.0].into(), [4.0, 0.0].into());
+        let intersection = find_cubic_self_intersection(
+            [0.0, 0.0].into(),
+            [1.0, 2.0].into(),
+            [3.0, 2.0].into(),
+            [4.0, 0.0].into(),
+        );
 
         assert!(intersection.is_none());
     }

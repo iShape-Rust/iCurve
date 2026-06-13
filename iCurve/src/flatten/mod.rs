@@ -4,3 +4,4 @@ pub mod convert;
 pub(crate) mod cubic;
 pub(crate) mod rect;
 pub mod segment;
+mod cross;

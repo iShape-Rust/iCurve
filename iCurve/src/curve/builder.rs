@@ -5,7 +5,7 @@ use crate::curve::contour::CurveContour;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
 
-pub struct CurveShapeBuilder<P: FloatPointCompatible> {
+pub struct CurveBuilder<P: FloatPointCompatible> {
     contours: Vec<CurveContour<P>>,
     current: Option<CurveContour<P>>,
 }
@@ -17,7 +17,7 @@ pub enum CurveError {
     UnclosedContour,
 }
 
-impl<P: FloatPointCompatible> CurveShapeBuilder<P> {
+impl<P: FloatPointCompatible> CurveBuilder<P> {
     pub fn new() -> Self {
         Self {
             contours: Vec::new(),
@@ -136,7 +136,7 @@ fn same_point<P: FloatPointCompatible>(a: P, b: P) -> bool {
     a.x() == b.x() && a.y() == b.y()
 }
 
-impl<P: FloatPointCompatible> Default for CurveShapeBuilder<P> {
+impl<P: FloatPointCompatible> Default for CurveBuilder<P> {
     fn default() -> Self {
         Self::new()
     }
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn build_shape_with_multiple_contours() -> Result<(), CurveError> {
-        let shape = CurveShapeBuilder::new()
+        let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
             .quad_to([1.0, 1.0], [0.0, 1.0])?
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn build_closed_polygon_preserves_explicit_closing_endpoint() -> Result<(), CurveError> {
-        let shape = CurveShapeBuilder::new()
+        let shape = CurveBuilder::new()
             .move_to([-210.0_f32, -130.0])?
             .line_to([70.0, -130.0])?
             .line_to([70.0, 130.0])?
@@ -191,14 +191,14 @@ mod tests {
 
     #[test]
     fn segment_without_move_to_is_error() {
-        let result = CurveShapeBuilder::<[f64; 2]>::new().line_to([1.0, 0.0]);
+        let result = CurveBuilder::<[f64; 2]>::new().line_to([1.0, 0.0]);
 
         assert!(matches!(result, Err(CurveError::MissingMoveTo)));
     }
 
     #[test]
     fn close_requires_closed_contour() -> Result<(), CurveError> {
-        let result = CurveShapeBuilder::new()
+        let result = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
             .close();
@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     fn close_with_line_closes_open_contour() -> Result<(), CurveError> {
-        let shape = CurveShapeBuilder::new()
+        let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
             .close_with_line()?
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn build_requires_closed_contour() -> Result<(), CurveError> {
-        let result = CurveShapeBuilder::new()
+        let result = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
             .build();
@@ -239,7 +239,7 @@ mod tests {
 
     #[test]
     fn empty_contour_is_error() -> Result<(), CurveError> {
-        let result = CurveShapeBuilder::<[f64; 2]>::new().move_to([0.0, 0.0])?.build();
+        let result = CurveBuilder::<[f64; 2]>::new().move_to([0.0, 0.0])?.build();
 
         assert!(matches!(result, Err(CurveError::EmptyContour)));
         Ok(())

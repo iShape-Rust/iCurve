@@ -7,6 +7,7 @@ use crate::flatten::segment::ShapeSegment;
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::line::LineSegment;
 use crate::kernel::curve::quad::QuadSegment;
+use crate::kernel::curve::segment::Segment;
 use crate::kernel::curve::split_at::SplitAt;
 use alloc::vec::Vec;
 use i_overlay::core::overlay::ShapeType;
@@ -17,7 +18,6 @@ use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::triangle::Triangle;
-use crate::kernel::curve::segment::Segment;
 
 pub trait ShapeToSegments<P: FloatPointCompatible> {
     fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<ShapeSegment<P::Scalar>>;
@@ -363,12 +363,12 @@ impl<P: FloatPointCompatible> ShapeSegmentCount for CurveContour<P> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::curve::builder::{CurveError, CurveShapeBuilder};
+    use crate::curve::builder::{CurveError, CurveBuilder};
     use i_overlay::core::overlay::ShapeType;
 
     #[test]
     fn convert_shape_segments() -> Result<(), CurveError> {
-        let shape = CurveShapeBuilder::new()
+        let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
             .quad_to([1.0, 1.0], [0.0, 1.0])?
@@ -406,7 +406,7 @@ mod tests {
 
     #[test]
     fn convert_shape_segments_with_adapter() -> Result<(), CurveError> {
-        let shape = CurveShapeBuilder::new()
+        let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
             .close_with_line()?
@@ -431,7 +431,7 @@ mod tests {
 
     #[test]
     fn convert_closed_polygon_preserves_normalized_closing_endpoint() -> Result<(), CurveError> {
-        let shape = CurveShapeBuilder::new()
+        let shape = CurveBuilder::new()
             .move_to([-210.0_f32, -130.0])?
             .line_to([70.0, -130.0])?
             .line_to([70.0, 130.0])?
@@ -476,7 +476,7 @@ mod tests {
 
     #[test]
     fn convert_segments_with_adapter_returns_range_error() -> Result<(), CurveError> {
-        let shape = CurveShapeBuilder::new()
+        let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([2.0, 0.0])?
             .close_with_line()?
@@ -496,7 +496,7 @@ mod tests {
 
     #[test]
     fn convert_self_intersecting_cubic_segments() -> Result<(), CurveError> {
-        let shape = CurveShapeBuilder::new()
+        let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .cubic_to([-3.0, -3.0], [-3.0, -2.0], [-2.0, -2.0])?
             .close_with_line()?
@@ -537,7 +537,7 @@ mod tests {
 
     #[test]
     fn convert_closed_cubic_splits_at_half() -> Result<(), CurveError> {
-        let shape = CurveShapeBuilder::new()
+        let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .cubic_to([1.0, 2.0], [-1.0, 2.0], [0.0, 0.0])?
             .build()?;
@@ -572,15 +572,9 @@ mod tests {
             point: p0,
         };
 
-        let segments = Segment::split_self_intersecting_cubic_with_adapter(
-            p0,
-            p1,
-            p2,
-            p3,
-            intersection,
-            &adapter,
-        )
-        .expect("points must fit adapter rect");
+        let segments =
+            Segment::split_self_intersecting_cubic_with_adapter(p0, p1, p2, p3, intersection, &adapter)
+                .expect("points must fit adapter rect");
 
         assert!(!segments.is_empty());
         for segment in segments {

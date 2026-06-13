@@ -33,6 +33,22 @@ impl<T: FloatNumber> SegmentParam<T> {
     pub(crate) fn compare_with_epsilon(self, other: Self, epsilon: T) -> bool {
         (self.value() - other.value()).abs() < epsilon
     }
+
+    #[inline(always)]
+    pub(crate) fn is_in_unit_range(t: T, epsilon: T) -> bool {
+        t >= -epsilon && t <= T::ONE + epsilon
+    }
+
+    #[inline(always)]
+    pub(crate) fn clamp_unit(t: T) -> T {
+        if t <= T::ZERO {
+            T::ZERO
+        } else if t >= T::ONE {
+            T::ONE
+        } else {
+            t
+        }
+    }
 }
 
 impl<T: FloatNumber> Eq for SegmentParam<T> {}
@@ -59,10 +75,9 @@ impl<T: FloatNumber> Ord for SegmentParam<T> {
             (Inner(_), Start) => Ordering::Greater,
             (Inner(_), End) => Ordering::Less,
 
-            (Inner(a), Inner(b)) => {
-                a.partial_cmp(&b)
-                    .expect("SegmentParam::Inner must not contain NaN")
-            }
+            (Inner(a), Inner(b)) => a
+                .partial_cmp(&b)
+                .expect("SegmentParam::Inner must not contain NaN"),
         }
     }
 }

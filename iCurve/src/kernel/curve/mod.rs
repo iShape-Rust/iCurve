@@ -1,8 +1,8 @@
-pub mod param;
 pub mod cubic;
-pub mod quad;
 pub mod line;
-pub mod split_at;
-pub mod point;
+pub mod param;
+pub mod point_at;
+pub mod quad;
 pub mod reversed;
 pub mod segment;
+pub mod split_at;

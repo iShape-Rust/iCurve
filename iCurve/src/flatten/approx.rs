@@ -1,8 +1,8 @@
-use i_overlay::i_float::float::number::FloatNumber;
-use i_overlay::i_float::float::point::FloatPoint;
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::quad::QuadSegment;
 use crate::kernel::curve::segment::Segment;
+use i_overlay::i_float::float::number::FloatNumber;
+use i_overlay::i_float::float::point::FloatPoint;
 
 #[derive(Clone, Copy)]
 pub struct LineApproximation<T: FloatNumber> {
@@ -59,8 +59,8 @@ fn is_angle_accepted<T: FloatNumber>(chord: FloatPoint<T>, derivative: FloatPoin
 
 #[cfg(test)]
 mod tests {
-    use crate::kernel::curve::line::LineSegment;
     use super::*;
+    use crate::kernel::curve::line::LineSegment;
 
     fn approximation() -> LineApproximation<f64> {
         LineApproximation {
@@ -90,7 +90,12 @@ mod tests {
     #[test]
     fn cubic_split_not_required_for_flat_segment() {
         let segment = CubicSegment {
-            control_points: [[0.0, 0.0].into(), [2.0, 0.0].into(), [4.0, 0.0].into(), [6.0, 0.0].into()],
+            control_points: [
+                [0.0, 0.0].into(),
+                [2.0, 0.0].into(),
+                [4.0, 0.0].into(),
+                [6.0, 0.0].into(),
+            ],
         };
 
         assert!(!segment.is_split_required(approximation()));
@@ -99,7 +104,12 @@ mod tests {
     #[test]
     fn cubic_split_required_for_sharp_tangent() {
         let segment = CubicSegment {
-            control_points: [[0.0, 0.0].into(), [0.0, 2.0].into(), [4.0, 2.0].into(), [6.0, 0.0].into()],
+            control_points: [
+                [0.0, 0.0].into(),
+                [0.0, 2.0].into(),
+                [4.0, 2.0].into(),
+                [6.0, 0.0].into(),
+            ],
         };
 
         assert!(segment.is_split_required(approximation()));

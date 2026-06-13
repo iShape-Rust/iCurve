@@ -4,7 +4,7 @@ pub mod bool;
 pub mod collections;
 pub mod curve;
 pub mod flatten;
+mod kernel;
 mod math;
 #[cfg(test)]
 mod util;
-mod kernel;

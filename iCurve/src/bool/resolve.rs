@@ -2,7 +2,7 @@ use crate::bool::meta::{MetaSegment, ResolvedCurveOverlay};
 use crate::bool::overlay::CurveOverlay;
 use crate::flatten::segment::SegmentRange;
 use crate::kernel::curve::param::SegmentParam;
-use crate::kernel::curve::point::PointAt;
+use crate::kernel::curve::point_at::PointAt;
 use crate::kernel::curve::segment::Segment;
 use alloc::vec::Vec;
 use i_key_sort::sort::key::SortKey;

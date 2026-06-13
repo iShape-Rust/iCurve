@@ -6,7 +6,7 @@ use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
 use crate::flatten::segment::{SegmentRange, ShapeSegment};
 use crate::kernel::curve::param::SegmentParam;
-use crate::kernel::curve::point::PointAt;
+use crate::kernel::curve::point_at::PointAt;
 use crate::kernel::curve::reversed::Reversed;
 use crate::kernel::curve::segment::Segment;
 use crate::kernel::curve::split_at::SplitAt;

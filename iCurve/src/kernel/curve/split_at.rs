@@ -1,9 +1,9 @@
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::line::LineSegment;
-use crate::kernel::curve::point::InnerPointAt;
+use crate::kernel::curve::point_at::InnerPointAt;
 use crate::kernel::curve::quad::QuadSegment;
-use i_overlay::i_float::float::number::FloatNumber;
 use crate::kernel::curve::segment::Segment;
+use i_overlay::i_float::float::number::FloatNumber;
 
 pub trait SplitAt<T: FloatNumber> {
     type Output;
@@ -171,29 +171,17 @@ impl<T: FloatNumber> SplitAt<T> for Segment<T> {
 
     fn split_at_left(&self, t: T) -> Self {
         match self {
-            Segment::Line(line) => {
-                Segment::Line(line.split_at_left(t))
-            }
-            Segment::Quad(quad) => {
-                Segment::Quad(quad.split_at_left(t))
-            }
-            Segment::Cubic(cubic) => {
-                Segment::Cubic(cubic.split_at_left(t))
-            }
+            Segment::Line(line) => Segment::Line(line.split_at_left(t)),
+            Segment::Quad(quad) => Segment::Quad(quad.split_at_left(t)),
+            Segment::Cubic(cubic) => Segment::Cubic(cubic.split_at_left(t)),
         }
     }
 
     fn split_at_right(&self, t: T) -> Self {
         match self {
-            Segment::Line(line) => {
-                Segment::Line(line.split_at_right(t))
-            }
-            Segment::Quad(quad) => {
-                Segment::Quad(quad.split_at_right(t))
-            }
-            Segment::Cubic(cubic) => {
-                Segment::Cubic(cubic.split_at_right(t))
-            }
+            Segment::Line(line) => Segment::Line(line.split_at_right(t)),
+            Segment::Quad(quad) => Segment::Quad(quad.split_at_right(t)),
+            Segment::Cubic(cubic) => Segment::Cubic(cubic.split_at_right(t)),
         }
     }
 }

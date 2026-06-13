@@ -1,8 +1,8 @@
+use crate::kernel::curve::cubic::CubicSegment;
 use crate::math::cubic_equation::CubicEquation;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
-use crate::kernel::curve::cubic::CubicSegment;
 
 impl<T: FloatNumber> CubicSegment<T> {
     pub fn contains(&self, p: FloatPoint<T>, eps: T) -> Option<T> {
@@ -21,9 +21,7 @@ impl<T: FloatNumber> CubicSegment<T> {
 
         let eps_sqr = eps * eps;
         debug_assert!(
-            a.sqr_length() != T::ZERO
-                || b.sqr_length() != T::ZERO
-                || c.sqr_length() != T::ZERO,
+            a.sqr_length() != T::ZERO || b.sqr_length() != T::ZERO || c.sqr_length() != T::ZERO,
             "degenerate cubic segment is not supported"
         );
 
@@ -76,7 +74,12 @@ mod tests {
     #[test]
     fn finds_parameter_on_cubic() {
         let cubic = CubicSegment {
-            control_points: [[0.0, 0.0].into(), [1.0, 2.0].into(), [3.0, 2.0].into(), [4.0, 0.0].into()],
+            control_points: [
+                [0.0, 0.0].into(),
+                [1.0, 2.0].into(),
+                [3.0, 2.0].into(),
+                [4.0, 0.0].into(),
+            ],
         };
 
         let t = cubic.contains([2.0, 1.5].into(), 0.000001).unwrap();
@@ -87,7 +90,12 @@ mod tests {
     #[test]
     fn finds_cubic_end_parameter() {
         let cubic = CubicSegment {
-            control_points: [[0.0, 0.0].into(), [1.0, 2.0].into(), [3.0, 2.0].into(), [4.0, 0.0].into()],
+            control_points: [
+                [0.0, 0.0].into(),
+                [1.0, 2.0].into(),
+                [3.0, 2.0].into(),
+                [4.0, 0.0].into(),
+            ],
         };
 
         let t = cubic.contains([4.0, 0.0].into(), 0.000001).unwrap();
@@ -98,7 +106,12 @@ mod tests {
     #[test]
     fn ignores_cubic_point_outside_epsilon() {
         let cubic = CubicSegment {
-            control_points: [[0.0, 0.0].into(), [1.0, 2.0].into(), [3.0, 2.0].into(), [4.0, 0.0].into()],
+            control_points: [
+                [0.0, 0.0].into(),
+                [1.0, 2.0].into(),
+                [3.0, 2.0].into(),
+                [4.0, 0.0].into(),
+            ],
         };
 
         assert!(cubic.contains([2.0, 1.6].into(), 0.000001).is_none());

@@ -1,4 +1,4 @@
-mod simplify;
+mod collider;
 mod overlay;
 pub(crate) mod segmentation;
-mod collider;
+mod simplify;
