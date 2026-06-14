@@ -1,6 +1,6 @@
 use crate::curve::resource::CurveResource;
 use crate::curve::shape::CurveShape;
-use crate::flatten::convert::ShapeToSegments;
+use crate::flatten::normalize::ShapeToShapeSegments;
 use crate::flatten::rect::ShapeFloatRect;
 use crate::flatten::segment::ShapeSegment;
 use alloc::vec::Vec;

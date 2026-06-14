@@ -19,7 +19,7 @@ use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::triangle::Triangle;
 
-pub trait ShapeToSegments<P: FloatPointCompatible> {
+pub trait ShapeToShapeSegments<P: FloatPointCompatible> {
     fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<ShapeSegment<P::Scalar>>;
 
     fn try_to_normalize_segments_with_adapter<I: IntNumber>(
@@ -29,7 +29,7 @@ pub trait ShapeToSegments<P: FloatPointCompatible> {
     ) -> Result<Vec<ShapeSegment<P::Scalar>>, FloatPointAdapterRangeError>;
 }
 
-impl<P: FloatPointCompatible> ShapeToSegments<P> for CurveShape<P> {
+impl<P: FloatPointCompatible> ShapeToShapeSegments<P> for CurveShape<P> {
     fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<ShapeSegment<P::Scalar>> {
         let rect = self.float_rect().unwrap_or(FloatRect::zero());
         let adapter = FloatPointAdapter::<FloatPoint<P::Scalar>, i32>::new(rect);
@@ -52,7 +52,7 @@ impl<P: FloatPointCompatible> ShapeToSegments<P> for CurveShape<P> {
     }
 }
 
-impl<P: FloatPointCompatible> ShapeToSegments<P> for CurvePath<P> {
+impl<P: FloatPointCompatible> ShapeToShapeSegments<P> for CurvePath<P> {
     fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<ShapeSegment<P::Scalar>> {
         let rect = self.float_rect().unwrap_or(FloatRect::zero());
         let adapter = FloatPointAdapter::<FloatPoint<P::Scalar>, i32>::new(rect);
@@ -367,7 +367,7 @@ mod tests {
     use i_overlay::core::overlay::ShapeType;
 
     #[test]
-    fn convert_shape_segments() -> Result<(), CurveError> {
+    fn normalize_shape_segments() -> Result<(), CurveError> {
         let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
@@ -405,7 +405,7 @@ mod tests {
     }
 
     #[test]
-    fn convert_shape_segments_with_adapter() -> Result<(), CurveError> {
+    fn normalize_shape_segments_with_adapter() -> Result<(), CurveError> {
         let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([1.0, 0.0])?
@@ -430,7 +430,7 @@ mod tests {
     }
 
     #[test]
-    fn convert_closed_polygon_preserves_normalized_closing_endpoint() -> Result<(), CurveError> {
+    fn normalize_closed_polygon_preserves_normalized_closing_endpoint() -> Result<(), CurveError> {
         let shape = CurveBuilder::new()
             .move_to([-210.0_f32, -130.0])?
             .line_to([70.0, -130.0])?
@@ -475,7 +475,7 @@ mod tests {
     }
 
     #[test]
-    fn convert_segments_with_adapter_returns_range_error() -> Result<(), CurveError> {
+    fn normalize_segments_with_adapter_returns_range_error() -> Result<(), CurveError> {
         let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .line_to([2.0, 0.0])?
@@ -495,7 +495,7 @@ mod tests {
     }
 
     #[test]
-    fn convert_self_intersecting_cubic_segments() -> Result<(), CurveError> {
+    fn normalize_self_intersecting_cubic_segments() -> Result<(), CurveError> {
         let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .cubic_to([-3.0, -3.0], [-3.0, -2.0], [-2.0, -2.0])?
@@ -536,7 +536,7 @@ mod tests {
     }
 
     #[test]
-    fn convert_closed_cubic_splits_at_half() -> Result<(), CurveError> {
+    fn normalize_closed_cubic_splits_at_half() -> Result<(), CurveError> {
         let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
             .cubic_to([1.0, 2.0], [-1.0, 2.0], [0.0, 0.0])?

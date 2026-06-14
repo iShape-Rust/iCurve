@@ -1,7 +1,7 @@
 use crate::curve::path::CurvePath;
 use crate::curve::shape::CurveShape;
 use crate::flatten::approx::{LineApproximation, LineApproximationSplit};
-use crate::flatten::convert::ShapeToSegments;
+use crate::flatten::normalize::ShapeToShapeSegments;
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::line::LineSegment;
 use crate::kernel::curve::quad::QuadSegment;
