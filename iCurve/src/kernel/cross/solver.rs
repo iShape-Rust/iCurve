@@ -8,6 +8,14 @@ pub struct Solver<T: FloatNumber> {
 
 impl<T: FloatNumber> Solver<T> {
     #[inline]
+    pub(crate) fn with_grid_size(grid_size: T) -> Self {
+        Self {
+            phantom_data: PhantomData,
+            grid_size,
+        }
+    }
+
+    #[inline]
     pub(crate) fn grid_size(&self) -> T {
         self.grid_size
     }
