@@ -1,5 +1,5 @@
 use crate::bool::overlay::CurveOverlay;
-use crate::flatten::segment::SegmentRange;
+use crate::bool::segment::SegmentRange;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::int::number::int::IntNumber;

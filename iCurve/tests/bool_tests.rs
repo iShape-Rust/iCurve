@@ -20,10 +20,10 @@ fn subject_roundish_cubic_shape_with_fixed_scale() -> Result<(), CurveError> {
     assert_eq!(result[0].contours.len(), 1);
     assert!(!result[0].contours[0].segments.is_empty());
 
-    let expected_area = subj.approximate_to_shape(approximation()).area().abs();
+    let expected_area = subj.approximate_with_adapter(approximation()).area().abs();
     let result_area = result
         .iter()
-        .map(|shape| shape.approximate_to_shape(approximation()).area())
+        .map(|shape| shape.approximate_with_adapter(approximation()).area())
         .sum::<f64>()
         .abs();
 

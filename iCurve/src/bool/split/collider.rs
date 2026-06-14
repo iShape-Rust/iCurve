@@ -1,4 +1,4 @@
-use crate::flatten::segment::SegmentRange;
+use crate::bool::segment::SegmentRange;
 use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::int::number::int::IntNumber;

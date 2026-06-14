@@ -1,4 +1,4 @@
-use crate::flatten::segment::SegmentRange;
+use crate::bool::segment::SegmentRange;
 use crate::kernel::curve::param::SegmentParam;
 use alloc::slice;
 use alloc::vec::Vec;

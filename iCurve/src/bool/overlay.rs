@@ -1,8 +1,7 @@
 use crate::curve::resource::CurveResource;
 use crate::curve::shape::CurveShape;
-use crate::flatten::normalize::ShapeToShapeSegments;
-use crate::flatten::rect::ShapeFloatRect;
-use crate::flatten::segment::ShapeSegment;
+use crate::flatten::rect::CurveToFloatRect;
+use crate::bool::segment::ShapeSegment;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use i_key_sort::sort::key::SortKey;
@@ -16,6 +15,7 @@ use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_tree::{Expiration, LayoutNumber};
+use crate::flatten::normalize::curve::CurveToSegments;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CurveSplitOptions<F: FloatNumber, I: IntNumber = i32> {
@@ -117,14 +117,8 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         resource: &R,
         shape_type: ShapeType,
     ) -> Result<(), FloatPointAdapterRangeError> {
-        let point_adapter: FloatPointAdapter<FloatPoint<P::Scalar>, I> =
-            self.adapter.to_float_point_adapter();
-
-        for contour in resource.iter_contours() {
-            self.segments
-                .extend(contour.try_to_normalize_segments_with_adapter(shape_type, &point_adapter)?);
-        }
-        Ok(())
+        let point_adapter: FloatPointAdapter<FloatPoint<P::Scalar>, I> = self.adapter.to_float_point_adapter();
+        Self::append_resource_segments(resource, shape_type, &point_adapter, &mut self.segments)
     }
 
     pub(super) fn append_resource_segments<R: CurveResource<P> + ?Sized>(
@@ -134,7 +128,14 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         output: &mut Vec<ShapeSegment<P::Scalar>>,
     ) -> Result<(), FloatPointAdapterRangeError> {
         for contour in resource.iter_contours() {
-            output.extend(contour.try_to_normalize_segments_with_adapter(shape_type, adapter)?);
+            let normalized_segments = contour.try_to_normalize_segments_with_adapter(adapter)?;
+            for segment in normalized_segments {
+                output.push(
+                    ShapeSegment {
+                        segment,
+                        shape_type,
+                    })
+            }
         }
         Ok(())
     }

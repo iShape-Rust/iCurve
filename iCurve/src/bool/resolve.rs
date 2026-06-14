@@ -1,6 +1,6 @@
 use crate::bool::meta::{MetaSegment, ResolvedCurveOverlay};
 use crate::bool::overlay::CurveOverlay;
-use crate::flatten::segment::SegmentRange;
+use crate::bool::segment::SegmentRange;
 use crate::kernel::curve::param::SegmentParam;
 use crate::kernel::curve::point_at::PointAt;
 use crate::kernel::curve::segment::Segment;

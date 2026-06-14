@@ -2,13 +2,14 @@ use crate::curve::path::CurvePath;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
+use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::rect::FloatRect;
 
-pub(crate) trait ShapeFloatRect<P: FloatPointCompatible> {
-    fn float_rect(&self) -> Option<FloatRect<P::Scalar>>;
+pub(crate) trait CurveToFloatRect<T: FloatNumber> {
+    fn float_rect(&self) -> Option<FloatRect<T>>;
 }
 
-impl<P: FloatPointCompatible> ShapeFloatRect<P> for CurveShape<P> {
+impl<P: FloatPointCompatible<Scalar = T>, T: FloatNumber> CurveToFloatRect<T> for CurveShape<P> {
     fn float_rect(&self) -> Option<FloatRect<P::Scalar>> {
         let mut rect = None;
         for contour in &self.contours {
@@ -18,7 +19,7 @@ impl<P: FloatPointCompatible> ShapeFloatRect<P> for CurveShape<P> {
     }
 }
 
-impl<P: FloatPointCompatible> ShapeFloatRect<P> for CurvePath<P> {
+impl<P: FloatPointCompatible<Scalar = T>, T: FloatNumber> CurveToFloatRect<T> for CurvePath<P> {
     fn float_rect(&self) -> Option<FloatRect<P::Scalar>> {
         let mut rect = None;
         FloatRect::optional_add_point(&mut rect, &self.start);
@@ -40,7 +41,7 @@ impl<P: FloatPointCompatible> ShapeFloatRect<P> for CurvePath<P> {
     }
 }
 
-impl<P: FloatPointCompatible> ShapeFloatRect<P> for [CurveShape<P>] {
+impl<P: FloatPointCompatible<Scalar = T>, T: FloatNumber> CurveToFloatRect<T> for [CurveShape<P>] {
     fn float_rect(&self) -> Option<FloatRect<P::Scalar>> {
         let mut rect = None;
         for shape in self {

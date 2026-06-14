@@ -4,7 +4,7 @@ use crate::collections::circular_merge_list::CircularMergeList;
 use crate::curve::path::CurvePath;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
-use crate::flatten::segment::{SegmentRange, ShapeSegment};
+use crate::bool::segment::{SegmentRange, ShapeSegment};
 use crate::kernel::curve::param::SegmentParam;
 use crate::kernel::curve::point_at::PointAt;
 use crate::kernel::curve::reversed::Reversed;
