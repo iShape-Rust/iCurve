@@ -142,3 +142,80 @@ impl<T: FloatNumber> Solver<T> {
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec::Vec;
+    use crate::kernel::cross::solver::Solver;
+    use crate::kernel::curve::line::LineSegment;
+    use crate::kernel::curve::quad::QuadSegment;
+
+    #[test]
+    fn tangent_one_point() {
+        let quad = QuadSegment {
+            control_points: [
+                [-100.0, -100.0].into(),
+                [0.0, 100.0].into(),
+                [100.0, -100.0].into()
+            ],
+        };
+        let line = LineSegment {
+            control_points: [
+                [-200.0, 0.0].into(),
+                [200.0, 0.0].into(),
+            ],
+        };
+
+        let mut solver = Solver::with_grid_size(0.001);
+        let mut output = Vec::new();
+        solver.intersect_quad_and_line(quad, line, &mut output);
+
+        assert_eq!(output.len(), 1);
+    }
+
+    #[test]
+    fn tangent_two_points() {
+        let quad = QuadSegment {
+            control_points: [
+                [-100.0, -100.0].into(),
+                [0.0, 100.0].into(),
+                [100.0, -100.0].into()
+            ],
+        };
+        let line = LineSegment {
+            control_points: [
+                [-200.0, -1.0].into(),
+                [200.0, -1.0].into(),
+            ],
+        };
+
+        let mut solver = Solver::with_grid_size(0.001);
+        let mut output = Vec::new();
+        solver.intersect_quad_and_line(quad, line, &mut output);
+
+        assert_eq!(output.len(), 2);
+    }
+
+    #[test]
+    fn tangent_empty() {
+        let quad = QuadSegment {
+            control_points: [
+                [-100.0, -100.0].into(),
+                [0.0, 100.0].into(),
+                [100.0, -100.0].into()
+            ],
+        };
+        let line = LineSegment {
+            control_points: [
+                [-200.0, 1.0].into(),
+                [200.0, 1.0].into(),
+            ],
+        };
+
+        let mut solver = Solver::with_grid_size(0.001);
+        let mut output = Vec::new();
+        solver.intersect_quad_and_line(quad, line, &mut output);
+
+        assert!(output.is_empty());
+    }
+}
