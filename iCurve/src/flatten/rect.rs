@@ -5,7 +5,7 @@ use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::rect::FloatRect;
 
-pub(crate) trait CurveToFloatRect<T: FloatNumber> {
+pub trait CurveToFloatRect<T: FloatNumber> {
     fn float_rect(&self) -> Option<FloatRect<T>>;
 }
 
