@@ -1,13 +1,13 @@
-use crate::curve::contour::CurveContour;
 use crate::curve::shape::CurveShape;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
+use crate::curve::path::CurvePath;
 
 pub trait CurveResource<P>
 where
     P: FloatPointCompatible,
 {
-    type ContourIter<'a>: Iterator<Item = &'a CurveContour<P>>
+    type ContourIter<'a>: Iterator<Item = &'a CurvePath<P>>
     where
         P: 'a,
         Self: 'a;
@@ -33,12 +33,12 @@ where
 }
 
 pub struct SingleContourResourceIterator<'a, P: FloatPointCompatible> {
-    contour: Option<&'a CurveContour<P>>,
+    contour: Option<&'a CurvePath<P>>,
 }
 
 impl<'a, P: FloatPointCompatible> SingleContourResourceIterator<'a, P> {
     #[inline]
-    fn with_contour(contour: &'a CurveContour<P>) -> Self {
+    fn with_contour(contour: &'a CurvePath<P>) -> Self {
         Self {
             contour: Some(contour),
         }
@@ -46,7 +46,7 @@ impl<'a, P: FloatPointCompatible> SingleContourResourceIterator<'a, P> {
 }
 
 impl<'a, P: FloatPointCompatible> Iterator for SingleContourResourceIterator<'a, P> {
-    type Item = &'a CurveContour<P>;
+    type Item = &'a CurvePath<P>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -63,19 +63,19 @@ impl<'a, P: FloatPointCompatible> Iterator for SingleContourResourceIterator<'a,
 }
 
 pub struct ContoursResourceIterator<'a, P: FloatPointCompatible> {
-    contours: &'a [CurveContour<P>],
+    contours: &'a [CurvePath<P>],
     index: usize,
 }
 
 impl<'a, P: FloatPointCompatible> ContoursResourceIterator<'a, P> {
     #[inline]
-    fn with_slice(contours: &'a [CurveContour<P>]) -> Self {
+    fn with_slice(contours: &'a [CurvePath<P>]) -> Self {
         Self { contours, index: 0 }
     }
 }
 
 impl<'a, P: FloatPointCompatible> Iterator for ContoursResourceIterator<'a, P> {
-    type Item = &'a CurveContour<P>;
+    type Item = &'a CurvePath<P>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -114,7 +114,7 @@ impl<'a, P: FloatPointCompatible> ShapesResourceIterator<'a, P> {
 }
 
 impl<'a, P: FloatPointCompatible> Iterator for ShapesResourceIterator<'a, P> {
-    type Item = &'a CurveContour<P>;
+    type Item = &'a CurvePath<P>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -133,7 +133,7 @@ impl<'a, P: FloatPointCompatible> Iterator for ShapesResourceIterator<'a, P> {
     }
 }
 
-impl<P> CurveResource<P> for CurveContour<P>
+impl<P> CurveResource<P> for CurvePath<P>
 where
     P: FloatPointCompatible,
 {
@@ -149,7 +149,7 @@ where
     }
 }
 
-impl<P> CurveResource<P> for [CurveContour<P>]
+impl<P> CurveResource<P> for [CurvePath<P>]
 where
     P: FloatPointCompatible,
 {
@@ -165,7 +165,7 @@ where
     }
 }
 
-impl<P, const N: usize> CurveResource<P> for [CurveContour<P>; N]
+impl<P, const N: usize> CurveResource<P> for [CurvePath<P>; N]
 where
     P: FloatPointCompatible,
 {
@@ -181,7 +181,7 @@ where
     }
 }
 
-impl<P> CurveResource<P> for Vec<CurveContour<P>>
+impl<P> CurveResource<P> for Vec<CurvePath<P>>
 where
     P: FloatPointCompatible,
 {

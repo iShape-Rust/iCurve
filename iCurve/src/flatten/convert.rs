@@ -17,7 +17,7 @@ use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::triangle::Triangle;
-use crate::curve::contour::CurveContour;
+use crate::curve::path::CurvePath;
 
 pub trait ShapeToSegments<P: FloatPointCompatible> {
     fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<ShapeSegment<P::Scalar>>;
@@ -52,7 +52,7 @@ impl<P: FloatPointCompatible> ShapeToSegments<P> for CurveShape<P> {
     }
 }
 
-impl<P: FloatPointCompatible> ShapeToSegments<P> for CurveContour<P> {
+impl<P: FloatPointCompatible> ShapeToSegments<P> for CurvePath<P> {
     fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<ShapeSegment<P::Scalar>> {
         let rect = self.float_rect().unwrap_or(FloatRect::zero());
         let adapter = FloatPointAdapter::<FloatPoint<P::Scalar>, i32>::new(rect);
@@ -80,7 +80,7 @@ trait ContourToSegments<P: FloatPointCompatible> {
     ) -> Result<(), FloatPointAdapterRangeError>;
 }
 
-impl<P: FloatPointCompatible> ContourToSegments<P> for CurveContour<P> {
+impl<P: FloatPointCompatible> ContourToSegments<P> for CurvePath<P> {
     fn try_extend_normalize_segments_with_adapter<I: IntNumber>(
         &self,
         shape_type: ShapeType,
@@ -354,7 +354,7 @@ impl<P: FloatPointCompatible> ShapeSegmentCount for CurveShape<P> {
     }
 }
 
-impl<P: FloatPointCompatible> ShapeSegmentCount for CurveContour<P> {
+impl<P: FloatPointCompatible> ShapeSegmentCount for CurvePath<P> {
     fn segments_count(&self) -> usize {
         self.segments.len()
     }

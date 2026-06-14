@@ -1,6 +1,5 @@
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
-use crate::curve::contour::CurveContour;
 use crate::curve::path::CurvePath;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
@@ -13,8 +12,9 @@ pub struct CurveBuilder<P: FloatPointCompatible> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CurveError {
     MissingMoveTo,
-    EmptyContour,
+    EmptyPath,
     UnclosedContour,
+    NoContours
 }
 
 impl<P: FloatPointCompatible> CurveBuilder<P> {
@@ -30,7 +30,6 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
         self.current = Some(CurvePath {
             start: point,
             segments: Vec::new(),
-            is_closed: false,
         });
 
         Ok(self)
@@ -50,27 +49,19 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
         self.push_segment(CurveSegment::Cubic { ctrl0, ctrl1, to })?;
         Ok(self)
     }
-    pub fn close(mut self) -> Result<Self, CurveError> {
-        if self.current.is_none() {
-            return Err(CurveError::MissingMoveTo);
-        }
-
-        self.flush_current()?;
-        Ok(self)
-    }
 
     pub fn close_contour(mut self) -> Result<Self, CurveError> {
-        let Some(contour) = self.current.as_mut() else {
+        let Some(path) = self.current.as_mut() else {
             return Err(CurveError::MissingMoveTo);
         };
 
-        if contour.segments.is_empty() {
-            return Err(CurveError::EmptyContour);
+        if path.segments.is_empty() {
+            return Err(CurveError::EmptyPath);
         }
 
-        if let Some(end_point) = contour.end_point() {
-            if !same_point(end_point, contour.start) {
-                contour.segments.push(CurveSegment::Line { to: contour.start });
+        if let Some(end_point) = path.end_point() {
+            if !same_point(end_point, path.start) {
+                path.segments.push(CurveSegment::Line { to: path.start });
             }
         }
 
@@ -79,24 +70,24 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
     }
 
     pub fn build_shape(mut self) -> Result<CurveShape<P>, CurveError> {
-        self.flush_current()?;
-
-        let mut contours: Vec<CurveContour<P>> = Vec::with_capacity(self.paths.len());
-
-        for path in self.paths {
-            if !path.is_closed {
-                return Err(CurveError::UnclosedContour);
-            }
-            contours.push(path.into())
+        if self.paths.is_empty() {
+            Err(CurveError::NoContours)
+        } else {
+            Ok(CurveShape { contours: self.paths })
         }
+    }
 
-        Ok(CurveShape { contours })
+    pub fn build_path(mut self) -> Result<CurvePath<P>, CurveError> {
+        if let Some(path) = self.current.take() && !path.segments.is_empty() {
+            return Ok(path);
+        }
+        Err(CurveError::EmptyPath)
     }
 
     fn push_segment(&mut self, segment: CurveSegment<P>) -> Result<(), CurveError> {
         match self.current.as_mut() {
-            Some(contour) => {
-                contour.segments.push(segment);
+            Some(path) => {
+                path.segments.push(segment);
                 Ok(())
             }
             None => Err(CurveError::MissingMoveTo),
@@ -104,19 +95,14 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
     }
 
     fn flush_current(&mut self) -> Result<(), CurveError> {
-        let Some(contour) = self.current.take() else {
+        let Some(path) = self.current.take() else {
             return Ok(());
         };
 
-        if contour.segments.is_empty() {
-            return Err(CurveError::EmptyContour);
+        if path.segments.is_empty() {
+            return Err(CurveError::EmptyPath);
         }
-
-        if !contour.is_closed() {
-            return Err(CurveError::UnclosedContour);
-        }
-
-        self.paths.push(contour);
+        self.paths.push(path);
         Ok(())
     }
 }
@@ -205,17 +191,6 @@ mod tests {
     }
 
     #[test]
-    fn close_requires_closed_contour() -> Result<(), CurveError> {
-        let result = CurveBuilder::new()
-            .move_to([0.0, 0.0])?
-            .line_to([1.0, 0.0])?
-            .close();
-
-        assert!(matches!(result, Err(CurveError::UnclosedContour)));
-        Ok(())
-    }
-
-    #[test]
     fn close_with_line_closes_open_contour() -> Result<(), CurveError> {
         let shape = CurveBuilder::new()
             .move_to([0.0, 0.0])?
@@ -249,7 +224,7 @@ mod tests {
     fn empty_contour_is_error() -> Result<(), CurveError> {
         let result = CurveBuilder::<[f64; 2]>::new().move_to([0.0, 0.0])?.build_shape();
 
-        assert!(matches!(result, Err(CurveError::EmptyContour)));
+        assert!(matches!(result, Err(CurveError::EmptyPath)));
         Ok(())
     }
 }

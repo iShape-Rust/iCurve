@@ -10,9 +10,9 @@ use alloc::vec::Vec;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
-use crate::curve::contour::CurveContour;
+use crate::curve::path::CurvePath;
 
-impl<P: FloatPointCompatible> CurveContour<P> {
+impl<P: FloatPointCompatible> CurvePath<P> {
     pub fn approximate_to_contour(&self, approximation: LineApproximation<P::Scalar>) -> Vec<P> {
         let segments = self.to_normalize_segments(ShapeType::Subject);
         let mut output = Vec::with_capacity(segments.len() + 1);

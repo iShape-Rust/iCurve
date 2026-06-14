@@ -5,5 +5,4 @@ use crate::curve::segment::CurveSegment;
 pub struct CurvePath<P: FloatPointCompatible> {
     pub start: P,
     pub segments: Vec<CurveSegment<P>>,
-    pub is_closed: bool,
 }
