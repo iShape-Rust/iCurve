@@ -1,6 +1,5 @@
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::math::cubic_equation::CubicEquation;
-use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
 

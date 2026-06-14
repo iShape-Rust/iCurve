@@ -1,4 +1,3 @@
-use crate::kernel::curve::line::LineSegment;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;

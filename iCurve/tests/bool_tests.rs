@@ -1,10 +1,11 @@
 use i_curve::bool::overlay::CurveOverlay;
-use i_curve::bool::scale::FixedScaleCurveOverlay;
 use i_curve::curve::builder::{CurveBuilder, CurveError};
 use i_curve::curve::shape::CurveShape;
 use i_curve::flatten::approx::LineApproximation;
 use i_overlay::core::fill_rule::FillRule;
+use i_overlay::core::overlay::ShapeType;
 use i_overlay::core::overlay_rule::OverlayRule;
+use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_shape::float::area::Area;
 
 #[test]
@@ -12,18 +13,23 @@ fn subject_roundish_cubic_shape_with_fixed_scale() -> Result<(), CurveError> {
     let subj = roundish_cubic_shape()?;
     let clip: Vec<CurveShape<[f64; 2]>> = Vec::new();
 
-    let result = subj
-        .overlay_with_fixed_scale(&clip, OverlayRule::Subject, FillRule::NonZero, 1000.0)
-        .expect("fixed scale overlay must run");
+    let adapter: FloatPointAdapter<_, i32> = FloatPointAdapter::with_radius_and_scale(1000.0, 1000.0);
+
+    let mut overlay = CurveOverlay::with_adapter(adapter.clone());
+    _ =overlay.add_shape(&subj, ShapeType::Subject);
+    _ =overlay.add_shape(&clip, ShapeType::Subject);
+    let result = overlay.overlay(OverlayRule::Subject, FillRule::NonZero);
 
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].contours.len(), 1);
     assert!(!result[0].contours[0].segments.is_empty());
 
-    let expected_area = subj.approximate_with_adapter(approximation()).area().abs();
+    let fp_adapter = adapter.to_float_point_adapter();
+
+    let expected_area = subj.approximate_with_adapter(approximation(), &fp_adapter).area().abs();
     let result_area = result
         .iter()
-        .map(|shape| shape.approximate_with_adapter(approximation()).area())
+        .map(|shape| shape.approximate_with_adapter(approximation(), &fp_adapter).area())
         .sum::<f64>()
         .abs();
 
