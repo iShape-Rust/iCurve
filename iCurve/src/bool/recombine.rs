@@ -1,6 +1,7 @@
 use crate::bool::meta::{MetaSegment, MetaStore, ResolvedCurveOverlay};
 use crate::bool::overlay::CurveOverlay;
 use crate::collections::circular_merge_list::CircularMergeList;
+use crate::curve::path::CurvePath;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
 use crate::flatten::segment::{SegmentRange, ShapeSegment};
@@ -17,7 +18,6 @@ use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::point::IntPoint;
 use i_overlay::vector::edge::DataVectorPath;
-use crate::curve::path::CurvePath;
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
     pub(super) fn recombine(&self, resolved: ResolvedCurveOverlay<I, P::Scalar>) -> Vec<CurveShape<P>> {

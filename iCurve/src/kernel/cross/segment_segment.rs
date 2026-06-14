@@ -49,5 +49,5 @@ impl<T: FloatNumber> Solver<T> {
         for point in points {
             mem::swap(&mut point.t0, &mut point.t1);
         }
-    } 
+    }
 }

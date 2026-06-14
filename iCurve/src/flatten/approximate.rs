@@ -1,3 +1,4 @@
+use crate::curve::path::CurvePath;
 use crate::curve::shape::CurveShape;
 use crate::flatten::approx::{LineApproximation, LineApproximationSplit};
 use crate::flatten::convert::ShapeToSegments;
@@ -10,7 +11,6 @@ use alloc::vec::Vec;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
-use crate::curve::path::CurvePath;
 
 impl<P: FloatPointCompatible> CurvePath<P> {
     pub fn approximate_to_contour(&self, approximation: LineApproximation<P::Scalar>) -> Vec<P> {
@@ -87,7 +87,7 @@ impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for CubicSegment<P::Sc
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::curve::builder::{CurveError, CurveBuilder};
+    use crate::curve::builder::{CurveBuilder, CurveError};
 
     fn approximation() -> LineApproximation<f64> {
         LineApproximation {

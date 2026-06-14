@@ -1,6 +1,6 @@
 use i_curve::bool::overlay::CurveOverlay;
 use i_curve::bool::scale::FixedScaleCurveOverlay;
-use i_curve::curve::builder::{CurveError, CurveBuilder};
+use i_curve::curve::builder::{CurveBuilder, CurveError};
 use i_curve::curve::shape::CurveShape;
 use i_curve::flatten::approx::LineApproximation;
 use i_overlay::core::fill_rule::FillRule;

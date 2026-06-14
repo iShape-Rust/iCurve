@@ -1,3 +1,4 @@
+use crate::curve::path::CurvePath;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
 use crate::flatten::cubic::{CubicSelfIntersection, find_cubic_self_intersection};
@@ -17,7 +18,6 @@ use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::triangle::Triangle;
-use crate::curve::path::CurvePath;
 
 pub trait ShapeToSegments<P: FloatPointCompatible> {
     fn to_normalize_segments(&self, shape_type: ShapeType) -> Vec<ShapeSegment<P::Scalar>>;
@@ -363,7 +363,7 @@ impl<P: FloatPointCompatible> ShapeSegmentCount for CurvePath<P> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::curve::builder::{CurveError, CurveBuilder};
+    use crate::curve::builder::{CurveBuilder, CurveError};
     use i_overlay::core::overlay::ShapeType;
 
     #[test]

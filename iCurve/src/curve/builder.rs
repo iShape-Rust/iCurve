@@ -1,8 +1,8 @@
-use alloc::vec::Vec;
-use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use crate::curve::path::CurvePath;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
+use alloc::vec::Vec;
+use i_overlay::i_float::float::compatible::FloatPointCompatible;
 
 pub struct CurveBuilder<P: FloatPointCompatible> {
     paths: Vec<CurvePath<P>>,
@@ -14,7 +14,7 @@ pub enum CurveError {
     MissingMoveTo,
     EmptyPath,
     UnclosedContour,
-    NoContours
+    NoContours,
 }
 
 impl<P: FloatPointCompatible> CurveBuilder<P> {
@@ -70,6 +70,8 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
     }
 
     pub fn build_shape(mut self) -> Result<CurveShape<P>, CurveError> {
+        self.flush_current()?;
+
         if self.paths.is_empty() {
             Err(CurveError::NoContours)
         } else {
@@ -78,7 +80,9 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
     }
 
     pub fn build_path(mut self) -> Result<CurvePath<P>, CurveError> {
-        if let Some(path) = self.current.take() && !path.segments.is_empty() {
+        if let Some(path) = self.current.take()
+            && !path.segments.is_empty()
+        {
             return Ok(path);
         }
         Err(CurveError::EmptyPath)
@@ -101,6 +105,9 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
 
         if path.segments.is_empty() {
             return Err(CurveError::EmptyPath);
+        }
+        if !path.is_closed() {
+            return Err(CurveError::UnclosedContour);
         }
         self.paths.push(path);
         Ok(())
