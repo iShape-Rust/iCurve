@@ -1,9 +1,9 @@
-use crate::kernel::cross::point::CrossPoint;
 use crate::kernel::cross::solver::Solver;
+use crate::kernel::cross::contact::ContactPoint;
 use crate::kernel::curve::line::LineSegment;
 use crate::kernel::curve::param::SegmentParam;
 use crate::kernel::curve::quad::QuadSegment;
-use crate::math::quadratic_equation::QuadraticEquation;
+use crate::kernel::math::quadratic_equation::QuadraticEquation;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
@@ -14,7 +14,7 @@ impl<T: FloatNumber> Solver<T> {
         &mut self,
         quad: QuadSegment<T>,
         line: LineSegment<T>,
-        output: &mut Vec<CrossPoint<T>>,
+        output: &mut Vec<ContactPoint<T>>,
     ) {
         // We need to find points where the quadratic Bezier segment lies on the
         // same finite line segment.
@@ -119,7 +119,7 @@ impl<T: FloatNumber> Solver<T> {
         c0: FloatPoint<T>,
         c1: FloatPoint<T>,
         c2: FloatPoint<T>,
-        output: &mut Vec<CrossPoint<T>>,
+        output: &mut Vec<ContactPoint<T>>,
     ) {
         if !SegmentParam::is_in_unit_range(t, self.grid_size()) {
             return;
@@ -135,7 +135,7 @@ impl<T: FloatNumber> Solver<T> {
 
         let u = SegmentParam::clamp_unit(u);
 
-        output.push(CrossPoint {
+        output.push(ContactPoint {
             point,
             t0: SegmentParam::from(t),
             t1: SegmentParam::from(u),

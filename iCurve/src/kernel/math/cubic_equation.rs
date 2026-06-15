@@ -1,4 +1,4 @@
-use crate::math::quadratic_equation::QuadraticEquation;
+use crate::kernel::math::quadratic_equation::QuadraticEquation;
 use i_overlay::i_float::float::number::FloatNumber;
 
 pub(crate) struct CubicEquation;

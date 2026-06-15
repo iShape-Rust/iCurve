@@ -34,7 +34,7 @@ impl ApproximateMath {
 
 #[cfg(test)]
 mod tests {
-    use crate::math::approximate::ApproximateMath;
+    use crate::kernel::math::approximate::ApproximateMath;
 
     #[test]
     fn test_0() {

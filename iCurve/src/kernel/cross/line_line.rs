@@ -1,5 +1,5 @@
-use crate::kernel::cross::point::CrossPoint;
 use crate::kernel::cross::solver::Solver;
+use crate::kernel::cross::contact::ContactPoint;
 use crate::kernel::curve::line::LineSegment;
 use crate::kernel::curve::param::SegmentParam;
 use alloc::vec::Vec;
@@ -12,7 +12,7 @@ impl<T: FloatNumber> Solver<T> {
         &mut self,
         line0: LineSegment<T>,
         line1: LineSegment<T>,
-        output: &mut Vec<CrossPoint<T>>,
+        output: &mut Vec<ContactPoint<T>>,
     ) {
         // Line segments are represented in parametric form:
         //
@@ -75,7 +75,7 @@ impl<T: FloatNumber> Solver<T> {
         let t = SegmentParam::clamp_unit(t);
         let u = SegmentParam::clamp_unit(u);
 
-        output.push(CrossPoint {
+        output.push(ContactPoint {
             point: a0 + r * t,
             t0: SegmentParam::from(t),
             t1: SegmentParam::from(u),
@@ -90,7 +90,7 @@ impl<T: FloatNumber> Solver<T> {
         b0: FloatPoint<T>,
         s: FloatPoint<T>,
         s_sqr_len: T,
-        output: &mut Vec<CrossPoint<T>>,
+        output: &mut Vec<ContactPoint<T>>,
     ) {
         let t0 = (b0 - a0).dot_product(r) / r_sqr_len;
         let t1 = (b0 + s - a0).dot_product(r) / r_sqr_len;
@@ -117,14 +117,14 @@ impl<T: FloatNumber> Solver<T> {
         b0: FloatPoint<T>,
         s: FloatPoint<T>,
         s_sqr_len: T,
-        output: &mut Vec<CrossPoint<T>>,
+        output: &mut Vec<ContactPoint<T>>,
     ) {
         let t = SegmentParam::clamp_unit(t);
         let point = a0 + r * t;
         let u = (point - b0).dot_product(s) / s_sqr_len;
         let u = SegmentParam::clamp_unit(u);
 
-        output.push(CrossPoint {
+        output.push(ContactPoint {
             point,
             t0: SegmentParam::from(t),
             t1: SegmentParam::from(u),

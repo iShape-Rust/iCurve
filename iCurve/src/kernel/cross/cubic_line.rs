@@ -1,5 +1,5 @@
-use crate::kernel::cross::point::CrossPoint;
 use crate::kernel::cross::solver::Solver;
+use crate::kernel::cross::contact::ContactPoint;
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::line::LineSegment;
 use alloc::vec::Vec;
@@ -11,7 +11,7 @@ impl<T: FloatNumber> Solver<T> {
         &mut self,
         cubic: CubicSegment<T>,
         line: LineSegment<T>,
-        output: &mut Vec<CrossPoint<T>>,
+        output: &mut Vec<ContactPoint<T>>,
     ) {
         let cubic_rect = FloatRect::with_points(&cubic.control_points);
         let line_rect = FloatRect::with_points(&line.control_points);

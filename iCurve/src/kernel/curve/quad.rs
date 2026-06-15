@@ -1,3 +1,4 @@
+use crate::kernel::curve::param::SegmentParam;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;
@@ -7,6 +8,13 @@ pub struct QuadSegment<T: FloatNumber> {
     pub control_points: [FloatPoint<T>; 3],
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct SubQuadSegment<T: FloatNumber> {
+    pub quad: QuadSegment<T>,
+    pub t0: SegmentParam<T>,
+    pub t1: SegmentParam<T>,
+}
+
 impl<T: FloatNumber> QuadSegment<T> {
     #[inline]
     pub fn to_rect(&self) -> FloatRect<T> {
@@ -14,5 +22,16 @@ impl<T: FloatNumber> QuadSegment<T> {
         rect.unsafe_add_point(&self.control_points[1]);
         rect.unsafe_add_point(&self.control_points[2]);
         rect
+    }
+}
+
+impl<T: FloatNumber> SubQuadSegment<T> {
+    #[inline]
+    pub fn with_quad(quad: QuadSegment<T>) -> Self {
+        Self {
+            quad,
+            t0: SegmentParam::Start,
+            t1: SegmentParam::End,
+        }
     }
 }
