@@ -6,5 +6,4 @@ pub mod curve;
 pub mod flatten;
 pub mod intersect;
 mod kernel;
-#[cfg(test)]
-mod util;
+pub mod normalization;

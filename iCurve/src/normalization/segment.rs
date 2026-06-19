@@ -1,5 +1,4 @@
 use crate::curve::segment::CurveSegment;
-use crate::flatten::normalize::cubic::{CubicSelfIntersection, find_cubic_self_intersection};
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::line::LineSegment;
 use crate::kernel::curve::quad::QuadSegment;
@@ -12,8 +11,9 @@ use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::triangle::Triangle;
+use crate::normalization::cubic::CubicSelfIntersection;
 
-pub(super) trait CurveSegmentNormalization<P: FloatPointCompatible, I: IntNumber> {
+pub(crate) trait CurveSegmentNormalization<P: FloatPointCompatible, I: IntNumber> {
     fn try_normalize(
         &self,
         p0: FloatPoint<P::Scalar>,
@@ -135,59 +135,24 @@ impl<T: FloatNumber> Segment<T> {
             return Ok(Self::try_line_with_adapter(p0, p3, adapter)?.into());
         }
 
-        if let Some(intersection) = find_cubic_self_intersection(p0, p1, p2, p3) {
-            let segments =
-                Self::split_self_intersecting_cubic_with_adapter(p0, p1, p2, p3, intersection, adapter)?;
-            return if segments.is_empty() {
-                Ok(TryCubicResult::None)
-            } else {
-                Ok(TryCubicResult::Segments(segments))
-            };
+        let segment = CubicSegment {
+            control_points: [p0, p1, p2, p3],
+        };
+
+        match segment.resolve_self_intersection() {
+            None => Ok(TryCubicResult::Segment(Segment::Cubic(segment))),
+            Some(intersection) => {
+                let segments = segment.split_self_intersecting_with_adapter(intersection, adapter)?;
+                if segments.is_empty() {
+                    Ok(TryCubicResult::None)
+                } else {
+                    Ok(TryCubicResult::Segments(segments))
+                }
+            }
         }
-
-        Ok(TryCubicResult::Segment(Segment::Cubic(CubicSegment {
-            control_points: [p0, p1, p2, p3],
-        })))
     }
 
-    fn split_self_intersecting_cubic_with_adapter<I: IntNumber>(
-        p0: FloatPoint<T>,
-        p1: FloatPoint<T>,
-        p2: FloatPoint<T>,
-        p3: FloatPoint<T>,
-        intersection: CubicSelfIntersection<T>,
-        adapter: &FloatPointAdapter<FloatPoint<T>, I>,
-    ) -> Result<Vec<Segment<T>>, FloatPointAdapterRangeError> {
-        let (t0, t1) = if intersection.t0 < intersection.t1 {
-            (intersection.t0, intersection.t1)
-        } else {
-            (intersection.t1, intersection.t0)
-        };
-
-        let cubic = CubicSegment {
-            control_points: [p0, p1, p2, p3],
-        };
-        let [mut first, rest] = cubic.split_at(t0);
-        let t = (t1 - t0) / (T::ONE - t0);
-        let [mut middle, mut last] = rest.split_at(t);
-
-        let point = intersection.point;
-        first.control_points[3] = point;
-        middle.control_points[0] = point;
-        middle.control_points[3] = point;
-        last.control_points[0] = point;
-
-        let [middle_0, middle_1] = middle.split_at(T::HALF);
-
-        let mut segments = Vec::with_capacity(6);
-        Self::push_split_cubic_part(first, adapter, &mut segments)?;
-        Self::push_split_cubic_part(middle_0, adapter, &mut segments)?;
-        Self::push_split_cubic_part(middle_1, adapter, &mut segments)?;
-        Self::push_split_cubic_part(last, adapter, &mut segments)?;
-        Ok(segments)
-    }
-
-    fn push_split_cubic_part<I: IntNumber>(
+    pub(super) fn push_split_cubic_part<I: IntNumber>(
         cubic: CubicSegment<T>,
         adapter: &FloatPointAdapter<FloatPoint<T>, I>,
         output: &mut Vec<Segment<T>>,
@@ -234,7 +199,7 @@ impl<T: FloatNumber> Segment<T> {
     }
 }
 
-pub(super) enum TryCubicResult<T: FloatNumber> {
+pub(crate) enum TryCubicResult<T: FloatNumber> {
     None,
     Segment(Segment<T>),
     Segments(Vec<Segment<T>>),
@@ -251,8 +216,9 @@ impl<T: FloatNumber> From<Option<Segment<T>>> for TryCubicResult<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::flatten::normalize::cubic::CubicSelfIntersection;
+    use crate::kernel::curve::cubic::CubicSegment;
     use crate::kernel::curve::segment::Segment;
+    use crate::normalization::cubic::CubicSelfIntersection;
     use i_overlay::i_float::adapter::FloatPointAdapter;
     use i_overlay::i_float::float::point::FloatPoint;
 
@@ -269,10 +235,13 @@ mod tests {
             t1: 6.0 / 7.0,
             point: p0,
         };
+        let cubic = CubicSegment {
+            control_points: [p0, p1, p2, p3],
+        };
 
-        let segments =
-            Segment::split_self_intersecting_cubic_with_adapter(p0, p1, p2, p3, intersection, &adapter)
-                .expect("points must fit adapter rect");
+        let segments = cubic
+            .split_self_intersecting_with_adapter(intersection, &adapter)
+            .expect("points must fit adapter rect");
 
         assert!(!segments.is_empty());
         for segment in segments {

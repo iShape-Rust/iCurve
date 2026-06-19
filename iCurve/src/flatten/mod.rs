@@ -1,3 +1,2 @@
-pub mod approx;
-pub mod approximate;
-pub mod normalize;
+pub mod approximation;
+pub mod condition;

@@ -2,7 +2,7 @@ use crate::bool::segment::ShapeSegment;
 use crate::curve::rect::CurveToFloatRect;
 use crate::curve::resource::CurveResource;
 use crate::curve::shape::CurveShape;
-use crate::flatten::normalize::curve::CurveToSegments;
+use crate::normalization::curve::CurveToSegments;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use i_key_sort::sort::key::SortKey;

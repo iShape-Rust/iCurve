@@ -1,6 +1,6 @@
 use crate::bool::overlay::CurveOverlay;
 use crate::bool::segment::SegmentRange;
-use crate::flatten::approx::{LineApproximation, LineApproximationSplit};
+use crate::flatten::condition::{FlatCondition, FlatParams};
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::quad::QuadSegment;
 use crate::kernel::curve::segment::Segment;
@@ -18,7 +18,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         let min_segment_sqr_length = min_segment_length * min_segment_length;
 
         let min_cos = self.options.split.max_angle.cos();
-        let line_approximation = LineApproximation {
+        let line_approximation = FlatParams {
             min_cos,
             min_segment_sqr_length,
         };
@@ -59,10 +59,10 @@ impl<T: FloatNumber> QuadSegment<T> {
         index: usize,
         t0: T,
         t1: T,
-        line_approximation: LineApproximation<T>,
+        line_approximation: FlatParams<T>,
         output: &mut Vec<SegmentRange<T>>,
     ) {
-        if !self.is_split_required(line_approximation) {
+        if !self.is_not_flat(line_approximation) {
             output.push(SegmentRange::new(index, t0, t1));
             return;
         }
@@ -80,10 +80,10 @@ impl<T: FloatNumber> CubicSegment<T> {
         index: usize,
         t0: T,
         t1: T,
-        line_approximation: LineApproximation<T>,
+        line_approximation: FlatParams<T>,
         output: &mut Vec<SegmentRange<T>>,
     ) {
-        if !self.is_split_required(line_approximation) {
+        if !self.is_not_flat(line_approximation) {
             output.push(SegmentRange::new(index, t0, t1));
             return;
         }

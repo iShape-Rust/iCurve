@@ -1,7 +1,8 @@
 use i_curve::bool::overlay::CurveOverlay;
 use i_curve::curve::builder::{CurveBuilder, CurveError};
 use i_curve::curve::shape::CurveShape;
-use i_curve::flatten::approx::LineApproximation;
+use i_curve::flatten::approximation::LineApproximation;
+use i_curve::flatten::condition::FlatParams;
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::core::overlay_rule::OverlayRule;
@@ -71,8 +72,8 @@ fn union_of_overlapping_polygons_with_near_horizontal_edge() -> Result<(), Curve
     Ok(())
 }
 
-fn approximation() -> LineApproximation<f64> {
-    LineApproximation {
+fn approximation() -> FlatParams<f64> {
+    FlatParams {
         min_cos: 0.999,
         min_segment_sqr_length: 0.000_001,
     }

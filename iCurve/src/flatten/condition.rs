@@ -5,41 +5,41 @@ use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
 
 #[derive(Clone, Copy)]
-pub struct LineApproximation<T: FloatNumber> {
+pub struct FlatParams<T: FloatNumber> {
     pub min_cos: T,
     pub min_segment_sqr_length: T,
 }
 
-pub trait LineApproximationSplit<T: FloatNumber> {
-    fn is_split_required(&self, approximation: LineApproximation<T>) -> bool;
+pub trait FlatCondition<T: FloatNumber> {
+    fn is_not_flat(&self, params: FlatParams<T>) -> bool;
 }
 
-impl<T: FloatNumber> LineApproximationSplit<T> for Segment<T> {
-    fn is_split_required(&self, approximation: LineApproximation<T>) -> bool {
+impl<T: FloatNumber> FlatCondition<T> for Segment<T> {
+    fn is_not_flat(&self, params: FlatParams<T>) -> bool {
         match self {
             Self::Line(_) => false,
-            Self::Quad(segment) => segment.is_split_required(approximation),
-            Self::Cubic(segment) => segment.is_split_required(approximation),
+            Self::Quad(segment) => segment.is_not_flat(params),
+            Self::Cubic(segment) => segment.is_not_flat(params),
         }
     }
 }
 
-impl<T: FloatNumber> LineApproximationSplit<T> for QuadSegment<T> {
-    fn is_split_required(&self, approximation: LineApproximation<T>) -> bool {
+impl<T: FloatNumber> FlatCondition<T> for QuadSegment<T> {
+    fn is_not_flat(&self, params: FlatParams<T>) -> bool {
         let [p0, p1, p2] = self.control_points;
         let chord = p0 - p2;
 
-        if chord.sqr_length() <= approximation.min_segment_sqr_length {
+        if chord.sqr_length() <= params.min_segment_sqr_length {
             return false;
         }
 
-        !is_angle_accepted(chord, p0 - p1, approximation.min_cos)
-            || !is_angle_accepted(chord, p1 - p2, approximation.min_cos)
+        !is_angle_accepted(chord, p0 - p1, params.min_cos)
+            || !is_angle_accepted(chord, p1 - p2, params.min_cos)
     }
 }
 
-impl<T: FloatNumber> LineApproximationSplit<T> for CubicSegment<T> {
-    fn is_split_required(&self, approximation: LineApproximation<T>) -> bool {
+impl<T: FloatNumber> FlatCondition<T> for CubicSegment<T> {
+    fn is_not_flat(&self, approximation: FlatParams<T>) -> bool {
         let [p0, p1, p2, p3] = self.control_points;
         let chord = p0 - p3;
 
@@ -62,8 +62,8 @@ mod tests {
     use super::*;
     use crate::kernel::curve::line::LineSegment;
 
-    fn approximation() -> LineApproximation<f64> {
-        LineApproximation {
+    fn approximation() -> FlatParams<f64> {
+        FlatParams {
             min_cos: 0.99,
             min_segment_sqr_length: 0.0001,
         }
@@ -75,7 +75,7 @@ mod tests {
             control_points: [[0.0, 0.0].into(), [2.0, 0.0].into(), [4.0, 0.0].into()],
         };
 
-        assert!(!segment.is_split_required(approximation()));
+        assert!(!segment.is_not_flat(approximation()));
     }
 
     #[test]
@@ -84,7 +84,7 @@ mod tests {
             control_points: [[0.0, 0.0].into(), [0.0, 2.0].into(), [4.0, 0.0].into()],
         };
 
-        assert!(segment.is_split_required(approximation()));
+        assert!(segment.is_not_flat(approximation()));
     }
 
     #[test]
@@ -98,7 +98,7 @@ mod tests {
             ],
         };
 
-        assert!(!segment.is_split_required(approximation()));
+        assert!(!segment.is_not_flat(approximation()));
     }
 
     #[test]
@@ -112,7 +112,7 @@ mod tests {
             ],
         };
 
-        assert!(segment.is_split_required(approximation()));
+        assert!(segment.is_not_flat(approximation()));
     }
 
     #[test]
@@ -121,7 +121,7 @@ mod tests {
             control_points: [[0.0, 0.0].into(), [0.0, 2.0].into(), [0.01, 0.0].into()],
         };
 
-        assert!(!segment.is_split_required(LineApproximation {
+        assert!(!segment.is_not_flat(FlatParams {
             min_cos: 0.99,
             min_segment_sqr_length: 0.0002,
         }));
@@ -133,6 +133,6 @@ mod tests {
             control_points: [[0.0, 0.0].into(), [1.0, 0.0].into()],
         });
 
-        assert!(!segment.is_split_required(approximation()));
+        assert!(!segment.is_not_flat(approximation()));
     }
 }

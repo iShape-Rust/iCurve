@@ -1,8 +1,8 @@
 use crate::curve::path::CurvePath;
 use crate::curve::rect::CurveToFloatRect;
-use crate::flatten::normalize::curve::CurveToSegments;
 use crate::kernel::cross::solver::Solver;
 use crate::kernel::curve::segment::Segment;
+use crate::normalization::curve::CurveToSegments;
 use alloc::vec::Vec;
 use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterRangeError};
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
