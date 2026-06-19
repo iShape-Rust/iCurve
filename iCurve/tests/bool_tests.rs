@@ -16,8 +16,8 @@ fn subject_roundish_cubic_shape_with_fixed_scale() -> Result<(), CurveError> {
     let adapter: FloatPointAdapter<_, i32> = FloatPointAdapter::with_radius_and_scale(1000.0, 1000.0);
 
     let mut overlay = CurveOverlay::with_adapter(adapter.clone());
-    _ =overlay.add_shape(&subj, ShapeType::Subject);
-    _ =overlay.add_shape(&clip, ShapeType::Subject);
+    _ = overlay.add_shape(&subj, ShapeType::Subject);
+    _ = overlay.add_shape(&clip, ShapeType::Subject);
     let result = overlay.overlay(OverlayRule::Subject, FillRule::NonZero);
 
     assert_eq!(result.len(), 1);
@@ -26,10 +26,17 @@ fn subject_roundish_cubic_shape_with_fixed_scale() -> Result<(), CurveError> {
 
     let fp_adapter = adapter.to_float_point_adapter();
 
-    let expected_area = subj.approximate_with_adapter(approximation(), &fp_adapter).area().abs();
+    let expected_area = subj
+        .approximate_with_adapter(approximation(), &fp_adapter)
+        .area()
+        .abs();
     let result_area = result
         .iter()
-        .map(|shape| shape.approximate_with_adapter(approximation(), &fp_adapter).area())
+        .map(|shape| {
+            shape
+                .approximate_with_adapter(approximation(), &fp_adapter)
+                .area()
+        })
         .sum::<f64>()
         .abs();
 

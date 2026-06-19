@@ -1,9 +1,10 @@
-use crate::kernel::cross::solver::Solver;
 use crate::kernel::cross::contact::ContactPoint;
+use crate::kernel::cross::solver::Solver;
 use crate::kernel::curve::line::LineSegment;
 use crate::kernel::curve::param::SegmentParam;
 use crate::kernel::curve::quad::QuadSegment;
 use crate::kernel::math::quadratic_equation::QuadraticEquation;
+use crate::kernel::math::rect::ToRect;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
@@ -145,10 +146,10 @@ impl<T: FloatNumber> Solver<T> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec::Vec;
     use crate::kernel::cross::solver::Solver;
     use crate::kernel::curve::line::LineSegment;
     use crate::kernel::curve::quad::QuadSegment;
+    use alloc::vec::Vec;
 
     #[test]
     fn tangent_one_point() {
@@ -156,14 +157,11 @@ mod tests {
             control_points: [
                 [-100.0, -100.0].into(),
                 [0.0, 100.0].into(),
-                [100.0, -100.0].into()
+                [100.0, -100.0].into(),
             ],
         };
         let line = LineSegment {
-            control_points: [
-                [-200.0, 0.0].into(),
-                [200.0, 0.0].into(),
-            ],
+            control_points: [[-200.0, 0.0].into(), [200.0, 0.0].into()],
         };
 
         let mut solver = Solver::with_grid_size(0.001);
@@ -179,14 +177,11 @@ mod tests {
             control_points: [
                 [-100.0, -100.0].into(),
                 [0.0, 100.0].into(),
-                [100.0, -100.0].into()
+                [100.0, -100.0].into(),
             ],
         };
         let line = LineSegment {
-            control_points: [
-                [-200.0, -1.0].into(),
-                [200.0, -1.0].into(),
-            ],
+            control_points: [[-200.0, -1.0].into(), [200.0, -1.0].into()],
         };
 
         let mut solver = Solver::with_grid_size(0.001);
@@ -202,14 +197,11 @@ mod tests {
             control_points: [
                 [-100.0, -100.0].into(),
                 [0.0, 100.0].into(),
-                [100.0, -100.0].into()
+                [100.0, -100.0].into(),
             ],
         };
         let line = LineSegment {
-            control_points: [
-                [-200.0, 1.0].into(),
-                [200.0, 1.0].into(),
-            ],
+            control_points: [[-200.0, 1.0].into(), [200.0, 1.0].into()],
         };
 
         let mut solver = Solver::with_grid_size(0.001);

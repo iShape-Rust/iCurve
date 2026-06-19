@@ -1,9 +1,9 @@
+use crate::kernel::math::rect::ToRect;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::rect::FloatRect;
 
 pub(crate) trait FloatRectExt<T: FloatNumber> {
     fn max_size(&self) -> T;
-    fn is_comparable_size(&self, other: &Self, epsilon: T) -> bool;
 }
 
 impl<T: FloatNumber> FloatRectExt<T> for FloatRect<T> {
@@ -11,17 +11,14 @@ impl<T: FloatNumber> FloatRectExt<T> for FloatRect<T> {
     fn max_size(&self) -> T {
         self.width().max(self.height())
     }
+}
 
-    #[inline]
-    fn is_comparable_size(&self, other: &Self, epsilon: T) -> bool {
-        let size0 = self.max_size();
-        let size1 = other.max_size();
-        let two = T::from_float(2.0);
-
-        if size0 <= epsilon && size1 <= epsilon {
-            return true;
-        }
-
-        size0 <= size1 * two + epsilon && size1 <= size0 * two + epsilon
+pub(crate) trait RectIntersection<T: FloatNumber> {
+    fn is_intersect_by_rects(&self, other: &Self, epsilon: T)
+    where
+        Self: ToRect<T>,
+    {
+        let r0 = self.to_rect();
+        let r1 = other.to_rect();
     }
 }

@@ -1,6 +1,6 @@
 use crate::bool::overlay::CurveOverlay;
-use crate::flatten::approx::{LineApproximation, LineApproximationSplit};
 use crate::bool::segment::SegmentRange;
+use crate::flatten::approx::{LineApproximation, LineApproximationSplit};
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::quad::QuadSegment;
 use crate::kernel::curve::segment::Segment;

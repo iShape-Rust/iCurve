@@ -1,5 +1,5 @@
-use crate::kernel::cross::solver::Solver;
 use crate::kernel::cross::contact::ContactPoint;
+use crate::kernel::cross::solver::Solver;
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::line::LineSegment;
 use alloc::vec::Vec;

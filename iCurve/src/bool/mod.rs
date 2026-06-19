@@ -3,5 +3,5 @@ pub mod overlay;
 mod recombine;
 pub mod resolve;
 pub mod scale;
-mod split;
 pub mod segment;
+mod split;

@@ -1,6 +1,6 @@
 use crate::curve::path::CurvePath;
+use crate::curve::rect::CurveToFloatRect;
 use crate::flatten::normalize::curve::CurveToSegments;
-use crate::flatten::rect::CurveToFloatRect;
 use crate::kernel::cross::solver::Solver;
 use crate::kernel::curve::segment::Segment;
 use alloc::vec::Vec;

@@ -53,6 +53,13 @@ impl<T: FloatNumber> SegmentParam<T> {
 
 impl<T: FloatNumber> Eq for SegmentParam<T> {}
 
+impl<T: FloatNumber> Default for SegmentParam<T> {
+    #[inline]
+    fn default() -> Self {
+        Self::Start
+    }
+}
+
 impl<T: FloatNumber> PartialOrd for SegmentParam<T> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {

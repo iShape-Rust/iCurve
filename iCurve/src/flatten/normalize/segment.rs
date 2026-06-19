@@ -1,3 +1,10 @@
+use crate::curve::segment::CurveSegment;
+use crate::flatten::normalize::cubic::{CubicSelfIntersection, find_cubic_self_intersection};
+use crate::kernel::curve::cubic::CubicSegment;
+use crate::kernel::curve::line::LineSegment;
+use crate::kernel::curve::quad::QuadSegment;
+use crate::kernel::curve::segment::Segment;
+use crate::kernel::curve::split_at::SplitAt;
 use alloc::vec::Vec;
 use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterRangeError};
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
@@ -5,13 +12,6 @@ use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::triangle::Triangle;
-use crate::curve::segment::CurveSegment;
-use crate::flatten::normalize::cubic::{find_cubic_self_intersection, CubicSelfIntersection};
-use crate::kernel::curve::cubic::CubicSegment;
-use crate::kernel::curve::line::LineSegment;
-use crate::kernel::curve::quad::QuadSegment;
-use crate::kernel::curve::segment::Segment;
-use crate::kernel::curve::split_at::SplitAt;
 
 pub(super) trait CurveSegmentNormalization<P: FloatPointCompatible, I: IntNumber> {
     fn try_normalize(
@@ -251,10 +251,10 @@ impl<T: FloatNumber> From<Option<Segment<T>>> for TryCubicResult<T> {
 
 #[cfg(test)]
 mod tests {
-    use i_overlay::i_float::adapter::FloatPointAdapter;
-    use i_overlay::i_float::float::point::FloatPoint;
     use crate::flatten::normalize::cubic::CubicSelfIntersection;
     use crate::kernel::curve::segment::Segment;
+    use i_overlay::i_float::adapter::FloatPointAdapter;
+    use i_overlay::i_float::float::point::FloatPoint;
 
     #[test]
     fn split_self_intersecting_cubic_handles_endpoint_intersection() {

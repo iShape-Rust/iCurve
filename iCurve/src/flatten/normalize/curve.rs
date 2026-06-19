@@ -1,4 +1,5 @@
 use crate::curve::path::CurvePath;
+use crate::curve::rect::CurveToFloatRect;
 use crate::curve::shape::CurveShape;
 use crate::flatten::normalize::segment::CurveSegmentNormalization;
 use crate::kernel::curve::segment::Segment;
@@ -9,10 +10,8 @@ use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
-use crate::flatten::rect::CurveToFloatRect;
 
 pub trait CurveToSegments<T: FloatNumber> {
-
     fn try_to_normalize_segments<I: IntNumber>(&self) -> Result<Vec<Segment<T>>, FloatPointAdapterRangeError>
     where
         Self: CurveToFloatRect<T>,
@@ -23,7 +22,6 @@ pub trait CurveToSegments<T: FloatNumber> {
         self.try_extend_normalize_segments_with_adapter(&adapter, &mut result)?;
         Ok(result)
     }
-
 
     fn try_to_normalize_segments_with_adapter<I: IntNumber>(
         &self,
@@ -79,7 +77,6 @@ impl<P: FloatPointCompatible<Scalar = T>, T: FloatNumber> CurveToSegments<T> for
         Ok(())
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -227,12 +224,7 @@ mod tests {
 
         assert_eq!(segments.len(), 5);
         let point = [-2.3615160349854225, -2.0466472303206995];
-        match (
-            &segments[0],
-            &segments[1],
-            &segments[2],
-            &segments[3],
-        ) {
+        match (&segments[0], &segments[1], &segments[2], &segments[3]) {
             (
                 Segment::Cubic(first),
                 Segment::Cubic(middle_0),
@@ -292,5 +284,4 @@ mod tests {
         assert!((a.x.to_f64() - b[0].to_f64()).abs() < 0.000001);
         assert!((a.y.to_f64() - b[1].to_f64()).abs() < 0.000001);
     }
-
 }

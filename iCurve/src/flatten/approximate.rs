@@ -1,6 +1,7 @@
 use crate::curve::path::CurvePath;
 use crate::curve::shape::CurveShape;
 use crate::flatten::approx::{LineApproximation, LineApproximationSplit};
+use crate::flatten::normalize::curve::CurveToSegments;
 use crate::kernel::curve::cubic::CubicSegment;
 use crate::kernel::curve::line::LineSegment;
 use crate::kernel::curve::quad::QuadSegment;
@@ -12,13 +13,12 @@ use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::int::number::int::IntNumber;
-use crate::flatten::normalize::curve::CurveToSegments;
 
 impl<P: FloatPointCompatible> CurveShape<P> {
     pub fn approximate_with_adapter<I: IntNumber>(
         &self,
         approximation: LineApproximation<P::Scalar>,
-        adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>
+        adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>,
     ) -> Vec<Vec<P>> {
         self.contours
             .iter()
@@ -31,10 +31,10 @@ impl<P: FloatPointCompatible> CurvePath<P> {
     pub fn approximate_with_adapter<I: IntNumber>(
         &self,
         approximation: LineApproximation<P::Scalar>,
-        adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>
+        adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>,
     ) -> Vec<P> {
         let Ok(segments) = self.try_to_normalize_segments_with_adapter(adapter) else {
-            return Vec::new()
+            return Vec::new();
         };
         let mut output = Vec::with_capacity(segments.len() + 1);
         output.push(self.start);

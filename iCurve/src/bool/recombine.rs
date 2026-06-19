@@ -1,10 +1,10 @@
 use crate::bool::meta::{MetaSegment, MetaStore, ResolvedCurveOverlay};
 use crate::bool::overlay::CurveOverlay;
+use crate::bool::segment::{SegmentRange, ShapeSegment};
 use crate::collections::circular_merge_list::CircularMergeList;
 use crate::curve::path::CurvePath;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
-use crate::bool::segment::{SegmentRange, ShapeSegment};
 use crate::kernel::curve::param::SegmentParam;
 use crate::kernel::curve::point_at::PointAt;
 use crate::kernel::curve::reversed::Reversed;

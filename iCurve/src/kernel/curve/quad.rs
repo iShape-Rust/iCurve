@@ -15,16 +15,6 @@ pub struct SubQuadSegment<T: FloatNumber> {
     pub t1: SegmentParam<T>,
 }
 
-impl<T: FloatNumber> QuadSegment<T> {
-    #[inline]
-    pub fn to_rect(&self) -> FloatRect<T> {
-        let mut rect = FloatRect::with_point(self.control_points[0]);
-        rect.unsafe_add_point(&self.control_points[1]);
-        rect.unsafe_add_point(&self.control_points[2]);
-        rect
-    }
-}
-
 impl<T: FloatNumber> SubQuadSegment<T> {
     #[inline]
     pub fn with_quad(quad: QuadSegment<T>) -> Self {

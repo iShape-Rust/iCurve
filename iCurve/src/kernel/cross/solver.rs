@@ -1,3 +1,4 @@
+use crate::kernel::cross::overlap::find::CurveOverlap;
 use crate::kernel::curve::quad::SubQuadSegment;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -16,6 +17,12 @@ pub struct Solver<T: FloatNumber> {
     min_possible_size: T,
     pub(crate) quad_quad_stack: Vec<QuadQuadPair<T>>,
     pub(crate) quad_quad_pairs: Vec<QuadQuadPair<T>>,
+}
+
+pub enum IntersectionResult<T: FloatNumber> {
+    None,
+    Overlap(CurveOverlap<T>),
+    Intersect,
 }
 
 impl<T: FloatNumber> Solver<T> {
