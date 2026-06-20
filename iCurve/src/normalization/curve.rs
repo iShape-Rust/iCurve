@@ -83,6 +83,7 @@ mod tests {
     use super::*;
     use crate::curve::builder::{CurveBuilder, CurveError};
     use crate::kernel::curve::segment::Segment;
+    use crate::normalization::test_utils::{assert_control_points_eq, assert_point_eq};
 
     #[test]
     fn normalize_shape_segments() -> Result<(), CurveError> {
@@ -271,17 +272,4 @@ mod tests {
         Ok(())
     }
 
-    fn assert_control_points_eq<T: FloatNumber, const N: usize>(
-        actual: [FloatPoint<T>; N],
-        expected: [[T; 2]; N],
-    ) {
-        for (actual, expected) in actual.into_iter().zip(expected) {
-            assert_point_eq(actual, expected);
-        }
-    }
-
-    fn assert_point_eq<T: FloatNumber>(a: FloatPoint<T>, b: [T; 2]) {
-        assert!((a.x.to_f64() - b[0].to_f64()).abs() < 0.000001);
-        assert!((a.y.to_f64() - b[1].to_f64()).abs() < 0.000001);
-    }
 }

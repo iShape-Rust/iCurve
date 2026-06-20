@@ -35,6 +35,8 @@ impl<T: FloatNumber> CubicSegment<T> {
         let mut segments = StackVec::new();
 
         if q0 == q3 {
+            // A closed cubic with two distinct control directions can enclose area;
+            // otherwise it is only a normalized spike.
             if q0 != q1 && q0 != q2 && q1 != q2 {
                 let [first, last] = self.split_at(T::HALF);
 
@@ -45,6 +47,7 @@ impl<T: FloatNumber> CubicSegment<T> {
         }
 
         if q1 == q2 {
+            // Equal middle controls reduce the cubic to a quadratic.
             segments.push_some(
                 QuadSegment {
                     control_points: [p0, p1, p3],
@@ -55,6 +58,7 @@ impl<T: FloatNumber> CubicSegment<T> {
         }
 
         if Triangle::is_line(q0, q1, q3) && Triangle::is_line(q0, q2, q3) {
+            // All controls lie on the chord, so the cubic contributes a line.
             segments.push_some(
                 LineSegment {
                     control_points: [p0, p3],
@@ -91,6 +95,7 @@ impl<T: FloatNumber> CubicSegment<T> {
 
         let [middle_0, middle_1] = middle.split_at(T::HALF);
 
+        // After splitting at the loop crossing, every part is loop-free.
         segments.push_some(first.try_cubic_without_self_intersection(adapter)?);
         segments.push_some(middle_0.try_cubic_without_self_intersection(adapter)?);
         segments.push_some(middle_1.try_cubic_without_self_intersection(adapter)?);
@@ -175,14 +180,18 @@ impl<T: FloatNumber> CubicSegment<T> {
         let q1 = adapter.try_float_to_int(&p1)?;
         let q2 = adapter.try_float_to_int(&p2)?;
         let q3 = adapter.try_float_to_int(&p3)?;
+
+        // Loop-free closed sub-cubic has no overlay contribution.
         if q0 == q3 {
             Ok(None)
         } else if q1 == q2 {
+            // Equal middle controls reduce the cubic to a quadratic.
             QuadSegment {
                 control_points: [p0, p1, p3],
             }
             .try_with_adapter(adapter)
         } else if Triangle::is_line(q0, q1, q3) && Triangle::is_line(q0, q2, q3) {
+            // All controls lie on the chord, so the cubic contributes a line.
             LineSegment {
                 control_points: [p0, p3],
             }
@@ -196,6 +205,155 @@ impl<T: FloatNumber> CubicSegment<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::normalization::test_utils::{assert_control_points_eq, assert_point_eq};
+
+    #[test]
+    fn drops_closed_cubic_spike() {
+        let cubic = CubicSegment {
+            control_points: [
+                [0.0f64, 0.0].into(),
+                [1.0, 0.0].into(),
+                [1.0, 0.0].into(),
+                [0.0, 0.0].into(),
+            ],
+        };
+        let adapter = FloatPointAdapter::<FloatPoint<f64>, i32>::with_iter(cubic.control_points.iter());
+
+        let segments = cubic.try_with_adapter(&adapter).unwrap();
+
+        assert!(segments.is_empty());
+    }
+
+    #[test]
+    fn splits_closed_cubic_with_area() {
+        let cubic = CubicSegment {
+            control_points: [
+                [0.0f64, 0.0].into(),
+                [1.0, 2.0].into(),
+                [-1.0, 2.0].into(),
+                [0.0, 0.0].into(),
+            ],
+        };
+        let adapter = FloatPointAdapter::<FloatPoint<f64>, i32>::with_iter(cubic.control_points.iter());
+
+        let segments = cubic.try_with_adapter(&adapter).unwrap();
+
+        assert_eq!(segments.as_slice().len(), 2);
+        match (&segments.as_slice()[0], &segments.as_slice()[1]) {
+            (Segment::Cubic(first), Segment::Cubic(last)) => {
+                assert_point_eq(first.control_points[0], [0.0, 0.0]);
+                assert_point_eq(first.control_points[3], [0.0, 1.5]);
+                assert_point_eq(last.control_points[0], [0.0, 1.5]);
+                assert_point_eq(last.control_points[3], [0.0, 0.0]);
+            }
+            _ => panic!("expected cubic segments"),
+        }
+    }
+
+    #[test]
+    fn reduces_cubic_with_equal_middle_controls_to_quad() {
+        let p0 = FloatPoint::new(0.0, 0.0);
+        let p1 = FloatPoint::new(1.0, 1.0);
+        let p3 = FloatPoint::new(2.0, 0.0);
+        let cubic = CubicSegment {
+            control_points: [p0, p1, p1, p3],
+        };
+        let adapter = FloatPointAdapter::<FloatPoint<f64>, i32>::with_iter(cubic.control_points.iter());
+
+        let segments = cubic.try_with_adapter(&adapter).unwrap();
+
+        match segments.as_slice() {
+            [Segment::Quad(segment)] => assert_control_points_eq(segment.control_points, [p0, p1, p3]),
+            _ => panic!("expected one quad segment"),
+        }
+    }
+
+    #[test]
+    fn reduces_collinear_cubic_to_line() {
+        let p0 = FloatPoint::new(0.0, 0.0);
+        let p1 = FloatPoint::new(1.0, 0.0);
+        let p2 = FloatPoint::new(2.0, 0.0);
+        let p3 = FloatPoint::new(3.0, 0.0);
+        let cubic = CubicSegment {
+            control_points: [p0, p1, p2, p3],
+        };
+        let adapter = FloatPointAdapter::<FloatPoint<f64>, i32>::with_iter(cubic.control_points.iter());
+
+        let segments = cubic.try_with_adapter(&adapter).unwrap();
+
+        match segments.as_slice() {
+            [Segment::Line(segment)] => assert_control_points_eq(segment.control_points, [p0, p3]),
+            _ => panic!("expected one line segment"),
+        }
+    }
+
+    #[test]
+    fn keeps_non_intersecting_cubic() {
+        let cubic = CubicSegment {
+            control_points: [
+                [0.0f64, 0.0].into(),
+                [1.0, 2.0].into(),
+                [3.0, 2.0].into(),
+                [4.0, 0.0].into(),
+            ],
+        };
+        let adapter = FloatPointAdapter::<FloatPoint<f64>, i32>::with_iter(cubic.control_points.iter());
+
+        let segments = cubic.try_with_adapter(&adapter).unwrap();
+
+        match segments.as_slice() {
+            [Segment::Cubic(segment)] => {
+                assert_control_points_eq(segment.control_points, cubic.control_points)
+            }
+            _ => panic!("expected one cubic segment"),
+        }
+    }
+
+    #[test]
+    fn splits_self_intersecting_cubic() {
+        let cubic = CubicSegment {
+            control_points: [
+                [0.0f64, 0.0].into(),
+                [-3.0, -3.0].into(),
+                [-3.0, -2.0].into(),
+                [-2.0, -2.0].into(),
+            ],
+        };
+        let adapter = FloatPointAdapter::<FloatPoint<f64>, i32>::with_iter(cubic.control_points.iter());
+
+        let segments = cubic.try_with_adapter(&adapter).unwrap();
+
+        assert_eq!(segments.as_slice().len(), 4);
+        let point = [-2.3615160349854225, -2.0466472303206995];
+        match segments.as_slice() {
+            [
+                Segment::Cubic(first),
+                Segment::Cubic(middle_0),
+                Segment::Cubic(middle_1),
+                Segment::Cubic(last),
+            ] => {
+                assert_point_eq(first.control_points[3], point);
+                assert_point_eq(middle_0.control_points[0], point);
+                assert_point_eq(middle_1.control_points[3], point);
+                assert_point_eq(last.control_points[0], point);
+            }
+            _ => panic!("expected cubic segments"),
+        }
+    }
+
+    #[test]
+    fn drops_loop_free_closed_sub_cubic() {
+        let p0 = FloatPoint::new(0.0, 0.0);
+        let p1 = FloatPoint::new(1.0, 0.0);
+        let cubic = CubicSegment {
+            control_points: [p0, p1, p1, p0],
+        };
+        let adapter = FloatPointAdapter::<FloatPoint<f64>, i32>::with_iter(cubic.control_points.iter());
+
+        let segment = cubic.try_cubic_without_self_intersection(&adapter).unwrap();
+
+        assert!(segment.is_none());
+    }
 
     #[test]
     fn finds_cubic_self_intersection() {

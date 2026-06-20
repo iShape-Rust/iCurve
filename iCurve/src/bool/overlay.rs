@@ -16,13 +16,14 @@ use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_tree::{Expiration, LayoutNumber};
+use crate::bool::slice::buffer::SliceBuffer;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CurveSplitOptions<F: FloatNumber, I: IntNumber = i32> {
-    /// Curves with an angle above this threshold, in radians, are forcibly split in half.
+    /// Curves with an angle above this threshold, in radians, are forcibly slice in half.
     pub max_angle: F,
 
-    /// Curves with an angle below this threshold, in radians, are not split further.
+    /// Curves with an angle below this threshold, in radians, are not slice further.
     pub min_angle: F,
 
     /// Minimum segment length in integer adapter coordinates.
@@ -44,8 +45,10 @@ pub struct CurveOverlayOptions<F: FloatNumber, I: IntNumber = i32> {
 
 pub struct CurveOverlay<P: FloatPointCompatible, I: IntNumber = i32> {
     pub(crate) segments: Vec<ShapeSegment<P::Scalar>>,
-    pub(super) adapter: FloatPointAdapter<P, I>,
+    pub(super) external_adapter: FloatPointAdapter<P, I>,
+    pub(super) internal_adapter: FloatPointAdapter<FloatPoint<P::Scalar>, I>,
     pub(crate) options: CurveOverlayOptions<P::Scalar, I>,
+    pub(crate) slice_buffer: SliceBuffer<P::Scalar, I>,
 }
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
@@ -54,13 +57,16 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
     }
 
     pub fn with_adapter_custom(
-        adapter: FloatPointAdapter<P, I>,
+        external_adapter: FloatPointAdapter<P, I>,
         options: CurveOverlayOptions<P::Scalar, I>,
     ) -> Self {
+
         Self {
             segments: Vec::new(),
-            adapter,
+            internal_adapter: external_adapter.to_float_point_adapter(),
+            external_adapter,
             options,
+            slice_buffer: Default::default(),
         }
     }
 
@@ -84,22 +90,24 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         let subj_rect = Self::resource_rect(subj);
         let clip_rect = Self::resource_rect(clip);
         let rect = FloatRect::with_optional_rects(subj_rect, clip_rect).unwrap_or(FloatRect::zero());
-        let adapter = FloatPointAdapter::new(rect);
+        let external_adapter = FloatPointAdapter::new(rect);
 
         let capacity = Self::resource_segments_count(subj) + Self::resource_segments_count(clip);
         let mut segments = Vec::with_capacity(capacity);
 
-        let point_adapter: FloatPointAdapter<FloatPoint<P::Scalar>, I> = adapter.to_float_point_adapter();
+        let internal_adapter = external_adapter.to_float_point_adapter();
 
-        Self::append_resource_segments(subj, ShapeType::Subject, &point_adapter, &mut segments)
+        Self::append_resource_segments(subj, ShapeType::Subject, &internal_adapter, &mut segments)
             .expect("adapter rect must contain all subject points");
-        Self::append_resource_segments(clip, ShapeType::Clip, &point_adapter, &mut segments)
+        Self::append_resource_segments(clip, ShapeType::Clip, &internal_adapter, &mut segments)
             .expect("adapter rect must contain all clip points");
 
         Self {
             segments,
-            adapter,
+            external_adapter,
+            internal_adapter,
             options,
+            slice_buffer: Default::default(),
         }
     }
 
@@ -118,7 +126,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         shape_type: ShapeType,
     ) -> Result<(), FloatPointAdapterRangeError> {
         let point_adapter: FloatPointAdapter<FloatPoint<P::Scalar>, I> =
-            self.adapter.to_float_point_adapter();
+            self.external_adapter.to_float_point_adapter();
         Self::append_resource_segments(resource, shape_type, &point_adapter, &mut self.segments)
     }
 

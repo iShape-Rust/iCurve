@@ -39,15 +39,17 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         I: Expiration + LayoutNumber + SortKey,
         P::Scalar: Send + Sync,
     {
-        let ranges = self.make_ranges();
-        let mut overlay = EdgeOverlay::<I, MetaSegment<P::Scalar>>::new(ranges.len());
-        let point_adapter = self.adapter.to_float_point_adapter();
+        // let ranges = self.make_ranges();
+        // let mut overlay = EdgeOverlay::<I, MetaSegment<P::Scalar>>::new(ranges.len());
+        // let point_adapter = self.adapter.to_float_point_adapter();
+        //
+        // for range in ranges {
+        //     let segment = &self.segments[range.segment_index];
+        //     let edge = range.edge(&segment.segment, &point_adapter);
+        //     overlay.add_edge(edge, segment.shape_type);
+        // }
 
-        for range in ranges {
-            let segment = &self.segments[range.segment_index];
-            let edge = range.edge(&segment.segment, &point_adapter);
-            overlay.add_edge(edge, segment.shape_type);
-        }
+        let overlay = EdgeOverlay::<I, MetaSegment<P::Scalar>>::new(0);
 
         overlay
     }
@@ -60,8 +62,8 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         self.edge_overlay()
             .edges()
             .map(|[a, b]| {
-                let a = self.adapter.int_to_float(&a);
-                let b = self.adapter.int_to_float(&b);
+                let a = self.external_adapter.int_to_float(&a);
+                let b = self.external_adapter.int_to_float(&b);
                 [[a.x(), a.y()], [b.x(), b.y()]]
             })
             .collect()

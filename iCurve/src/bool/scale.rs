@@ -183,19 +183,21 @@ where
         let subj_rect = Self::resource_rect(subj);
         let clip_rect = Self::resource_rect(clip);
         let rect = FloatRect::with_optional_rects(subj_rect, clip_rect).unwrap_or(FloatRect::zero());
-        let adapter = FloatPointAdapter::try_with_scale(rect, scale)?;
+        let external_adapter = FloatPointAdapter::try_with_scale(rect, scale)?;
 
         let capacity = Self::resource_segments_count(subj) + Self::resource_segments_count(clip);
         let mut segments = Vec::with_capacity(capacity);
-        let point_adapter = adapter.to_float_point_adapter();
+        let internal_adapter = external_adapter.to_float_point_adapter();
 
-        Self::append_resource_segments(subj, ShapeType::Subject, &point_adapter, &mut segments)?;
-        Self::append_resource_segments(clip, ShapeType::Clip, &point_adapter, &mut segments)?;
+        Self::append_resource_segments(subj, ShapeType::Subject, &internal_adapter, &mut segments)?;
+        Self::append_resource_segments(clip, ShapeType::Clip, &internal_adapter, &mut segments)?;
 
         Ok(Self {
             segments,
-            adapter,
+            external_adapter,
+            internal_adapter,
             options,
+            slice_buffer: Default::default(),
         })
     }
 }
@@ -213,7 +215,7 @@ mod tests {
         let overlay = CurveOverlay::<[f64; 2], i32>::with_subj_and_clip_fixed_scale(&subj, &clip, 1.0)
             .expect("scale must be valid for small test coordinates");
 
-        assert_eq!(overlay.adapter.dir_scale(), 1.0);
+        assert_eq!(overlay.external_adapter.dir_scale(), 1.0);
     }
 
     #[test]

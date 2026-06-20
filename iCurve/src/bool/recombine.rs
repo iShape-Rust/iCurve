@@ -60,7 +60,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
             })
             .collect();
 
-        let point_adapter = self.adapter.to_float_point_adapter();
+        let point_adapter = self.external_adapter.to_float_point_adapter();
         let ranges = merge_segment_sets(sets, &self.segments, &point_adapter, merge_list);
         let mut start = None;
         let mut segments = Vec::with_capacity(ranges.len());

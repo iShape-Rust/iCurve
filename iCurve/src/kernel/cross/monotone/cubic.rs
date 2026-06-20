@@ -46,7 +46,7 @@ impl<T: FloatNumber> DecompositeIntoMonotone for CubicSegment<T> {
         //   q'(t) = 3 * a * t^2 + 2 * b * t + c = 0
         //
         // The derivative is quadratic, so it has at most two roots. Those
-        // roots split [0, 1] into at most three monotone intervals.
+        // roots slice [0, 1] into at most three monotone intervals.
         let [a, b, c, _] = abcd;
         let mut roots = StackVec::new();
 

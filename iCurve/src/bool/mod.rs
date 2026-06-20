@@ -4,4 +4,4 @@ mod recombine;
 pub mod resolve;
 pub mod scale;
 pub mod segment;
-mod split;
+mod slice;

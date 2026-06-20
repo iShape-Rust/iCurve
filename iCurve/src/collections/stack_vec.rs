@@ -1,4 +1,4 @@
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct StackVec<T: Copy + Default, const CAP: usize> {
     pub(crate) buffer: [T; CAP],
     pub(crate) len: usize,
@@ -24,6 +24,19 @@ impl<T: Copy + Default, const CAP: usize> StackVec<T, CAP> {
             buffer,
             len: src.len(),
         }
+    }
+
+    #[inline]
+    pub(crate) fn init_with(&mut self, src: &[T]) {
+        assert!(src.len() <= CAP);
+
+        self.buffer[0..src.len()].copy_from_slice(src);
+        self.len = src.len();
+    }
+
+    #[inline]
+    pub fn clear(&mut self) {
+        self.len = 0;
     }
 
     #[inline]
