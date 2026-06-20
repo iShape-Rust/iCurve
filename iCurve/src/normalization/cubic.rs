@@ -1,12 +1,105 @@
+use crate::collections::stack_vec::StackVec;
 use crate::kernel::curve::cubic::CubicSegment;
+use crate::kernel::curve::line::LineSegment;
 use crate::kernel::curve::param::SegmentParam;
 use crate::kernel::curve::point_at::PointAt;
+use crate::kernel::curve::quad::QuadSegment;
+use crate::kernel::curve::segment::Segment;
+use crate::kernel::curve::split_at::SplitAt;
 use crate::kernel::math::quadratic_equation::QuadraticEquation;
+use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterRangeError};
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
+use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::i_float::triangle::Triangle;
+
+struct CubicSelfIntersection<T: FloatNumber> {
+    t0: T,
+    t1: T,
+    point: FloatPoint<T>,
+}
 
 impl<T: FloatNumber> CubicSegment<T> {
-    pub(super) fn resolve_self_intersection(&self) -> Option<CubicSelfIntersection<T>> {
+    #[inline]
+    pub(super) fn try_with_adapter<I: IntNumber>(
+        self,
+        adapter: &FloatPointAdapter<FloatPoint<T>, I>,
+    ) -> Result<StackVec<Segment<T>, 4>, FloatPointAdapterRangeError> {
+        let [p0, p1, p2, p3] = self.control_points;
+
+        let q0 = adapter.try_float_to_int(&p0)?;
+        let q1 = adapter.try_float_to_int(&p1)?;
+        let q2 = adapter.try_float_to_int(&p2)?;
+        let q3 = adapter.try_float_to_int(&p3)?;
+
+        let mut segments = StackVec::new();
+
+        if q0 == q3 {
+            if q0 != q1 && q0 != q2 && q1 != q2 {
+                let [first, last] = self.split_at(T::HALF);
+
+                segments.push_some(first.try_cubic_without_self_intersection(adapter)?);
+                segments.push_some(last.try_cubic_without_self_intersection(adapter)?);
+            }
+            return Ok(segments);
+        }
+
+        if q1 == q2 {
+            segments.push_some(
+                QuadSegment {
+                    control_points: [p0, p1, p3],
+                }
+                .try_with_adapter(adapter)?,
+            );
+            return Ok(segments);
+        }
+
+        if Triangle::is_line(q0, q1, q3) && Triangle::is_line(q0, q2, q3) {
+            segments.push_some(
+                LineSegment {
+                    control_points: [p0, p3],
+                }
+                .try_with_adapter(adapter)?,
+            );
+            return Ok(segments);
+        }
+
+        let cubic = CubicSegment {
+            control_points: [p0, p1, p2, p3],
+        };
+
+        let Some(intersection) = cubic.resolve_self_intersection() else {
+            segments.push_some(cubic.try_cubic_without_self_intersection(adapter)?);
+            return Ok(segments);
+        };
+
+        let (t0, t1) = if intersection.t0 < intersection.t1 {
+            (intersection.t0, intersection.t1)
+        } else {
+            (intersection.t1, intersection.t0)
+        };
+
+        let [mut first, rest] = self.split_at(t0);
+        let t = (t1 - t0) / (T::ONE - t0);
+        let [mut middle, mut last] = rest.split_at(t);
+
+        let point = intersection.point;
+        first.control_points[3] = point;
+        middle.control_points[0] = point;
+        middle.control_points[3] = point;
+        last.control_points[0] = point;
+
+        let [middle_0, middle_1] = middle.split_at(T::HALF);
+
+        segments.push_some(first.try_cubic_without_self_intersection(adapter)?);
+        segments.push_some(middle_0.try_cubic_without_self_intersection(adapter)?);
+        segments.push_some(middle_1.try_cubic_without_self_intersection(adapter)?);
+        segments.push_some(last.try_cubic_without_self_intersection(adapter)?);
+
+        Ok(segments)
+    }
+
+    fn resolve_self_intersection(&self) -> Option<CubicSelfIntersection<T>> {
         let [p0, p1, p2, p3] = self.control_points;
 
         // Cubic Bezier in Bernstein form:
@@ -73,13 +166,31 @@ impl<T: FloatNumber> CubicSegment<T> {
             point: self.point_at(SegmentParam::Inner(t0)),
         })
     }
-
-}
-
-pub(crate) struct CubicSelfIntersection<T: FloatNumber> {
-    pub(crate) t0: T,
-    pub(crate) t1: T,
-    pub(crate) point: FloatPoint<T>,
+    fn try_cubic_without_self_intersection<I: IntNumber>(
+        self,
+        adapter: &FloatPointAdapter<FloatPoint<T>, I>,
+    ) -> Result<Option<Segment<T>>, FloatPointAdapterRangeError> {
+        let [p0, p1, p2, p3] = self.control_points;
+        let q0 = adapter.try_float_to_int(&p0)?;
+        let q1 = adapter.try_float_to_int(&p1)?;
+        let q2 = adapter.try_float_to_int(&p2)?;
+        let q3 = adapter.try_float_to_int(&p3)?;
+        if q0 == q3 {
+            Ok(None)
+        } else if q1 == q2 {
+            QuadSegment {
+                control_points: [p0, p1, p3],
+            }
+            .try_with_adapter(adapter)
+        } else if Triangle::is_line(q0, q1, q3) && Triangle::is_line(q0, q2, q3) {
+            LineSegment {
+                control_points: [p0, p3],
+            }
+            .try_with_adapter(adapter)
+        } else {
+            Ok(Some(Segment::Cubic(self)))
+        }
+    }
 }
 
 #[cfg(test)]

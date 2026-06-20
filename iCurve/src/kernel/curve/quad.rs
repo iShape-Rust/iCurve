@@ -1,7 +1,6 @@
 use crate::kernel::curve::param::SegmentParam;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
-use i_overlay::i_float::float::rect::FloatRect;
 
 #[derive(Debug, Clone, Copy)]
 pub struct QuadSegment<T: FloatNumber> {

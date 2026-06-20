@@ -55,6 +55,13 @@ impl<T: Copy + Default, const CAP: usize> StackVec<T, CAP> {
     }
 
     #[inline]
+    pub fn push_some(&mut self, value: Option<T>) {
+        if let Some(v) = value {
+            self.push(v);
+        }
+    }
+
+    #[inline]
     pub fn swap_remove(&mut self, idx: usize) {
         assert!(idx < self.len);
 
