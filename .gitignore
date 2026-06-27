@@ -20,5 +20,8 @@ Cargo.lock
 # Visual Studio Code specific
 .vscode/
 
+# Local agent instructions
+AGENTS.md
+
 # macOS system files
 .DS_Store

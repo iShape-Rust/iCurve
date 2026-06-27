@@ -1,11 +1,11 @@
 use crate::curve::path::CurvePath;
 use crate::curve::shape::CurveShape;
 use crate::flatten::condition::{FlatCondition, FlatParams};
-use crate::kernel::curve::cubic::CubicSegment;
-use crate::kernel::curve::line::LineSegment;
-use crate::kernel::curve::quad::QuadSegment;
-use crate::kernel::curve::segment::Segment;
-use crate::kernel::curve::split_at::SplitAt;
+use crate::kernel::float::curve::cubic::FloatCubicSegment;
+use crate::kernel::float::curve::line::FloatLineSegment;
+use crate::kernel::float::curve::quad::FloatQuadSegment;
+use crate::kernel::float::curve::segment::FloatSegment;
+use crate::kernel::float::curve::split_at::FloatSplitAt;
 use crate::normalization::curve::CurveToSegments;
 use alloc::vec::Vec;
 use i_overlay::i_float::adapter::FloatPointAdapter;
@@ -63,7 +63,7 @@ trait AppendApproximatedPoints<P: FloatPointCompatible> {
     fn append_approximated_points(&self, approximation: FlatParams<P::Scalar>, output: &mut Vec<P>);
 }
 
-impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for Segment<P::Scalar> {
+impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for FloatSegment<P::Scalar> {
     fn append_approximated_points(&self, approximation: FlatParams<P::Scalar>, output: &mut Vec<P>) {
         match self {
             Self::Line(segment) => segment.append_approximated_points(approximation, output),
@@ -73,14 +73,14 @@ impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for Segment<P::Scalar>
     }
 }
 
-impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for LineSegment<P::Scalar> {
+impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for FloatLineSegment<P::Scalar> {
     fn append_approximated_points(&self, _approximation: FlatParams<P::Scalar>, output: &mut Vec<P>) {
         let point = self.control_points[1];
         output.push(P::from_xy(point.x, point.y));
     }
 }
 
-impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for QuadSegment<P::Scalar> {
+impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for FloatQuadSegment<P::Scalar> {
     fn append_approximated_points(&self, approximation: FlatParams<P::Scalar>, output: &mut Vec<P>) {
         if self.is_not_flat(approximation) {
             let [left, right] = self.split_at(P::Scalar::HALF);
@@ -93,7 +93,7 @@ impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for QuadSegment<P::Sca
     }
 }
 
-impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for CubicSegment<P::Scalar> {
+impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for FloatCubicSegment<P::Scalar> {
     fn append_approximated_points(&self, approximation: FlatParams<P::Scalar>, output: &mut Vec<P>) {
         if self.is_not_flat(approximation) {
             let [left, right] = self.split_at(P::Scalar::HALF);

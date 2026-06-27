@@ -35,6 +35,14 @@ impl<T: Copy + Default, const CAP: usize> StackVec<T, CAP> {
     }
 
     #[inline]
+    pub(crate) fn extend_from_slice(&mut self, src: &[T]) {
+        assert!(self.len + src.len() <= CAP);
+
+        self.buffer[self.len..self.len + src.len()].copy_from_slice(src);
+        self.len += src.len();
+    }
+
+    #[inline]
     pub fn clear(&mut self) {
         self.len = 0;
     }
@@ -121,6 +129,16 @@ mod tests {
     #[test]
     fn copies_from_slice() {
         let values = StackVec::<u32, 4>::from_slice(&[1, 2, 3, 4]);
+
+        assert_eq!(values.as_slice(), &[1, 2, 3, 4]);
+        assert!(values.is_full());
+    }
+
+    #[test]
+    fn extends_from_slice() {
+        let mut values = StackVec::<u32, 4>::from_slice(&[1, 2]);
+
+        values.extend_from_slice(&[3, 4]);
 
         assert_eq!(values.as_slice(), &[1, 2, 3, 4]);
         assert!(values.is_full());

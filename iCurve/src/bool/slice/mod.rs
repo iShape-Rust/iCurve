@@ -1,4 +1,2 @@
-pub(crate) mod collider;
 pub(crate) mod buffer;
-mod convex;
-
+pub(crate) mod collider;

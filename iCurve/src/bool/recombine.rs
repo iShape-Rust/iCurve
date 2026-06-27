@@ -5,11 +5,11 @@ use crate::collections::circular_merge_list::CircularMergeList;
 use crate::curve::path::CurvePath;
 use crate::curve::segment::CurveSegment;
 use crate::curve::shape::CurveShape;
-use crate::kernel::curve::param::SegmentParam;
-use crate::kernel::curve::point_at::PointAt;
-use crate::kernel::curve::reversed::Reversed;
-use crate::kernel::curve::segment::Segment;
-use crate::kernel::curve::split_at::SplitAt;
+use crate::kernel::float::curve::param::FloatSegmentParam;
+use crate::kernel::float::curve::point_at::FloatPointAt;
+use crate::kernel::float::curve::reversed::Reversed;
+use crate::kernel::float::curve::segment::FloatSegment;
+use crate::kernel::float::curve::split_at::FloatSplitAt;
 use alloc::vec::Vec;
 use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
@@ -218,32 +218,32 @@ fn push_unique<F: FloatNumber>(ranges: &mut Vec<SegmentRange<F>>, range: Segment
 
 fn full_range_for_geometry<T: FloatNumber, I: IntNumber>(
     segment_index: usize,
-    segment: &Segment<T>,
+    segment: &FloatSegment<T>,
     start: IntPoint<I>,
     end: IntPoint<I>,
     adapter: &FloatPointAdapter<FloatPoint<T>, I>,
 ) -> Option<SegmentRange<T>> {
-    let segment_start = adapter.float_to_int(&segment_point_at(segment, SegmentParam::Start));
-    let segment_end = adapter.float_to_int(&segment_point_at(segment, SegmentParam::End));
+    let segment_start = adapter.float_to_int(&segment_point_at(segment, FloatSegmentParam::Start));
+    let segment_end = adapter.float_to_int(&segment_point_at(segment, FloatSegmentParam::End));
 
     if segment_start == start && segment_end == end {
         Some(SegmentRange::full(segment_index))
     } else if segment_start == end && segment_end == start {
         Some(SegmentRange {
             segment_index,
-            t0: SegmentParam::End,
-            t1: SegmentParam::Start,
+            t0: FloatSegmentParam::End,
+            t1: FloatSegmentParam::Start,
         })
     } else {
         None
     }
 }
 
-fn segment_point_at<T: FloatNumber>(segment: &Segment<T>, t: SegmentParam<T>) -> FloatPoint<T> {
+fn segment_point_at<T: FloatNumber>(segment: &FloatSegment<T>, t: FloatSegmentParam<T>) -> FloatPoint<T> {
     match segment {
-        Segment::Line(segment) => segment.point_at(t),
-        Segment::Quad(segment) => segment.point_at(t),
-        Segment::Cubic(segment) => segment.point_at(t),
+        FloatSegment::Line(segment) => segment.point_at(t),
+        FloatSegment::Quad(segment) => segment.point_at(t),
+        FloatSegment::Cubic(segment) => segment.point_at(t),
     }
 }
 
@@ -251,7 +251,7 @@ trait CurvePiece<P: FloatPointCompatible> {
     fn to_curve_piece(&self, range: SegmentRange<P::Scalar>) -> Option<(P, CurveSegment<P>)>;
 }
 
-impl<P: FloatPointCompatible> CurvePiece<P> for Segment<P::Scalar> {
+impl<P: FloatPointCompatible> CurvePiece<P> for FloatSegment<P::Scalar> {
     fn to_curve_piece(&self, range: SegmentRange<P::Scalar>) -> Option<(P, CurveSegment<P>)> {
         match self {
             Self::Line(segment) => {
@@ -297,8 +297,8 @@ impl<P: FloatPointCompatible> CurvePiece<P> for Segment<P::Scalar> {
     }
 }
 
-trait SegmentRangeExtract<T: FloatNumber>: SplitAt<T, Output = [Self; 2]> + Reversed + Copy + Sized {
-    fn range(&self, t0: SegmentParam<T>, t1: SegmentParam<T>) -> Option<Self> {
+trait SegmentRangeExtract<T: FloatNumber>: FloatSplitAt<T, Output = [Self; 2]> + Reversed + Copy + Sized {
+    fn range(&self, t0: FloatSegmentParam<T>, t1: FloatSegmentParam<T>) -> Option<Self> {
         if t0 == t1 {
             return None;
         }
@@ -310,18 +310,18 @@ trait SegmentRangeExtract<T: FloatNumber>: SplitAt<T, Output = [Self; 2]> + Reve
         }
     }
 
-    fn forward_range(&self, t0: SegmentParam<T>, t1: SegmentParam<T>) -> Self {
-        if t0 == SegmentParam::Start && t1 == SegmentParam::End {
+    fn forward_range(&self, t0: FloatSegmentParam<T>, t1: FloatSegmentParam<T>) -> Self {
+        if t0 == FloatSegmentParam::Start && t1 == FloatSegmentParam::End {
             return *self;
         }
 
-        if t0 == SegmentParam::Start {
+        if t0 == FloatSegmentParam::Start {
             let [segment, _] = self.split_at(t1.value());
             return segment;
         }
 
         let [_, right] = self.split_at(t0.value());
-        if t1 == SegmentParam::End {
+        if t1 == FloatSegmentParam::End {
             return right;
         }
 
@@ -334,7 +334,7 @@ trait SegmentRangeExtract<T: FloatNumber>: SplitAt<T, Output = [Self; 2]> + Reve
 
 impl<S, T> SegmentRangeExtract<T> for S
 where
-    S: SplitAt<T, Output = [S; 2]> + Reversed + Copy + Sized,
+    S: FloatSplitAt<T, Output = [S; 2]> + Reversed + Copy + Sized,
     T: FloatNumber,
 {
 }
@@ -343,7 +343,7 @@ where
 mod tests {
     use super::*;
     use crate::collections::circular_merge_list::Merge;
-    use crate::kernel::curve::line::LineSegment;
+    use crate::kernel::float::curve::line::FloatLineSegment;
     use i_overlay::core::overlay::ShapeType;
     use i_overlay::i_float::float::rect::FloatRect;
 
@@ -362,7 +362,7 @@ mod tests {
     fn line_segments(count: usize) -> Vec<ShapeSegment<f64>> {
         (0..count)
             .map(|_| ShapeSegment {
-                segment: Segment::Line(LineSegment {
+                segment: FloatSegment::Line(FloatLineSegment {
                     control_points: [[0.0, 0.0].into(), [1.0, 0.0].into()],
                 }),
                 shape_type: ShapeType::Subject,
@@ -370,7 +370,7 @@ mod tests {
             .collect()
     }
 
-    fn segment(segment: Segment<f64>) -> ShapeSegment<f64> {
+    fn segment(segment: FloatSegment<f64>) -> ShapeSegment<f64> {
         ShapeSegment {
             segment,
             shape_type: ShapeType::Subject,
@@ -397,8 +397,8 @@ mod tests {
 
         assert_eq!(merged.len(), 1);
         assert_eq!(merged[0].segment_index, 1);
-        assert_eq!(merged[0].t0, SegmentParam::Start);
-        assert_eq!(merged[0].t1, SegmentParam::End);
+        assert_eq!(merged[0].t0, FloatSegmentParam::Start);
+        assert_eq!(merged[0].t1, FloatSegmentParam::End);
     }
 
     #[test]
@@ -410,8 +410,8 @@ mod tests {
 
         assert_eq!(merged.len(), 2);
         assert_eq!(merged[0].segment_index, 1);
-        assert_eq!(merged[0].t0, SegmentParam::Start);
-        assert_eq!(merged[0].t1, SegmentParam::End);
+        assert_eq!(merged[0].t0, FloatSegmentParam::Start);
+        assert_eq!(merged[0].t1, FloatSegmentParam::End);
         assert_eq!(merged[1].segment_index, 2);
     }
 
@@ -453,8 +453,8 @@ mod tests {
 
         assert_eq!(ranges.len(), 1);
         assert_eq!(ranges[0].segment_index, 2);
-        assert_eq!(ranges[0].t0, SegmentParam::Start);
-        assert_eq!(ranges[0].t1, SegmentParam::End);
+        assert_eq!(ranges[0].t0, FloatSegmentParam::Start);
+        assert_eq!(ranges[0].t1, FloatSegmentParam::End);
     }
 
     #[test]
@@ -462,10 +462,10 @@ mod tests {
         let adapter =
             FloatPointAdapter::<_, i32>::with_scale(FloatRect::new(-10.0, 10.0, -10.0, 10.0), 1000.0);
         let segments = Vec::from([
-            segment(Segment::Line(LineSegment {
+            segment(FloatSegment::Line(FloatLineSegment {
                 control_points: [[0.0, 0.0].into(), [2.0, 0.0].into()],
             })),
-            segment(Segment::Line(LineSegment {
+            segment(FloatSegment::Line(FloatLineSegment {
                 control_points: [[0.0, 0.0].into(), [2.0, 0.0].into()],
             })),
         ]);

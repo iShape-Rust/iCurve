@@ -1,9 +1,9 @@
 use crate::bool::meta::{MetaSegment, ResolvedCurveOverlay};
 use crate::bool::overlay::CurveOverlay;
 use crate::bool::segment::SegmentRange;
-use crate::kernel::curve::param::SegmentParam;
-use crate::kernel::curve::point_at::PointAt;
-use crate::kernel::curve::segment::Segment;
+use crate::kernel::float::curve::param::FloatSegmentParam;
+use crate::kernel::float::curve::point_at::FloatPointAt;
+use crate::kernel::float::curve::segment::FloatSegment;
 use alloc::vec::Vec;
 use i_key_sort::sort::key::SortKey;
 use i_overlay::core::edge_overlay::{EdgeOverlay, InputEdge};
@@ -73,7 +73,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
 impl<T: FloatNumber> SegmentRange<T> {
     fn edge<I>(
         self,
-        segment: &Segment<T>,
+        segment: &FloatSegment<T>,
         adapter: &FloatPointAdapter<FloatPoint<T>, I>,
     ) -> InputEdge<I, MetaSegment<T>>
     where
@@ -88,11 +88,11 @@ impl<T: FloatNumber> SegmentRange<T> {
 }
 
 trait SegmentPointAt<T: FloatNumber> {
-    fn point_at(&self, t: SegmentParam<T>) -> FloatPoint<T>;
+    fn point_at(&self, t: FloatSegmentParam<T>) -> FloatPoint<T>;
 }
 
-impl<T: FloatNumber> SegmentPointAt<T> for Segment<T> {
-    fn point_at(&self, t: SegmentParam<T>) -> FloatPoint<T> {
+impl<T: FloatNumber> SegmentPointAt<T> for FloatSegment<T> {
+    fn point_at(&self, t: FloatSegmentParam<T>) -> FloatPoint<T> {
         match self {
             Self::Line(segment) => segment.point_at(t),
             Self::Quad(segment) => segment.point_at(t),
@@ -103,12 +103,12 @@ impl<T: FloatNumber> SegmentPointAt<T> for Segment<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::kernel::curve::line::LineSegment;
+    use crate::kernel::float::curve::line::FloatLineSegment;
     use i_overlay::i_float::float::rect::FloatRect;
 
     #[test]
     fn input_edge_uses_exact_segment_endpoint_at_one() {
-        let segment = Segment::Line(LineSegment {
+        let segment = FloatSegment::Line(FloatLineSegment {
             control_points: [[-220.0_f32, 141.000_02].into(), [-210.0, -130.0].into()],
         });
         let adapter = FloatPointAdapter::<_, i32>::with_scale(
@@ -123,7 +123,7 @@ mod tests {
         let edge = sub_segment.edge(&segment, &adapter);
 
         let expected = FloatPoint::new(-210.0, -130.0);
-        let actual = segment.point_at(SegmentParam::End);
+        let actual = segment.point_at(FloatSegmentParam::End);
         assert_eq!(actual.x, expected.x);
         assert_eq!(actual.y, expected.y);
         assert_eq!(edge.b, adapter.float_to_int(&expected));

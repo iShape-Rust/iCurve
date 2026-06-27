@@ -1,12 +1,12 @@
 use crate::collections::stack_vec::StackVec;
-use crate::kernel::curve::cubic::CubicSegment;
-use crate::kernel::curve::line::LineSegment;
-use crate::kernel::curve::param::SegmentParam;
-use crate::kernel::curve::point_at::PointAt;
-use crate::kernel::curve::quad::QuadSegment;
-use crate::kernel::curve::segment::Segment;
-use crate::kernel::curve::split_at::SplitAt;
-use crate::kernel::math::quadratic_equation::QuadraticEquation;
+use crate::kernel::float::curve::cubic::FloatCubicSegment;
+use crate::kernel::float::curve::line::FloatLineSegment;
+use crate::kernel::float::curve::param::FloatSegmentParam;
+use crate::kernel::float::curve::point_at::FloatPointAt;
+use crate::kernel::float::curve::quad::FloatQuadSegment;
+use crate::kernel::float::curve::segment::FloatSegment;
+use crate::kernel::float::curve::split_at::FloatSplitAt;
+use crate::kernel::float::math::quadratic_equation::QuadraticEquation;
 use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterRangeError};
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
@@ -19,12 +19,12 @@ struct CubicSelfIntersection<T: FloatNumber> {
     point: FloatPoint<T>,
 }
 
-impl<T: FloatNumber> CubicSegment<T> {
+impl<T: FloatNumber> FloatCubicSegment<T> {
     #[inline]
     pub(super) fn try_with_adapter<I: IntNumber>(
         self,
         adapter: &FloatPointAdapter<FloatPoint<T>, I>,
-    ) -> Result<StackVec<Segment<T>, 4>, FloatPointAdapterRangeError> {
+    ) -> Result<StackVec<FloatSegment<T>, 4>, FloatPointAdapterRangeError> {
         let [p0, p1, p2, p3] = self.control_points;
 
         let q0 = adapter.try_float_to_int(&p0)?;
@@ -49,7 +49,7 @@ impl<T: FloatNumber> CubicSegment<T> {
         if q1 == q2 {
             // Equal middle controls reduce the cubic to a quadratic.
             segments.push_some(
-                QuadSegment {
+                FloatQuadSegment {
                     control_points: [p0, p1, p3],
                 }
                 .try_with_adapter(adapter)?,
@@ -60,7 +60,7 @@ impl<T: FloatNumber> CubicSegment<T> {
         if Triangle::is_line(q0, q1, q3) && Triangle::is_line(q0, q2, q3) {
             // All controls lie on the chord, so the cubic contributes a line.
             segments.push_some(
-                LineSegment {
+                FloatLineSegment {
                     control_points: [p0, p3],
                 }
                 .try_with_adapter(adapter)?,
@@ -68,7 +68,7 @@ impl<T: FloatNumber> CubicSegment<T> {
             return Ok(segments);
         }
 
-        let cubic = CubicSegment {
+        let cubic = FloatCubicSegment {
             control_points: [p0, p1, p2, p3],
         };
 
@@ -168,13 +168,13 @@ impl<T: FloatNumber> CubicSegment<T> {
         Some(CubicSelfIntersection {
             t0,
             t1,
-            point: self.point_at(SegmentParam::Inner(t0)),
+            point: self.point_at(FloatSegmentParam::Inner(t0)),
         })
     }
     fn try_cubic_without_self_intersection<I: IntNumber>(
         self,
         adapter: &FloatPointAdapter<FloatPoint<T>, I>,
-    ) -> Result<Option<Segment<T>>, FloatPointAdapterRangeError> {
+    ) -> Result<Option<FloatSegment<T>>, FloatPointAdapterRangeError> {
         let [p0, p1, p2, p3] = self.control_points;
         let q0 = adapter.try_float_to_int(&p0)?;
         let q1 = adapter.try_float_to_int(&p1)?;
@@ -186,18 +186,18 @@ impl<T: FloatNumber> CubicSegment<T> {
             Ok(None)
         } else if q1 == q2 {
             // Equal middle controls reduce the cubic to a quadratic.
-            QuadSegment {
+            FloatQuadSegment {
                 control_points: [p0, p1, p3],
             }
             .try_with_adapter(adapter)
         } else if Triangle::is_line(q0, q1, q3) && Triangle::is_line(q0, q2, q3) {
             // All controls lie on the chord, so the cubic contributes a line.
-            LineSegment {
+            FloatLineSegment {
                 control_points: [p0, p3],
             }
             .try_with_adapter(adapter)
         } else {
-            Ok(Some(Segment::Cubic(self)))
+            Ok(Some(FloatSegment::Cubic(self)))
         }
     }
 }
@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     fn drops_closed_cubic_spike() {
-        let cubic = CubicSegment {
+        let cubic = FloatCubicSegment {
             control_points: [
                 [0.0f64, 0.0].into(),
                 [1.0, 0.0].into(),
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn splits_closed_cubic_with_area() {
-        let cubic = CubicSegment {
+        let cubic = FloatCubicSegment {
             control_points: [
                 [0.0f64, 0.0].into(),
                 [1.0, 2.0].into(),
@@ -240,7 +240,7 @@ mod tests {
 
         assert_eq!(segments.as_slice().len(), 2);
         match (&segments.as_slice()[0], &segments.as_slice()[1]) {
-            (Segment::Cubic(first), Segment::Cubic(last)) => {
+            (FloatSegment::Cubic(first), FloatSegment::Cubic(last)) => {
                 assert_point_eq(first.control_points[0], [0.0, 0.0]);
                 assert_point_eq(first.control_points[3], [0.0, 1.5]);
                 assert_point_eq(last.control_points[0], [0.0, 1.5]);
@@ -255,7 +255,7 @@ mod tests {
         let p0 = FloatPoint::new(0.0, 0.0);
         let p1 = FloatPoint::new(1.0, 1.0);
         let p3 = FloatPoint::new(2.0, 0.0);
-        let cubic = CubicSegment {
+        let cubic = FloatCubicSegment {
             control_points: [p0, p1, p1, p3],
         };
         let adapter = FloatPointAdapter::<FloatPoint<f64>, i32>::with_iter(cubic.control_points.iter());
@@ -263,7 +263,7 @@ mod tests {
         let segments = cubic.try_with_adapter(&adapter).unwrap();
 
         match segments.as_slice() {
-            [Segment::Quad(segment)] => assert_control_points_eq(segment.control_points, [p0, p1, p3]),
+            [FloatSegment::Quad(segment)] => assert_control_points_eq(segment.control_points, [p0, p1, p3]),
             _ => panic!("expected one quad segment"),
         }
     }
@@ -274,7 +274,7 @@ mod tests {
         let p1 = FloatPoint::new(1.0, 0.0);
         let p2 = FloatPoint::new(2.0, 0.0);
         let p3 = FloatPoint::new(3.0, 0.0);
-        let cubic = CubicSegment {
+        let cubic = FloatCubicSegment {
             control_points: [p0, p1, p2, p3],
         };
         let adapter = FloatPointAdapter::<FloatPoint<f64>, i32>::with_iter(cubic.control_points.iter());
@@ -282,14 +282,14 @@ mod tests {
         let segments = cubic.try_with_adapter(&adapter).unwrap();
 
         match segments.as_slice() {
-            [Segment::Line(segment)] => assert_control_points_eq(segment.control_points, [p0, p3]),
+            [FloatSegment::Line(segment)] => assert_control_points_eq(segment.control_points, [p0, p3]),
             _ => panic!("expected one line segment"),
         }
     }
 
     #[test]
     fn keeps_non_intersecting_cubic() {
-        let cubic = CubicSegment {
+        let cubic = FloatCubicSegment {
             control_points: [
                 [0.0f64, 0.0].into(),
                 [1.0, 2.0].into(),
@@ -302,7 +302,7 @@ mod tests {
         let segments = cubic.try_with_adapter(&adapter).unwrap();
 
         match segments.as_slice() {
-            [Segment::Cubic(segment)] => {
+            [FloatSegment::Cubic(segment)] => {
                 assert_control_points_eq(segment.control_points, cubic.control_points)
             }
             _ => panic!("expected one cubic segment"),
@@ -311,7 +311,7 @@ mod tests {
 
     #[test]
     fn splits_self_intersecting_cubic() {
-        let cubic = CubicSegment {
+        let cubic = FloatCubicSegment {
             control_points: [
                 [0.0f64, 0.0].into(),
                 [-3.0, -3.0].into(),
@@ -327,10 +327,10 @@ mod tests {
         let point = [-2.3615160349854225, -2.0466472303206995];
         match segments.as_slice() {
             [
-                Segment::Cubic(first),
-                Segment::Cubic(middle_0),
-                Segment::Cubic(middle_1),
-                Segment::Cubic(last),
+                FloatSegment::Cubic(first),
+                FloatSegment::Cubic(middle_0),
+                FloatSegment::Cubic(middle_1),
+                FloatSegment::Cubic(last),
             ] => {
                 assert_point_eq(first.control_points[3], point);
                 assert_point_eq(middle_0.control_points[0], point);
@@ -345,7 +345,7 @@ mod tests {
     fn drops_loop_free_closed_sub_cubic() {
         let p0 = FloatPoint::new(0.0, 0.0);
         let p1 = FloatPoint::new(1.0, 0.0);
-        let cubic = CubicSegment {
+        let cubic = FloatCubicSegment {
             control_points: [p0, p1, p1, p0],
         };
         let adapter = FloatPointAdapter::<FloatPoint<f64>, i32>::with_iter(cubic.control_points.iter());
@@ -357,7 +357,7 @@ mod tests {
 
     #[test]
     fn finds_cubic_self_intersection() {
-        let intersection = CubicSegment {
+        let intersection = FloatCubicSegment {
             control_points: [
                 [0.0f64, 0.0].into(),
                 [-3.0, -3.0].into(),
@@ -376,7 +376,7 @@ mod tests {
 
     #[test]
     fn ignores_non_intersecting_cubic() {
-        let intersection = CubicSegment {
+        let intersection = FloatCubicSegment {
             control_points: [
                 [0.0, 0.0].into(),
                 [1.0, 2.0].into(),

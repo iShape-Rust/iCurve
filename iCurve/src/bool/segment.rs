@@ -1,18 +1,18 @@
-use crate::kernel::curve::param::SegmentParam;
-use crate::kernel::curve::segment::Segment;
+use crate::kernel::float::curve::param::FloatSegmentParam;
+use crate::kernel::float::curve::segment::FloatSegment;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::i_float::float::number::FloatNumber;
 
 pub struct ShapeSegment<T: FloatNumber> {
-    pub segment: Segment<T>,
+    pub segment: FloatSegment<T>,
     pub shape_type: ShapeType,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct SegmentRange<T: FloatNumber> {
     pub(crate) segment_index: usize,
-    pub(crate) t0: SegmentParam<T>,
-    pub(crate) t1: SegmentParam<T>,
+    pub(crate) t0: FloatSegmentParam<T>,
+    pub(crate) t1: FloatSegmentParam<T>,
 }
 
 impl<T: FloatNumber> SegmentRange<T> {
@@ -20,8 +20,8 @@ impl<T: FloatNumber> SegmentRange<T> {
     pub(crate) fn new(segment_index: usize, t0: T, t1: T) -> Self {
         Self {
             segment_index,
-            t0: SegmentParam::new(t0),
-            t1: SegmentParam::new(t1),
+            t0: FloatSegmentParam::new(t0),
+            t1: FloatSegmentParam::new(t1),
         }
     }
 
@@ -29,8 +29,8 @@ impl<T: FloatNumber> SegmentRange<T> {
     pub(crate) fn full(segment_index: usize) -> Self {
         Self {
             segment_index,
-            t0: SegmentParam::Start,
-            t1: SegmentParam::End,
+            t0: FloatSegmentParam::Start,
+            t1: FloatSegmentParam::End,
         }
     }
 }

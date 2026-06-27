@@ -1,7 +1,7 @@
 use crate::curve::path::CurvePath;
 use crate::curve::rect::CurveToFloatRect;
 use crate::curve::shape::CurveShape;
-use crate::kernel::curve::segment::Segment;
+use crate::kernel::float::curve::segment::FloatSegment;
 use crate::normalization::segment::CurveSegmentNormalization;
 use alloc::vec::Vec;
 use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterRangeError};
@@ -12,7 +12,9 @@ use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 
 pub trait CurveToSegments<T: FloatNumber> {
-    fn try_to_normalize_segments<I: IntNumber>(&self) -> Result<Vec<Segment<T>>, FloatPointAdapterRangeError>
+    fn try_to_normalize_segments<I: IntNumber>(
+        &self,
+    ) -> Result<Vec<FloatSegment<T>>, FloatPointAdapterRangeError>
     where
         Self: CurveToFloatRect<T>,
     {
@@ -26,7 +28,7 @@ pub trait CurveToSegments<T: FloatNumber> {
     fn try_to_normalize_segments_with_adapter<I: IntNumber>(
         &self,
         adapter: &FloatPointAdapter<FloatPoint<T>, I>,
-    ) -> Result<Vec<Segment<T>>, FloatPointAdapterRangeError> {
+    ) -> Result<Vec<FloatSegment<T>>, FloatPointAdapterRangeError> {
         let mut result = Vec::new();
         self.try_extend_normalize_segments_with_adapter(adapter, &mut result)?;
         Ok(result)
@@ -35,7 +37,7 @@ pub trait CurveToSegments<T: FloatNumber> {
     fn try_extend_normalize_segments_with_adapter<I: IntNumber>(
         &self,
         adapter: &FloatPointAdapter<FloatPoint<T>, I>,
-        output: &mut Vec<Segment<T>>,
+        output: &mut Vec<FloatSegment<T>>,
     ) -> Result<(), FloatPointAdapterRangeError>;
 }
 
@@ -43,7 +45,7 @@ impl<P: FloatPointCompatible<Scalar = T>, T: FloatNumber> CurveToSegments<T> for
     fn try_extend_normalize_segments_with_adapter<I: IntNumber>(
         &self,
         adapter: &FloatPointAdapter<FloatPoint<T>, I>,
-        output: &mut Vec<Segment<T>>,
+        output: &mut Vec<FloatSegment<T>>,
     ) -> Result<(), FloatPointAdapterRangeError> {
         let mut point = self.start;
 
@@ -61,7 +63,7 @@ impl<P: FloatPointCompatible<Scalar = T>, T: FloatNumber> CurveToSegments<T> for
     fn try_extend_normalize_segments_with_adapter<I: IntNumber>(
         &self,
         adapter: &FloatPointAdapter<FloatPoint<T>, I>,
-        output: &mut Vec<Segment<T>>,
+        output: &mut Vec<FloatSegment<T>>,
     ) -> Result<(), FloatPointAdapterRangeError> {
         let init_capacity = self
             .contours
@@ -82,7 +84,7 @@ impl<P: FloatPointCompatible<Scalar = T>, T: FloatNumber> CurveToSegments<T> for
 mod tests {
     use super::*;
     use crate::curve::builder::{CurveBuilder, CurveError};
-    use crate::kernel::curve::segment::Segment;
+    use crate::kernel::float::curve::segment::FloatSegment;
     use crate::normalization::test_utils::{assert_control_points_eq, assert_point_eq};
 
     #[test]
@@ -99,21 +101,21 @@ mod tests {
         assert_eq!(segments.len(), 3);
 
         match &segments[0] {
-            Segment::Line(segment) => {
+            FloatSegment::Line(segment) => {
                 assert_control_points_eq(segment.control_points, [[0.0, 0.0], [1.0, 0.0]])
             }
             _ => panic!("Expected line segment"),
         }
 
         match &segments[1] {
-            Segment::Quad(segment) => {
+            FloatSegment::Quad(segment) => {
                 assert_control_points_eq(segment.control_points, [[1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])
             }
             _ => panic!("Expected quad segment"),
         }
 
         match &segments[2] {
-            Segment::Cubic(segment) => assert_control_points_eq(
+            FloatSegment::Cubic(segment) => assert_control_points_eq(
                 segment.control_points,
                 [[0.0, 1.0], [-1.0, 1.0], [-1.0, 0.0], [0.0, 0.0]],
             ),
@@ -139,7 +141,7 @@ mod tests {
 
         assert_eq!(segments.len(), 2);
         match &segments[0] {
-            Segment::Line(segment) => {
+            FloatSegment::Line(segment) => {
                 assert_control_points_eq(segment.control_points, [[0.0, 0.0], [1.0, 0.0]])
             }
             _ => panic!("Expected line segment"),
@@ -180,7 +182,7 @@ mod tests {
 
         assert_eq!(segments.len(), 4);
         let last = match &segments[3] {
-            Segment::Line(segment) => segment,
+            FloatSegment::Line(segment) => segment,
             _ => panic!("expected closing line segment"),
         };
 
@@ -227,10 +229,10 @@ mod tests {
         let point = [-2.3615160349854225, -2.0466472303206995];
         match (&segments[0], &segments[1], &segments[2], &segments[3]) {
             (
-                Segment::Cubic(first),
-                Segment::Cubic(middle_0),
-                Segment::Cubic(middle_1),
-                Segment::Cubic(last),
+                FloatSegment::Cubic(first),
+                FloatSegment::Cubic(middle_0),
+                FloatSegment::Cubic(middle_1),
+                FloatSegment::Cubic(last),
             ) => {
                 assert_point_eq(first.control_points[3], point);
                 assert_point_eq(middle_0.control_points[0], point);
@@ -240,7 +242,7 @@ mod tests {
             _ => panic!("Expected cubic segments"),
         }
         match &segments[4] {
-            Segment::Line(segment) => {
+            FloatSegment::Line(segment) => {
                 assert_control_points_eq(segment.control_points, [[-2.0, -2.0], [0.0, 0.0]])
             }
             _ => panic!("Expected closing line segment"),
@@ -260,7 +262,7 @@ mod tests {
 
         assert_eq!(segments.len(), 2);
         match (&segments[0], &segments[1]) {
-            (Segment::Cubic(first), Segment::Cubic(last)) => {
+            (FloatSegment::Cubic(first), FloatSegment::Cubic(last)) => {
                 assert_point_eq(first.control_points[0], [0.0, 0.0]);
                 assert_point_eq(first.control_points[3], [0.0, 1.5]);
                 assert_point_eq(last.control_points[0], [0.0, 1.5]);
@@ -271,5 +273,4 @@ mod tests {
 
         Ok(())
     }
-
 }

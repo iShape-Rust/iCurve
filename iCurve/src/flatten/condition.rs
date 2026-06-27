@@ -1,6 +1,6 @@
-use crate::kernel::curve::cubic::CubicSegment;
-use crate::kernel::curve::quad::QuadSegment;
-use crate::kernel::curve::segment::Segment;
+use crate::kernel::float::curve::cubic::FloatCubicSegment;
+use crate::kernel::float::curve::quad::FloatQuadSegment;
+use crate::kernel::float::curve::segment::FloatSegment;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
 
@@ -14,7 +14,7 @@ pub trait FlatCondition<T: FloatNumber> {
     fn is_not_flat(&self, params: FlatParams<T>) -> bool;
 }
 
-impl<T: FloatNumber> FlatCondition<T> for Segment<T> {
+impl<T: FloatNumber> FlatCondition<T> for FloatSegment<T> {
     fn is_not_flat(&self, params: FlatParams<T>) -> bool {
         match self {
             Self::Line(_) => false,
@@ -24,7 +24,7 @@ impl<T: FloatNumber> FlatCondition<T> for Segment<T> {
     }
 }
 
-impl<T: FloatNumber> FlatCondition<T> for QuadSegment<T> {
+impl<T: FloatNumber> FlatCondition<T> for FloatQuadSegment<T> {
     fn is_not_flat(&self, params: FlatParams<T>) -> bool {
         let [p0, p1, p2] = self.control_points;
         let chord = p0 - p2;
@@ -38,7 +38,7 @@ impl<T: FloatNumber> FlatCondition<T> for QuadSegment<T> {
     }
 }
 
-impl<T: FloatNumber> FlatCondition<T> for CubicSegment<T> {
+impl<T: FloatNumber> FlatCondition<T> for FloatCubicSegment<T> {
     fn is_not_flat(&self, approximation: FlatParams<T>) -> bool {
         let [p0, p1, p2, p3] = self.control_points;
         let chord = p0 - p3;
@@ -60,7 +60,7 @@ fn is_angle_accepted<T: FloatNumber>(chord: FloatPoint<T>, derivative: FloatPoin
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::kernel::curve::line::LineSegment;
+    use crate::kernel::float::curve::line::FloatLineSegment;
 
     fn approximation() -> FlatParams<f64> {
         FlatParams {
@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn quad_split_not_required_for_flat_segment() {
-        let segment = QuadSegment {
+        let segment = FloatQuadSegment {
             control_points: [[0.0, 0.0].into(), [2.0, 0.0].into(), [4.0, 0.0].into()],
         };
 
@@ -80,7 +80,7 @@ mod tests {
 
     #[test]
     fn quad_split_required_for_sharp_tangent() {
-        let segment = QuadSegment {
+        let segment = FloatQuadSegment {
             control_points: [[0.0, 0.0].into(), [0.0, 2.0].into(), [4.0, 0.0].into()],
         };
 
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn cubic_split_not_required_for_flat_segment() {
-        let segment = CubicSegment {
+        let segment = FloatCubicSegment {
             control_points: [
                 [0.0, 0.0].into(),
                 [2.0, 0.0].into(),
@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn cubic_split_required_for_sharp_tangent() {
-        let segment = CubicSegment {
+        let segment = FloatCubicSegment {
             control_points: [
                 [0.0, 0.0].into(),
                 [0.0, 2.0].into(),
@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn split_not_required_for_short_segment() {
-        let segment = QuadSegment {
+        let segment = FloatQuadSegment {
             control_points: [[0.0, 0.0].into(), [0.0, 2.0].into(), [0.01, 0.0].into()],
         };
 
@@ -129,7 +129,7 @@ mod tests {
 
     #[test]
     fn segment_line_split_not_required() {
-        let segment = Segment::Line(LineSegment {
+        let segment = FloatSegment::Line(FloatLineSegment {
             control_points: [[0.0, 0.0].into(), [1.0, 0.0].into()],
         });
 

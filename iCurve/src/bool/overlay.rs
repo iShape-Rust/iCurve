@@ -1,4 +1,5 @@
 use crate::bool::segment::ShapeSegment;
+use crate::bool::slice::buffer::SliceBuffer;
 use crate::curve::rect::CurveToFloatRect;
 use crate::curve::resource::CurveResource;
 use crate::curve::shape::CurveShape;
@@ -16,7 +17,6 @@ use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_tree::{Expiration, LayoutNumber};
-use crate::bool::slice::buffer::SliceBuffer;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CurveSplitOptions<F: FloatNumber, I: IntNumber = i32> {
@@ -60,7 +60,6 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         external_adapter: FloatPointAdapter<P, I>,
         options: CurveOverlayOptions<P::Scalar, I>,
     ) -> Self {
-
         Self {
             segments: Vec::new(),
             internal_adapter: external_adapter.to_float_point_adapter(),

@@ -1,5 +1,5 @@
 use crate::bool::segment::SegmentRange;
-use crate::kernel::curve::param::SegmentParam;
+use crate::kernel::float::curve::param::FloatSegmentParam;
 use alloc::slice;
 use alloc::vec::Vec;
 use core::iter;
@@ -116,7 +116,7 @@ impl<F: FloatNumber> SegmentRangeMeta<F> for SegmentRange<F> {
         } else {
             let t0 = self.t0.value();
             let t1 = self.t1.value();
-            SegmentParam::new(t0 + (t1 - t0) * F::from_float(ratio))
+            FloatSegmentParam::new(t0 + (t1 - t0) * F::from_float(ratio))
         };
         (
             Self {
@@ -140,13 +140,12 @@ impl<F: FloatNumber> SegmentRangeMeta<F> for SegmentRange<F> {
 }
 
 fn split_ratio<I: IntNumber>(ctx: EdgeDataSplit<I>) -> f64 {
-    let dx = ctx.b.x.wide() - ctx.a.x.wide();
-    let dy = ctx.b.y.wide() - ctx.a.y.wide();
+    let dv = ctx.b - ctx.a;
 
-    let (num, den) = if dx.unsigned_abs() >= dy.unsigned_abs() {
-        (ctx.p.x.wide() - ctx.a.x.wide(), dx)
+    let (num, den) = if dv.x.unsigned_abs() >= dv.y.unsigned_abs() {
+        (ctx.p.x.to_wide() - ctx.a.x.to_wide(), dv.x)
     } else {
-        (ctx.p.y.wide() - ctx.a.y.wide(), dy)
+        (ctx.p.y.to_wide() - ctx.a.y.to_wide(), dv.y)
     };
 
     if den == I::Wide::ZERO {
