@@ -1,2 +1,3 @@
 pub mod curve;
-mod math;
+pub mod math;
+pub mod normalization;

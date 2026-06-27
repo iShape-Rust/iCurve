@@ -3,7 +3,7 @@ use crate::bool::slice::buffer::SliceBuffer;
 use crate::curve::rect::CurveToFloatRect;
 use crate::curve::resource::CurveResource;
 use crate::curve::shape::CurveShape;
-use crate::normalization::curve::CurveToSegments;
+use crate::kernel::float::normalization::curve::CurveToSegments;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use i_key_sort::sort::key::SortKey;

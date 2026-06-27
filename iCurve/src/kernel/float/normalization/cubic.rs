@@ -21,7 +21,7 @@ struct CubicSelfIntersection<T: FloatNumber> {
 
 impl<T: FloatNumber> FloatCubicSegment<T> {
     #[inline]
-    pub(super) fn try_with_adapter<I: IntNumber>(
+    pub(crate) fn try_with_adapter<I: IntNumber>(
         self,
         adapter: &FloatPointAdapter<FloatPoint<T>, I>,
     ) -> Result<StackVec<FloatSegment<T>, 4>, FloatPointAdapterRangeError> {
@@ -205,7 +205,7 @@ impl<T: FloatNumber> FloatCubicSegment<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::normalization::test_utils::{assert_control_points_eq, assert_point_eq};
+    use crate::kernel::float::normalization::test_utils::{assert_control_points_eq, assert_point_eq};
 
     #[test]
     fn drops_closed_cubic_spike() {

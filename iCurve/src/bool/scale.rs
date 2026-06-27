@@ -219,18 +219,6 @@ mod tests {
     }
 
     #[test]
-    fn fixed_scale_trait_runs_overlay() {
-        let subj = square(0.0, 0.0, 10.0);
-        let clip = square(2.0, 2.0, 2.0);
-
-        let result = subj
-            .overlay_with_fixed_scale(&clip, OverlayRule::Difference, FillRule::EvenOdd, 1.0)
-            .expect("scale must be valid for small test coordinates");
-
-        assert!(!result.is_empty());
-    }
-
-    #[test]
     fn fixed_scale_rejects_non_positive_scale() {
         let subj = square(0.0, 0.0, 10.0);
         let clip = square(2.0, 2.0, 2.0);

@@ -23,15 +23,15 @@ impl QuadraticEquation {
         let b_scaled = b.to_scaled_wide();
 
         if d == I::ZERO {
-            let t = I::from_scaled_wide(-b_scaled / two_a);
+            let t = I::from_scaled_wide_rounded(-b_scaled / two_a);
             return Some([t, t]);
         }
 
         let sqrt_dw = d.scaled_isqrt();
         let bw = b.to_scaled_wide();
 
-        let x0 = I::from_scaled_wide((-bw - sqrt_dw) / two_a);
-        let x1 = I::from_scaled_wide((-bw + sqrt_dw) / two_a);
+        let x0 = I::from_scaled_wide_rounded((-bw - sqrt_dw) / two_a);
+        let x1 = I::from_scaled_wide_rounded((-bw + sqrt_dw) / two_a);
 
         Some([x0, x1])
     }

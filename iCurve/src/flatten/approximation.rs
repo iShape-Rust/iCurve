@@ -6,7 +6,7 @@ use crate::kernel::float::curve::line::FloatLineSegment;
 use crate::kernel::float::curve::quad::FloatQuadSegment;
 use crate::kernel::float::curve::segment::FloatSegment;
 use crate::kernel::float::curve::split_at::FloatSplitAt;
-use crate::normalization::curve::CurveToSegments;
+use crate::kernel::float::normalization::curve::CurveToSegments;
 use alloc::vec::Vec;
 use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;

@@ -7,7 +7,7 @@ use i_overlay::i_float::int::number::int::IntNumber;
 
 impl<T: FloatNumber> FloatLineSegment<T> {
     #[inline]
-    pub(super) fn try_with_adapter<I: IntNumber>(
+    pub(crate) fn try_with_adapter<I: IntNumber>(
         self,
         adapter: &FloatPointAdapter<FloatPoint<T>, I>,
     ) -> Result<Option<FloatSegment<T>>, FloatPointAdapterRangeError> {
@@ -27,7 +27,7 @@ impl<T: FloatNumber> FloatLineSegment<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::normalization::test_utils::assert_control_points_eq;
+    use crate::kernel::float::normalization::test_utils::assert_control_points_eq;
 
     #[test]
     fn drops_zero_length_line() {

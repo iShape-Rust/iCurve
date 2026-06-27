@@ -2,7 +2,7 @@ use crate::curve::path::CurvePath;
 use crate::curve::rect::CurveToFloatRect;
 use crate::curve::shape::CurveShape;
 use crate::kernel::float::curve::segment::FloatSegment;
-use crate::normalization::segment::CurveSegmentNormalization;
+use crate::kernel::float::normalization::segment::CurveSegmentNormalization;
 use alloc::vec::Vec;
 use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterRangeError};
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
@@ -85,7 +85,7 @@ mod tests {
     use super::*;
     use crate::curve::builder::{CurveBuilder, CurveError};
     use crate::kernel::float::curve::segment::FloatSegment;
-    use crate::normalization::test_utils::{assert_control_points_eq, assert_point_eq};
+    use crate::kernel::float::normalization::test_utils::{assert_control_points_eq, assert_point_eq};
 
     #[test]
     fn normalize_shape_segments() -> Result<(), CurveError> {
