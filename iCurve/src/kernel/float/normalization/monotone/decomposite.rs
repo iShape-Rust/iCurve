@@ -2,7 +2,6 @@ use crate::collections::stack_vec::StackVec;
 use crate::kernel::float::curve::param::FloatSegmentParam;
 use crate::kernel::float::curve::split_at::FloatSplitAt;
 use i_overlay::i_float::float::number::FloatNumber;
-use i_overlay::i_float::float::rect::FloatRect;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum MonotoneDecompositionDirection {

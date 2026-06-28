@@ -6,6 +6,7 @@ use crate::kernel::int::curve::point_at::PointAt;
 use crate::kernel::int::curve::quad::QuadSegment;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::curve::split_at::SplitAt;
+use crate::kernel::int::normalization::unit_quadratic::solve_unit_quadratic;
 use i_overlay::i_float::int::number::fixed_scale::FixedScale;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
@@ -17,6 +18,11 @@ struct CubicSelfIntersection<I: IntNumber> {
     t0: SegmentParam<I>,
     t1: SegmentParam<I>,
     point: IntPoint<I>,
+}
+
+pub(crate) enum CubicSShapeNormalization<I: IntNumber> {
+    NoS(CubicSegment<I>),
+    Pieces([CubicSegment<I>; 2]),
 }
 
 impl<I: IntNumber> CubicSegment<I> {
@@ -95,6 +101,61 @@ impl<I: IntNumber> CubicSegment<I> {
         segments.push_some(last.try_cubic_without_self_intersection());
 
         segments
+    }
+
+    #[inline]
+    pub(crate) fn normalize_monotone_without_s_shape(self) -> CubicSShapeNormalization<I> {
+        let mut roots = self.s_shape_roots();
+        roots.as_mut_slice().sort_unstable_by_key(|root| root.value());
+        roots.dedup();
+
+        match roots.as_slice() {
+            [] => CubicSShapeNormalization::NoS(self),
+            [t] => CubicSShapeNormalization::Pieces(self.split_at(*t)),
+            [_, _] => {
+                debug_assert!(
+                    false,
+                    "monotone non-self-intersecting cubic is expected to have at most one S-shape split"
+                );
+                CubicSShapeNormalization::NoS(self)
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    fn s_shape_roots(&self) -> StackVec<SegmentParam<I>, 2> {
+        let [p0, p1, p2, p3] = self.control_points;
+
+        // For P'(t) = 3 * (u + 2s*t + r*t^2) and P''(t) = 6 * (s + r*t),
+        // inflections satisfy cross(P'(t), P''(t)) = 0:
+        //
+        //   cross(s, r) * t^2 + cross(u, r) * t + cross(u, s) = 0
+        //
+        // where:
+        //
+        //   u = P1 - P0
+        //   s = (P2 - P1) - u
+        //   r = (P3 - P2) - 2(P2 - P1) + u
+        let u = IntVector::<I>::new(p1.x.to_wide() - p0.x.to_wide(), p1.y.to_wide() - p0.y.to_wide());
+        let v = IntVector::<I>::new(p2.x.to_wide() - p1.x.to_wide(), p2.y.to_wide() - p1.y.to_wide());
+        let w = IntVector::<I>::new(p3.x.to_wide() - p2.x.to_wide(), p3.y.to_wide() - p2.y.to_wide());
+
+        let s = IntVector::<I>::new(v.x - u.x, v.y - u.y);
+        let r = IntVector::<I>::new(w.x - I::Wide::TWO * v.x + u.x, w.y - I::Wide::TWO * v.y + u.y);
+
+        let a = s.cross_product(r);
+        let b = u.cross_product(r);
+        let c = u.cross_product(s);
+
+        // A double root only touches zero curvature and does not remove an S shape.
+        if a != I::Wide::ZERO {
+            let d = b * b - I::Wide::FOUR * a * c;
+            if d <= I::Wide::ZERO {
+                return StackVec::new();
+            }
+        }
+
+        solve_unit_quadratic::<I>(a, b, c)
     }
 
     fn resolve_self_intersection(&self) -> Option<CubicSelfIntersection<I>> {
@@ -275,7 +336,7 @@ impl<I: IntNumber> CubicSegment<I> {
             return None;
         }
 
-        let [t0, t1] = solve_unit_quadratic::<I>(ss_scaled, s_scaled, p_scaled)?;
+        let [t0, t1] = solve_self_intersection_params::<I>(ss_scaled, s_scaled, p_scaled)?;
 
         Some(CubicSelfIntersection {
             t0,
@@ -315,7 +376,7 @@ fn local_segment_param<I: IntNumber>(t0: SegmentParam<I>, t1: SegmentParam<I>) -
     SegmentParam::from_int(I::from_wide(numerator), I::from_wide(denominator))
 }
 
-fn solve_unit_quadratic<I: IntNumber>(
+fn solve_self_intersection_params<I: IntNumber>(
     ss_scaled: I::Wide,
     s_scaled: I::Wide,
     p_scaled: I::Wide,
@@ -440,6 +501,61 @@ mod tests {
         match segments.as_slice() {
             [Segment::Cubic(segment)] => assert_eq!(segment.control_points, cubic.control_points),
             _ => panic!("expected one cubic segment"),
+        }
+    }
+
+    #[test]
+    fn keeps_monotone_cubic_without_s_shape() {
+        let cubic = CubicSegment {
+            control_points: [
+                IntPoint::new(0, 0),
+                IntPoint::new(8, 0),
+                IntPoint::new(16, 12),
+                IntPoint::new(24, 24),
+            ],
+        };
+
+        match cubic.normalize_monotone_without_s_shape() {
+            CubicSShapeNormalization::NoS(segment) => {
+                assert_eq!(segment.control_points, cubic.control_points)
+            }
+            CubicSShapeNormalization::Pieces(_) => panic!("expected no S split"),
+        }
+    }
+
+    #[test]
+    fn splits_monotone_cubic_at_single_s_shape_inflection() {
+        let cubic = CubicSegment {
+            control_points: [
+                IntPoint::new(0, 0),
+                IntPoint::new(8, 0),
+                IntPoint::new(16, 24),
+                IntPoint::new(24, 24),
+            ],
+        };
+
+        match cubic.normalize_monotone_without_s_shape() {
+            CubicSShapeNormalization::Pieces([first, last]) => {
+                assert_eq!(
+                    first.control_points,
+                    [
+                        IntPoint::new(0, 0),
+                        IntPoint::new(4, 0),
+                        IntPoint::new(8, 6),
+                        IntPoint::new(12, 12),
+                    ]
+                );
+                assert_eq!(
+                    last.control_points,
+                    [
+                        IntPoint::new(12, 12),
+                        IntPoint::new(16, 18),
+                        IntPoint::new(20, 24),
+                        IntPoint::new(24, 24),
+                    ]
+                );
+            }
+            CubicSShapeNormalization::NoS(_) => panic!("expected S split"),
         }
     }
 
