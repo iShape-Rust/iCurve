@@ -1,8 +1,6 @@
-use crate::kernel::int::{
-    curve::{
-        cubic::CubicSegment as KernelCubicSegment, line::LineSegment as KernelLineSegment,
-        quad::QuadSegment as KernelQuadSegment, segment::Segment as KernelSegment,
-    },
+use crate::kernel::int::curve::{
+    cubic::CubicSegment as KernelCubicSegment, line::LineSegment as KernelLineSegment,
+    quad::QuadSegment as KernelQuadSegment, segment::Segment as KernelSegment,
 };
 use alloc::vec::Vec;
 use i_overlay::i_float::int::number::int::IntNumber;
@@ -16,9 +14,7 @@ pub enum NormalizedSegment<I: IntNumber> {
 }
 
 #[inline]
-pub fn cubic_self_intersection<I: IntNumber>(
-    control_points: [IntPoint<I>; 4],
-) -> Option<IntPoint<I>> {
+pub fn cubic_self_intersection<I: IntNumber>(control_points: [IntPoint<I>; 4]) -> Option<IntPoint<I>> {
     let cubic = KernelCubicSegment { control_points };
     cubic.self_intersection_point()
 }
@@ -37,12 +33,8 @@ pub fn normalize_cubic<I: IntNumber>(control_points: [IntPoint<I>; 4]) -> Vec<No
 
 fn normalized_segment<I: IntNumber>(segment: KernelSegment<I>) -> NormalizedSegment<I> {
     match segment {
-        KernelSegment::Line(KernelLineSegment { control_points }) => {
-            NormalizedSegment::Line(control_points)
-        }
-        KernelSegment::Quad(KernelQuadSegment { control_points }) => {
-            NormalizedSegment::Quad(control_points)
-        }
+        KernelSegment::Line(KernelLineSegment { control_points }) => NormalizedSegment::Line(control_points),
+        KernelSegment::Quad(KernelQuadSegment { control_points }) => NormalizedSegment::Quad(control_points),
         KernelSegment::Cubic(KernelCubicSegment { control_points }) => {
             NormalizedSegment::Cubic(control_points)
         }

@@ -2,7 +2,7 @@ use crate::collections::stack_vec::StackVec;
 use crate::kernel::float::curve::cubic::FloatCubicSegment;
 use crate::kernel::float::curve::param::FloatSegmentParam;
 use crate::kernel::float::math::quadratic_equation::QuadraticEquation;
-use crate::kernel::float::monotone::decomposite::{
+use crate::kernel::float::normalization::monotone::decomposite::{
     DecompositeIntoMonotone, MonotoneDecompositionDirection, roots_to_segments,
 };
 use i_overlay::i_float::float::number::FloatNumber;

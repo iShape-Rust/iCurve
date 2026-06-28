@@ -22,7 +22,8 @@ struct CubicSelfIntersection<I: IntNumber> {
 impl<I: IntNumber> CubicSegment<I> {
     #[inline]
     pub(crate) fn self_intersection_point(&self) -> Option<IntPoint<I>> {
-        self.resolve_self_intersection().map(|intersection| intersection.point)
+        self.resolve_self_intersection()
+            .map(|intersection| intersection.point)
     }
 
     #[inline]
