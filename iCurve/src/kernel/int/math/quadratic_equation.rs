@@ -1,3 +1,4 @@
+use i_overlay::i_float::int::number::fixed_scale::FixedScale;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 
@@ -23,15 +24,15 @@ impl QuadraticEquation {
         let b_scaled = b.to_scaled_wide();
 
         if d == I::ZERO {
-            let t = I::from_scaled_wide_rounded(-b_scaled / two_a);
+            let t = FixedScale::<I>::to_int_round(-b_scaled / two_a);
             return Some([t, t]);
         }
 
         let sqrt_dw = d.scaled_isqrt();
         let bw = b.to_scaled_wide();
 
-        let x0 = I::from_scaled_wide_rounded((-bw - sqrt_dw) / two_a);
-        let x1 = I::from_scaled_wide_rounded((-bw + sqrt_dw) / two_a);
+        let x0 = FixedScale::<I>::to_int_round((-bw - sqrt_dw) / two_a);
+        let x1 = FixedScale::<I>::to_int_round((-bw + sqrt_dw) / two_a);
 
         Some([x0, x1])
     }

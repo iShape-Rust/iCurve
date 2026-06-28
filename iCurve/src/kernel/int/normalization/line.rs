@@ -7,6 +7,7 @@ impl<I: IntNumber> LineSegment<I> {
     pub(crate) fn try_segment(self) -> Option<Segment<I>> {
         let [p0, p1] = self.control_points;
 
+        // Same endpoint: zero-length edge.
         if p0 != p1 { Some(Segment::Line(self)) } else { None }
     }
 }

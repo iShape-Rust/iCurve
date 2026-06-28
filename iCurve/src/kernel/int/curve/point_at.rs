@@ -49,14 +49,14 @@ mod tests {
     fn line_point_at_uses_rounded_scale() {
         let line = [IntPoint::new(0, 0), IntPoint::new(1, -1)];
 
-        assert_eq!(line.point_at(SegmentParam::from_int(1, 2)), IntPoint::new(1, -1));
+        assert_eq!(line.point_at(SegmentParam::half()), IntPoint::new(1, -1));
     }
 
     #[test]
     fn quad_point_at_uses_rounded_de_casteljau_steps() {
         let quad = [IntPoint::new(0, 0), IntPoint::new(2, 0), IntPoint::new(2, 2)];
 
-        assert_eq!(quad.point_at(SegmentParam::from_int(1, 2)), IntPoint::new(2, 1));
+        assert_eq!(quad.point_at(SegmentParam::half()), IntPoint::new(2, 1));
     }
 
     #[test]
@@ -68,6 +68,6 @@ mod tests {
             IntPoint::new(8, 4),
         ];
 
-        assert_eq!(cubic.point_at(SegmentParam::from_int(1, 2)), IntPoint::new(4, 2));
+        assert_eq!(cubic.point_at(SegmentParam::half()), IntPoint::new(4, 2));
     }
 }
