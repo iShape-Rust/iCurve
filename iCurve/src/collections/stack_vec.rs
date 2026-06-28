@@ -83,6 +83,30 @@ impl<T: Copy + Default, const CAP: usize> StackVec<T, CAP> {
     }
 
     #[inline]
+    pub(crate) fn dedup(&mut self)
+    where
+        T: PartialEq,
+    {
+        if self.len <= 1 {
+            return;
+        }
+
+        let mut write_index = 1;
+
+        for read_index in 1..self.len {
+            let value = self.buffer[read_index];
+            if value == self.buffer[write_index - 1] {
+                continue;
+            }
+
+            self.buffer[write_index] = value;
+            write_index += 1;
+        }
+
+        self.len = write_index;
+    }
+
+    #[inline]
     pub fn swap_remove(&mut self, idx: usize) {
         assert!(idx < self.len);
 
@@ -151,5 +175,14 @@ mod tests {
         assert_eq!(values.swap_extract(1), 2);
 
         assert_eq!(values.as_slice(), &[1, 4, 3]);
+    }
+
+    #[test]
+    fn dedups_adjacent_equal_values() {
+        let mut values = StackVec::<u32, 8>::from_slice(&[1, 1, 2, 2, 2, 3, 1]);
+
+        values.dedup();
+
+        assert_eq!(values.as_slice(), &[1, 2, 3, 1]);
     }
 }

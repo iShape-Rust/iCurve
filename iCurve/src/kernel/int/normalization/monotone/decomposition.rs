@@ -24,7 +24,8 @@ where
     I: IntNumber,
     S: SplitAt<I, Output = [S; 2]> + Copy + Default,
 {
-    sort_and_dedup_roots(&mut roots);
+    roots.buffer[0..roots.len].sort_unstable_by_key(|root| root.value());
+    roots.dedup();
 
     let mut output = StackVec::new();
     let mut t0 = SegmentParam::new(I::ZERO);
@@ -66,24 +67,4 @@ where
     let local_t = SegmentParam::from_int(I::from_wide(numerator), I::from_wide(denominator));
 
     right.split_at_left(local_t)
-}
-
-fn sort_and_dedup_roots<I: IntNumber, const CAP: usize>(roots: &mut StackVec<SegmentParam<I>, CAP>) {
-    roots.buffer[0..roots.len].sort_unstable_by_key(|root| root.value());
-
-    let mut write_index = 0;
-    let mut previous = I::Wide::ZERO;
-
-    for read_index in 0..roots.len {
-        let root = roots.buffer[read_index];
-        if root.value() == previous {
-            continue;
-        }
-
-        roots.buffer[write_index] = root;
-        write_index += 1;
-        previous = root.value();
-    }
-
-    roots.len = write_index;
 }

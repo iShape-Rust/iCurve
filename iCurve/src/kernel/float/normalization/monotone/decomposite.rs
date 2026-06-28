@@ -23,7 +23,8 @@ where
     T: FloatNumber,
     S: FloatSplitAt<T, Output = [S; 2]> + Copy + Default,
 {
-    sort_and_dedup_roots(&mut roots);
+    roots.buffer[0..roots.len].sort_unstable();
+    roots.dedup();
 
     let mut output = StackVec::new();
     let mut t0 = FloatSegmentParam::Start;
@@ -61,24 +62,4 @@ where
     let local_t = (t1.value() - t0) / (T::ONE - t0);
     let [range, _] = right.split_at(local_t);
     range
-}
-
-fn sort_and_dedup_roots<T: FloatNumber, const CAP: usize>(roots: &mut StackVec<FloatSegmentParam<T>, CAP>) {
-    roots.buffer[0..roots.len].sort_unstable();
-
-    let mut write_index = 0;
-    let mut previous = FloatSegmentParam::Start;
-
-    for read_index in 0..roots.len {
-        let root = roots.buffer[read_index];
-        if root == previous {
-            continue;
-        }
-
-        roots.buffer[write_index] = root;
-        write_index += 1;
-        previous = root;
-    }
-
-    roots.len = write_index;
 }
