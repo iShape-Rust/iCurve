@@ -1,4 +1,4 @@
-use crate::curve::segment::CurveSegment;
+use crate::float::curve::segment::CurveSegment;
 use crate::kernel::float::curve::cubic::FloatCubicSegment;
 use crate::kernel::float::curve::line::FloatLineSegment;
 use crate::kernel::float::curve::quad::FloatQuadSegment;

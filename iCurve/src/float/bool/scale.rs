@@ -1,6 +1,6 @@
-use crate::bool::overlay::{CurveOverlay, CurveOverlayOptions};
-use crate::curve::resource::CurveResource;
-use crate::curve::shape::CurveShape;
+use crate::float::bool::overlay::{CurveOverlay, CurveOverlayOptions};
+use crate::float::curve::resource::CurveResource;
+use crate::float::curve::shape::CurveShape;
 use alloc::vec::Vec;
 use i_key_sort::sort::key::SortKey;
 use i_overlay::core::fill_rule::FillRule;
@@ -205,7 +205,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::curve::builder::CurveBuilder;
+    use crate::float::curve::builder::CurveBuilder;
 
     #[test]
     fn fixed_scale_constructor_uses_requested_scale() {

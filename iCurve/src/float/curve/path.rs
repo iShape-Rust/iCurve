@@ -1,4 +1,4 @@
-use crate::curve::segment::CurveSegment;
+use crate::float::curve::segment::CurveSegment;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 

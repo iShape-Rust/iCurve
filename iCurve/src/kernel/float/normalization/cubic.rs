@@ -21,7 +21,7 @@ struct CubicSelfIntersection<T: FloatNumber> {
 
 impl<T: FloatNumber> FloatCubicSegment<T> {
     #[inline]
-    pub(crate) fn try_with_adapter<I: IntNumber>(
+    pub fn try_with_adapter<I: IntNumber>(
         self,
         adapter: &FloatPointAdapter<FloatPoint<T>, I>,
     ) -> Result<StackVec<FloatSegment<T>, 4>, FloatPointAdapterRangeError> {

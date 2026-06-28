@@ -1,4 +1,4 @@
-use crate::bool::segment::SegmentRange;
+use crate::float::bool::segment::SegmentRange;
 use crate::kernel::float::curve::param::FloatSegmentParam;
 use alloc::slice;
 use alloc::vec::Vec;

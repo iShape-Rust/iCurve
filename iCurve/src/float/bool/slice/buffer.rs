@@ -1,6 +1,6 @@
-use crate::bool::overlay::CurveOverlay;
-use crate::bool::slice::collider::Collider;
 use crate::collections::stack_vec::StackVec;
+use crate::float::bool::overlay::CurveOverlay;
+use crate::float::bool::slice::collider::Collider;
 use crate::kernel::float::curve::segment::FloatSegment;
 use alloc::vec::Vec;
 use i_key_sort::sort::key::SortKey;

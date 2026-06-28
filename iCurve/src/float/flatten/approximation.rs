@@ -1,6 +1,6 @@
-use crate::curve::path::CurvePath;
-use crate::curve::shape::CurveShape;
-use crate::flatten::condition::{FlatCondition, FlatParams};
+use crate::float::curve::path::CurvePath;
+use crate::float::curve::shape::CurveShape;
+use crate::float::flatten::condition::{FlatCondition, FlatParams};
 use crate::kernel::float::curve::cubic::FloatCubicSegment;
 use crate::kernel::float::curve::line::FloatLineSegment;
 use crate::kernel::float::curve::quad::FloatQuadSegment;
@@ -109,7 +109,7 @@ impl<P: FloatPointCompatible> AppendApproximatedPoints<P> for FloatCubicSegment<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::curve::builder::{CurveBuilder, CurveError};
+    use crate::float::curve::builder::{CurveBuilder, CurveError};
 
     fn approximation() -> FlatParams<f64> {
         FlatParams {

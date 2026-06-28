@@ -1,6 +1,6 @@
-use crate::curve::path::CurvePath;
-use crate::curve::segment::CurveSegment;
-use crate::curve::shape::CurveShape;
+use crate::float::curve::path::CurvePath;
+use crate::float::curve::segment::CurveSegment;
+use crate::float::curve::shape::CurveShape;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::rect::FloatRect;

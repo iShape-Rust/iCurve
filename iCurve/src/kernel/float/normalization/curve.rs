@@ -1,6 +1,6 @@
-use crate::curve::path::CurvePath;
-use crate::curve::rect::CurveToFloatRect;
-use crate::curve::shape::CurveShape;
+use crate::float::curve::path::CurvePath;
+use crate::float::curve::rect::CurveToFloatRect;
+use crate::float::curve::shape::CurveShape;
 use crate::kernel::float::curve::segment::FloatSegment;
 use crate::kernel::float::normalization::segment::CurveSegmentNormalization;
 use alloc::vec::Vec;
@@ -83,7 +83,7 @@ impl<P: FloatPointCompatible<Scalar = T>, T: FloatNumber> CurveToSegments<T> for
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::curve::builder::{CurveBuilder, CurveError};
+    use crate::float::curve::builder::{CurveBuilder, CurveError};
     use crate::kernel::float::curve::segment::FloatSegment;
     use crate::kernel::float::normalization::test_utils::{assert_control_points_eq, assert_point_eq};
 
@@ -166,7 +166,7 @@ mod tests {
             .flat_map(|contour| {
                 core::iter::once(contour.start).chain(contour.segments.iter().filter_map(|segment| {
                     match segment {
-                        crate::curve::segment::CurveSegment::Line { to } => Some(*to),
+                        crate::float::curve::segment::CurveSegment::Line { to } => Some(*to),
                         _ => None,
                     }
                 }))

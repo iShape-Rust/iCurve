@@ -1,6 +1,6 @@
-use crate::bool::meta::{MetaSegment, ResolvedCurveOverlay};
-use crate::bool::overlay::CurveOverlay;
-use crate::bool::segment::SegmentRange;
+use crate::float::bool::meta::{MetaSegment, ResolvedCurveOverlay};
+use crate::float::bool::overlay::CurveOverlay;
+use crate::float::bool::segment::SegmentRange;
 use crate::kernel::float::curve::param::FloatSegmentParam;
 use crate::kernel::float::curve::point_at::FloatPointAt;
 use crate::kernel::float::curve::segment::FloatSegment;
@@ -17,7 +17,7 @@ use i_overlay::i_float::int::number::int::IntNumber;
 use i_tree::{Expiration, LayoutNumber};
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
-    pub(super) fn resolve(
+    pub(crate) fn resolve(
         &mut self,
         overlay_rule: OverlayRule,
         fill_rule: FillRule,

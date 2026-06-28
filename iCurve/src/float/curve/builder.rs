@@ -1,6 +1,6 @@
-use crate::curve::path::CurvePath;
-use crate::curve::segment::CurveSegment;
-use crate::curve::shape::CurveShape;
+use crate::float::curve::path::CurvePath;
+use crate::float::curve::segment::CurveSegment;
+use crate::float::curve::shape::CurveShape;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 
@@ -146,7 +146,7 @@ impl<P: FloatPointCompatible> Default for CurveBuilder<P> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::curve::segment::CurveSegment;
+    use crate::float::curve::segment::CurveSegment;
 
     #[test]
     fn build_shape_with_multiple_contours() -> Result<(), CurveError> {

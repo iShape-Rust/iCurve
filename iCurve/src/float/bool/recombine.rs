@@ -1,10 +1,10 @@
-use crate::bool::meta::{MetaSegment, MetaStore, ResolvedCurveOverlay};
-use crate::bool::overlay::CurveOverlay;
-use crate::bool::segment::{SegmentRange, ShapeSegment};
 use crate::collections::circular_merge_list::CircularMergeList;
-use crate::curve::path::CurvePath;
-use crate::curve::segment::CurveSegment;
-use crate::curve::shape::CurveShape;
+use crate::float::bool::meta::{MetaSegment, MetaStore, ResolvedCurveOverlay};
+use crate::float::bool::overlay::CurveOverlay;
+use crate::float::bool::segment::{SegmentRange, ShapeSegment};
+use crate::float::curve::path::CurvePath;
+use crate::float::curve::segment::CurveSegment;
+use crate::float::curve::shape::CurveShape;
 use crate::kernel::float::curve::param::FloatSegmentParam;
 use crate::kernel::float::curve::point_at::FloatPointAt;
 use crate::kernel::float::curve::reversed::Reversed;
@@ -20,7 +20,7 @@ use i_overlay::i_float::int::point::IntPoint;
 use i_overlay::vector::edge::DataVectorPath;
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
-    pub(super) fn recombine(&self, resolved: ResolvedCurveOverlay<I, P::Scalar>) -> Vec<CurveShape<P>> {
+    pub(crate) fn recombine(&self, resolved: ResolvedCurveOverlay<I, P::Scalar>) -> Vec<CurveShape<P>> {
         let ResolvedCurveOverlay {
             shapes: vector_shapes,
             store,

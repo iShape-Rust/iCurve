@@ -1,8 +1,8 @@
-use crate::bool::segment::ShapeSegment;
-use crate::bool::slice::buffer::SliceBuffer;
-use crate::curve::rect::CurveToFloatRect;
-use crate::curve::resource::CurveResource;
-use crate::curve::shape::CurveShape;
+use crate::float::bool::segment::ShapeSegment;
+use crate::float::bool::slice::buffer::SliceBuffer;
+use crate::float::curve::rect::CurveToFloatRect;
+use crate::float::curve::resource::CurveResource;
+use crate::float::curve::shape::CurveShape;
 use crate::kernel::float::normalization::curve::CurveToSegments;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
@@ -45,8 +45,8 @@ pub struct CurveOverlayOptions<F: FloatNumber, I: IntNumber = i32> {
 
 pub struct CurveOverlay<P: FloatPointCompatible, I: IntNumber = i32> {
     pub(crate) segments: Vec<ShapeSegment<P::Scalar>>,
-    pub(super) external_adapter: FloatPointAdapter<P, I>,
-    pub(super) internal_adapter: FloatPointAdapter<FloatPoint<P::Scalar>, I>,
+    pub(crate) external_adapter: FloatPointAdapter<P, I>,
+    pub(crate) internal_adapter: FloatPointAdapter<FloatPoint<P::Scalar>, I>,
     pub(crate) options: CurveOverlayOptions<P::Scalar, I>,
     pub(crate) slice_buffer: SliceBuffer<P::Scalar, I>,
 }
@@ -129,7 +129,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         Self::append_resource_segments(resource, shape_type, &point_adapter, &mut self.segments)
     }
 
-    pub(super) fn append_resource_segments<R: CurveResource<P> + ?Sized>(
+    pub(crate) fn append_resource_segments<R: CurveResource<P> + ?Sized>(
         resource: &R,
         shape_type: ShapeType,
         adapter: &FloatPointAdapter<FloatPoint<P::Scalar>, I>,
@@ -144,7 +144,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         Ok(())
     }
 
-    pub(super) fn resource_rect<R: CurveResource<P> + ?Sized>(resource: &R) -> Option<FloatRect<P::Scalar>> {
+    pub(crate) fn resource_rect<R: CurveResource<P> + ?Sized>(resource: &R) -> Option<FloatRect<P::Scalar>> {
         let mut rect = None;
         for contour in resource.iter_contours() {
             rect = FloatRect::with_optional_rects(rect, contour.float_rect());
@@ -152,7 +152,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveOverlay<P, I> {
         rect
     }
 
-    pub(super) fn resource_segments_count<R: CurveResource<P> + ?Sized>(resource: &R) -> usize {
+    pub(crate) fn resource_segments_count<R: CurveResource<P> + ?Sized>(resource: &R) -> usize {
         resource
             .iter_contours()
             .fold(0, |count, contour| count + contour.segments.len())

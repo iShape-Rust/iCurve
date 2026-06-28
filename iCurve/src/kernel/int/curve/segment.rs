@@ -1,8 +1,8 @@
-use i_overlay::i_float::int::number::int::IntNumber;
-use i_overlay::i_shape::int::IntPoint;
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::quad::QuadSegment;
+use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::i_shape::int::IntPoint;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Segment<I: IntNumber> {

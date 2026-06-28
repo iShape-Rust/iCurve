@@ -1,7 +1,7 @@
-pub(crate) mod cubic;
+pub mod cubic;
 pub mod curve;
 mod line;
 mod quad;
-pub(crate) mod segment;
+pub mod segment;
 #[cfg(test)]
 mod test_utils;

@@ -1,5 +1,5 @@
-use crate::curve::path::CurvePath;
-use crate::curve::shape::CurveShape;
+use crate::float::curve::path::CurvePath;
+use crate::float::curve::shape::CurveShape;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 

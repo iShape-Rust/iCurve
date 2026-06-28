@@ -8,14 +8,14 @@ use i_overlay::i_float::int::rect::IntRect;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Collider<T: FloatNumber, I: IntNumber> {
-    pub(super) index: usize,
-    pub(super) segment: FloatSegment<T>,
-    pub(super) rect: IntRect<I>,
+    pub(crate) index: usize,
+    pub(crate) segment: FloatSegment<T>,
+    pub(crate) rect: IntRect<I>,
 }
 
 impl<T: FloatNumber, I: IntNumber> Collider<T, I> {
     #[inline]
-    pub(super) fn new(
+    pub(crate) fn new(
         index: usize,
         segment: FloatSegment<T>,
         adapter: &FloatPointAdapter<FloatPoint<T>, I>,
