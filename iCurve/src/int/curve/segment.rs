@@ -15,3 +15,7 @@ pub enum CurveSegment<I: IntNumber> {
         to: IntPoint<I>,
     },
 }
+
+impl <I: IntNumber> CurveSegment<I> {
+    
+}

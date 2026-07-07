@@ -1,2 +1,1 @@
-pub(crate) mod convex;
-mod edge;
+mod segment;

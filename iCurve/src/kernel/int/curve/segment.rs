@@ -1,3 +1,4 @@
+use crate::collections::stack_vec::StackVec;
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::quad::QuadSegment;
@@ -16,5 +17,16 @@ impl<I: IntNumber> Default for Segment<I> {
         Self::Line(LineSegment {
             control_points: [IntPoint::ZERO; 2],
         })
+    }
+}
+
+impl<I: IntNumber> Segment<I> {
+    #[inline]
+    pub fn convex_hull(&self) -> StackVec<IntPoint<I>, 4> {
+        match self {
+            Segment::Line(line) => StackVec::with_slice_as_convex(&line.control_points),
+            Segment::Quad(quad) => StackVec::with_slice_as_convex(&quad.control_points),
+            Segment::Cubic(cubic) => StackVec::with_slice_as_convex(&cubic.control_points),
+        }
     }
 }

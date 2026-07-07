@@ -1,5 +1,4 @@
 pub mod builder;
-pub mod normalization;
-mod path;
-mod segment;
-mod shape;
+pub mod path;
+pub mod segment;
+pub mod shape;

@@ -1,3 +1,6 @@
+use core::array::IntoIter;
+use core::iter::Take;
+
 #[derive(Debug, Clone, Copy)]
 pub struct StackVec<T: Copy + Default, const CAP: usize> {
     pub(crate) buffer: [T; CAP],
@@ -127,6 +130,16 @@ impl<T: Copy + Default, const CAP: usize> StackVec<T, CAP> {
         let value = self.buffer[idx];
         self.swap_remove(idx);
         value
+    }
+}
+
+impl<T: Copy + Default, const CAP: usize> IntoIterator for StackVec<T, CAP> {
+    type Item = T;
+    type IntoIter = Take<IntoIter<T, CAP>>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIterator::into_iter(self.buffer).take(self.len)
     }
 }
 

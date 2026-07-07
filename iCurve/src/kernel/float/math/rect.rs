@@ -2,7 +2,7 @@ use crate::kernel::float::curve::cubic::FloatCubicSegment;
 use crate::kernel::float::curve::line::FloatLineSegment;
 use crate::kernel::float::curve::quad::FloatQuadSegment;
 use crate::kernel::float::curve::segment::FloatSegment;
-use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterRangeError};
+use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::float::rect::FloatRect;

@@ -51,11 +51,11 @@ impl<P: FloatPointCompatible, I: IntNumber + SortKey> CurveOverlay<P, I> {
         let n = self.slice_buffer.colliders.len();
         self.slice_buffer.convexes.clear();
         self.slice_buffer.convexes.reserve(n);
-        for collider in self.slice_buffer.colliders.iter() {
-            self.slice_buffer
-                .convexes
-                .push(collider.segment.to_convex(&self.internal_adapter));
-        }
+        // for collider in self.slice_buffer.colliders.iter() {
+        //     self.slice_buffer
+        //         .convexes
+        //         .push(collider.segment.to_convex(&self.internal_adapter));
+        // }
 
         for (i, (a_collider, a_convex)) in self
             .slice_buffer
@@ -82,31 +82,5 @@ impl<P: FloatPointCompatible, I: IntNumber + SortKey> CurveOverlay<P, I> {
                 j += 1;
             }
         }
-    }
-}
-
-trait ConvexStore<T: FloatNumber, I: IntNumber> {
-    fn get(
-        &mut self,
-        index: usize,
-        segment: &FloatSegment<T>,
-        adapter: &FloatPointAdapter<FloatPoint<T>, I>,
-    ) -> StackVec<IntPoint<I>, 4>;
-}
-
-impl<T: FloatNumber, I: IntNumber> ConvexStore<T, I> for Vec<StackVec<IntPoint<I>, 4>> {
-    #[inline]
-    fn get(
-        &mut self,
-        index: usize,
-        segment: &FloatSegment<T>,
-        adapter: &FloatPointAdapter<FloatPoint<T>, I>,
-    ) -> StackVec<IntPoint<I>, 4> {
-        let mut value = self[index];
-        if value.is_empty() {
-            value = segment.to_convex(adapter);
-            self[index] = value;
-        }
-        value
     }
 }

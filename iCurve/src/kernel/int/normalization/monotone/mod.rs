@@ -1,3 +1,3 @@
-mod cubic;
-mod decomposition;
-mod quad;
+pub(crate) mod cubic;
+pub(crate) mod decomposition;
+pub(crate) mod quad;

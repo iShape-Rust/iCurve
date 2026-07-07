@@ -22,7 +22,7 @@ where
     T: FloatNumber,
     S: FloatSplitAt<T, Output = [S; 2]> + Copy + Default,
 {
-    roots.buffer[0..roots.len].sort_unstable();
+    roots.as_mut_slice().sort_unstable();
     roots.dedup();
 
     let mut output = StackVec::new();
