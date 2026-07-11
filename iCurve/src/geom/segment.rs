@@ -13,7 +13,6 @@ pub(crate) enum SegmentProximity {
     Separate,
 }
 impl<I: IntNumber> Segment<I> {
-
     pub(crate) fn proximity_to(&self, other: &Segment<I>, distance: I) -> SegmentProximity {
         let a = self.a;
         let b = self.b;
@@ -32,14 +31,15 @@ impl<I: IntNumber> Segment<I> {
         let ca = a - c;
         let cb = b - c;
 
-
         let ab_x_ac = ab.cross_product(ac);
         let ab_x_ad = ab.cross_product(ad);
         let cd_x_ca = cd.cross_product(ca);
         let cd_x_cb = cd.cross_product(cb);
 
-        let ab_sign_test = ab_x_ac < I::Wide::ZERO && I::Wide::ZERO > ab_x_ad || ab_x_ac > I::Wide::ZERO && I::Wide::ZERO < ab_x_ad;
-        let cd_sign_test = cd_x_ca < I::Wide::ZERO && I::Wide::ZERO > cd_x_cb || cd_x_ca > I::Wide::ZERO && I::Wide::ZERO < cd_x_cb;
+        let ab_sign_test = ab_x_ac < I::Wide::ZERO && I::Wide::ZERO > ab_x_ad
+            || ab_x_ac > I::Wide::ZERO && I::Wide::ZERO < ab_x_ad;
+        let cd_sign_test = cd_x_ca < I::Wide::ZERO && I::Wide::ZERO > cd_x_cb
+            || cd_x_ca > I::Wide::ZERO && I::Wide::ZERO < cd_x_cb;
 
         if ab_sign_test && cd_sign_test {
             return SegmentProximity::Intersect;

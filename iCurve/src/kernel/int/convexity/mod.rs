@@ -1,2 +1,2 @@
-pub(crate) mod convex;
 mod collision;
+pub(crate) mod convex;

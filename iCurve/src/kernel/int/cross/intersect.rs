@@ -1,8 +1,8 @@
+use crate::kernel::int::curve::segment::Segment;
+use crate::kernel::int::normalization::canonical::PushCanonicalSegment;
 use alloc::vec::Vec;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
-use crate::kernel::int::curve::segment::Segment;
-use crate::kernel::int::normalization::canonical::PushCanonicalSegment;
 
 pub struct Intersection<I: IntNumber> {
     pub points: Vec<IntPoint<I>>,
@@ -25,5 +25,4 @@ impl<I: IntNumber> Segment<I> {
     //
     //     _
     // }
-
 }

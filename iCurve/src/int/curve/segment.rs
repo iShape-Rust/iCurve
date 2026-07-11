@@ -16,6 +16,4 @@ pub enum CurveSegment<I: IntNumber> {
     },
 }
 
-impl <I: IntNumber> CurveSegment<I> {
-    
-}
+impl<I: IntNumber> CurveSegment<I> {}

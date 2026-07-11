@@ -1,19 +1,18 @@
-use i_overlay::i_float::int::number::int::IntNumber;
-use i_overlay::i_shape::int::IntPoint;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::point_at::PointAt;
+use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::i_shape::int::IntPoint;
 
 pub(crate) trait Bisect<I: IntNumber> {
-    fn bisect(&self, start: IntPoint<I>, end: IntPoint<I>, t: SegmentParam<I>) -> [Self; 2] where Self: Sized;
+    fn bisect(&self, start: IntPoint<I>, end: IntPoint<I>, t: SegmentParam<I>) -> [Self; 2]
+    where
+        Self: Sized;
 }
 
 impl<I: IntNumber> Bisect<I> for [IntPoint<I>; 2] {
     fn bisect(&self, a: IntPoint<I>, b: IntPoint<I>, t: SegmentParam<I>) -> [Self; 2] {
         let m = self.point_at(t);
-        [
-            [a, m],
-            [m, b],
-        ]
+        [[a, m], [m, b]]
     }
 }
 
@@ -24,10 +23,7 @@ impl<I: IntNumber> Bisect<I> for [IntPoint<I>; 3] {
         let m12 = [p1, p2].point_at(t);
         let m = [m01, m12].point_at(t);
 
-        [
-            [a, m01, m],
-            [m, m12, b],
-        ]
+        [[a, m01, m], [m, m12, b]]
     }
 }
 
@@ -41,10 +37,7 @@ impl<I: IntNumber> Bisect<I> for [IntPoint<I>; 4] {
         let m123 = [m12, m23].point_at(t);
         let m = [m012, m123].point_at(t);
 
-        [
-            [a, m01, m012, m],
-            [m, m123, m23, b],
-        ]
+        [[a, m01, m012, m], [m, m123, m23, b]]
     }
 }
 
