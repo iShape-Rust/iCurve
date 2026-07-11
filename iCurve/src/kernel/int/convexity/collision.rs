@@ -16,9 +16,9 @@ impl<I: IntNumber> StackVec<IntPoint<I>, 4> {
     }
 
     #[inline]
-    pub(crate) fn are_separated_from_each_other_by_at_least_a_distance(&self, other: &Self, min_dist_log: u32) -> bool {
-        !self.has_separate_line_not_thinner_then(other.as_slice(), min_dist_log)
-            && !other.has_separate_line_not_thinner_then(self.as_slice(), min_dist_log)
+    pub(crate) fn has_separation_at_least_pow2(&self, other: &Self, min_separation_log2: u32) -> bool {
+        !self.has_separating_edge_at_least_pow2(other.as_slice(), min_separation_log2)
+            && !other.has_separating_edge_at_least_pow2(self.as_slice(), min_separation_log2)
     }
 
     fn has_separate_line<const INCLUDE_BORDER: bool>(&self, points: &[IntPoint<I>]) -> bool {
@@ -45,7 +45,7 @@ impl<I: IntNumber> StackVec<IntPoint<I>, 4> {
         false
     }
 
-    fn has_separate_line_not_thinner_then(&self, points: &[IntPoint<I>], min_dist_log: u32) -> bool {
+    fn has_separating_edge_at_least_pow2(&self, points: &[IntPoint<I>], min_separation_log2: u32) -> bool {
         let mut a = *self.as_slice().last().unwrap();
 
         'main_loop: for &b in self.as_slice().iter() {
@@ -61,9 +61,10 @@ impl<I: IntNumber> StackVec<IntPoint<I>, 4> {
                 }
 
                 let log_cross = cross.ilog2();
-                let log_dist = log_cross.saturating_sub(log_ba);
+                debug_assert!(log_cross >= log_ba);
+                let log_dist = log_cross - log_ba;
 
-                if log_dist <= min_dist_log {
+                if log_dist <= min_separation_log2 {
                     a = b;
                     continue 'main_loop;
                 }
@@ -160,14 +161,14 @@ mod tests {
             IntPoint::new(0, 4),
         ]);
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-1, 0)], 1));
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(0, 0)], 1));
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(1, 2)], 1));
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-3, 0)], 1));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-4, 0)], 1));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-1, 0)], 1));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(0, 0)], 1));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(1, 2)], 1));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-3, 0)], 1));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-4, 0)], 1));
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-7, 0)], 2));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-8, 0)], 2));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-7, 0)], 2));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-8, 0)], 2));
     }
 
     #[test]
@@ -179,14 +180,14 @@ mod tests {
             IntPoint::new(0, 5),
         ]);
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-3, 0)], 1));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-4, 0)], 1));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-3, 0)], 1));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-4, 0)], 1));
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-3, 2)], 1));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-4, 2)], 1));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-3, 2)], 1));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-4, 2)], 1));
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-6, 0)], 2));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-7, 0)], 2));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-6, 0)], 2));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-7, 0)], 2));
     }
 
     #[test]
@@ -198,14 +199,14 @@ mod tests {
             IntPoint::new(0, 6),
         ]);
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-2, 0)], 1));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-3, 0)], 1));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-2, 0)], 1));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-3, 0)], 1));
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-2, 4)], 1));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-3, 4)], 1));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-2, 4)], 1));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-3, 4)], 1));
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-5, 0)], 2));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-6, 0)], 2));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-5, 0)], 2));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-6, 0)], 2));
     }
 
     #[test]
@@ -217,14 +218,14 @@ mod tests {
             IntPoint::new(0, 7),
         ]);
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-2, 0)], 1));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-3, 0)], 1));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-2, 0)], 1));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-3, 0)], 1));
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-2, 5)], 1));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-3, 5)], 1));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-2, 5)], 1));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-3, 5)], 1));
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-4, 0)], 2));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-5, 0)], 2));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-4, 0)], 2));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-5, 0)], 2));
     }
 
     #[test]
@@ -236,13 +237,13 @@ mod tests {
             IntPoint::new(0, 8),
         ]);
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-3, 0)], 1));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-4, 0)], 1));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-3, 0)], 1));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-4, 0)], 1));
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-3, 8)], 1));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-4, 8)], 1));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-3, 8)], 1));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-4, 8)], 1));
 
-        assert!(!convex.has_separate_line_not_thinner_then(&[IntPoint::new(-7, 0)], 2));
-        assert!(convex.has_separate_line_not_thinner_then(&[IntPoint::new(-8, 0)], 2));
+        assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-7, 0)], 2));
+        assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-8, 0)], 2));
     }
 }

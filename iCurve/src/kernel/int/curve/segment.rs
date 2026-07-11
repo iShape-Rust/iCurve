@@ -29,4 +29,13 @@ impl<I: IntNumber> Segment<I> {
             Segment::Cubic(cubic) => StackVec::with_slice_as_convex(&cubic.control_points),
         }
     }
+
+    #[inline]
+    pub fn ends(&self) -> [IntPoint<I>; 2] {
+        match self {
+            Segment::Line(line) => [line.control_points[0], line.control_points[1]],
+            Segment::Quad(quad) => [quad.control_points[0], quad.control_points[2]],
+            Segment::Cubic(cubic) => [cubic.control_points[0], cubic.control_points[3]],
+        }
+    }
 }
