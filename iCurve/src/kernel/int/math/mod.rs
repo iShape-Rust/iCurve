@@ -1,2 +1,2 @@
 mod quadratic_equation;
-mod angle;
+pub(crate) mod angle;

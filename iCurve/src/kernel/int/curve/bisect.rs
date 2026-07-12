@@ -1,5 +1,9 @@
+use crate::kernel::int::curve::cubic::CubicSegment;
+use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::point_at::PointAt;
+use crate::kernel::int::curve::quad::QuadSegment;
+use crate::kernel::int::curve::segment::Segment;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
@@ -38,6 +42,34 @@ impl<I: IntNumber> Bisect<I> for [IntPoint<I>; 4] {
         let m = [m012, m123].point_at(t);
 
         [[a, m01, m012, m], [m, m123, m23, b]]
+    }
+}
+
+impl<I: IntNumber> Bisect<I> for Segment<I> {
+    fn bisect(&self, a: IntPoint<I>, b: IntPoint<I>, t: SegmentParam<I>) -> [Self; 2] {
+        match self {
+            Segment::Line(line) => {
+                let [l0, l1] = line.control_points.bisect(a, b, t);
+                [
+                    Segment::Line(LineSegment { control_points: l0 }),
+                    Segment::Line(LineSegment { control_points: l1 }),
+                ]
+            }
+            Segment::Quad(quad) => {
+                let [q0, q1] = quad.control_points.bisect(a, b, t);
+                [
+                    Segment::Quad(QuadSegment { control_points: q0 }),
+                    Segment::Quad(QuadSegment { control_points: q1 }),
+                ]
+            }
+            Segment::Cubic(cubic) => {
+                let [c0, c1] = cubic.control_points.bisect(a, b, t);
+                [
+                    Segment::Cubic(CubicSegment { control_points: c0 }),
+                    Segment::Cubic(CubicSegment { control_points: c1 }),
+                ]
+            }
+        }
     }
 }
 

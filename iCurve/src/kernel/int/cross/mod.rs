@@ -1,5 +1,4 @@
 mod intersect;
 mod quad_quad_solver;
-mod solver;
+mod intersector;
 mod segment;
-mod ends;

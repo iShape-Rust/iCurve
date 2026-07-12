@@ -1,4 +1,4 @@
-mod bisect;
+pub(crate) mod bisect;
 pub mod cubic;
 pub mod line;
 pub mod param;
