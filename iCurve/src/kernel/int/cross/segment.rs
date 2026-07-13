@@ -1,4 +1,3 @@
-use crate::kernel::int::curve::bisect::Bisect;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::math::angle::ApproximateAngle;
@@ -18,21 +17,28 @@ impl<I: IntNumber> Segment<I> {
     pub(super) fn is_nearly_linear(&self, sin_angle_neg_pow2: u32) -> bool {
         let chord = self.chord();
         let chord_vector = chord.vector();
-        debug_assert!(chord_vector.sqr_length() != I::Wide::ZERO);
+        if chord_vector.sqr_length() == I::Wide::ZERO {
+            return false;
+        }
 
         match self {
-            Segment::Line(line) => true,
+            Segment::Line(_) => true,
             Segment::Quad(quad) => {
-                let vector = quad.control_points[1] - chord.a;
-                vector.sqr_length() == I::Wide::ZERO || chord_vector.is_nearly_collinear_with(vector, sin_angle_neg_pow2)
-            },
+                let [p0, p1, p2] = quad.control_points;
+                let chord = p0 - p2;
+                let h0 = chord.is_nearly_collinear_with(p0 - p1, sin_angle_neg_pow2);
+                let h1 = chord.is_nearly_collinear_with(p2 - p1, sin_angle_neg_pow2);
+
+                h0 && h1
+            }
             Segment::Cubic(cubic) => {
-                cubic.control_points[1..2].iter().all(|&point| {
-                    let vector = point - chord.a;
-                    vector.sqr_length() == I::Wide::ZERO
-                        || chord_vector.is_nearly_collinear_with(vector, sin_angle_neg_pow2)
-                })
-            },
+                let [p0, p1, p2, p3] = cubic.control_points;
+                let chord = p0 - p3;
+                let h0 = chord.is_nearly_collinear_with(p0 - p1, sin_angle_neg_pow2);
+                let h1 = chord.is_nearly_collinear_with(p3 - p2, sin_angle_neg_pow2);
+
+                h0 && h1
+            }
         }
     }
 
@@ -54,7 +60,6 @@ impl<I: IntNumber> Segment<I> {
         Split { t0, s0, t1, s1, step }
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::Segment;
@@ -64,7 +69,7 @@ mod tests {
     #[test]
     fn detects_nearly_linear_segment() {
         let segment = Segment::Cubic(CubicSegment {
-            control_points: [[0, 0].into(), [4, 0].into(), [8, 1].into(), [12, 0].into()],
+            control_points: [[0, 0].into(), [8, 0].into(), [24, 1].into(), [32, 0].into()],
         });
         assert!(segment.is_nearly_linear(3));
     }

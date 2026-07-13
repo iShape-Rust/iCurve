@@ -96,7 +96,7 @@ impl<I: IntNumber> SegmentIntersector<I> {
             let sqr_len_0 = chord0.sqr_length();
             let sqr_len_1 = chord1.sqr_length();
 
-            let min_sqr_len = sqr_len_0.min(sqr_len_1);
+            let min_sqr_len = sqr_len_0.max(sqr_len_1);
 
             if min_sqr_len < self.options.min_sqr_len {
                 if let Some(ChordCross::Point(point)) = chord0.cross(&chord1, self.options.cross_radius) {
@@ -115,7 +115,7 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 let v1 = pair.s1.chord().vector();
                 if v0.is_nearly_collinear_with(v1, self.options.sin_angle_neg_pow2) {
                     self.intersect_parallel(pair.s0, pair.s1, output);
-                    return
+                    continue;
                 }
             }
 
