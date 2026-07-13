@@ -6,7 +6,6 @@ use crate::kernel::int::curve::quad::QuadSegment;
 use crate::kernel::int::curve::segment::Segment;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
-use crate::int::curve::segment::CurveSegment::Quad;
 
 pub(crate) trait Bisect<I: IntNumber> {
     fn bisect(&self, start: IntPoint<I>, end: IntPoint<I>, t: SegmentParam<I>) -> [Self; 2]

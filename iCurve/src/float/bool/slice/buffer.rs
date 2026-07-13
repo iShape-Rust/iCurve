@@ -1,14 +1,11 @@
 use crate::collections::stack_vec::StackVec;
 use crate::float::bool::overlay::CurveOverlay;
 use crate::float::bool::slice::collider::Collider;
-use crate::kernel::float::curve::segment::FloatSegment;
 use alloc::vec::Vec;
 use i_key_sort::sort::key::SortKey;
 use i_key_sort::sort::two_keys::TwoKeysSort;
-use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
-use i_overlay::i_float::float::point::FloatPoint;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 

@@ -2,26 +2,27 @@ use crate::collections::stack_vec::StackVec;
 use crate::kernel::int::cross::chord::ChordCross;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::segment::Segment;
+use crate::kernel::int::math::angle::ApproximateAngle;
 use alloc::vec::Vec;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
-use crate::kernel::int::math::angle::ApproximateAngle;
 
 pub(crate) struct SplitOptions<I: IntNumber> {
-    min_sqr_len_pow2: u32,
+    pub(super) min_len_pow2: u32,
+    pub(super) min_sqr_len_pow2: u32,
     min_separation_log2: u32,
     sin_angle_neg_pow2: u32,
-    cross_radius: I::Wide,
+    pub(super) cross_radius: I::Wide,
 }
 
 pub(super) struct SegmentIntersector<I: IntNumber> {
-    options: SplitOptions<I>,
+    pub(super) options: SplitOptions<I>,
     original_segment_0: Segment<I>,
     original_segment_1: Segment<I>,
 }
 
-struct Pair<I: IntNumber> {
+pub(super) struct Pair<I: IntNumber> {
     s0: Segment<I>,
     ch0: StackVec<IntPoint<I>, 4>,
     t0: SegmentParam<I>,
@@ -35,16 +36,17 @@ struct Pair<I: IntNumber> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ContactPoint<I: IntNumber> {
-    pub(crate) point: IntPoint<I>,
-    pub(crate) t0: SegmentParam<I>,
-    pub(crate) t1: SegmentParam<I>,
-    pub(crate) contact_type: ContactType,
+pub struct ContactPoint<I: IntNumber> {
+    pub point: IntPoint<I>,
+    pub t0: SegmentParam<I>,
+    pub t1: SegmentParam<I>,
+    pub contact_type: ContactType,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ContactType {
+pub enum ContactType {
     Cross,
+    Tangent,
 }
 
 impl<I: IntNumber> SegmentIntersector<I> {
@@ -63,7 +65,7 @@ impl<I: IntNumber> SegmentIntersector<I> {
         output
     }
 
-    fn intersect_with_buffer(&self, stack: &mut Vec<Pair<I>>, output: &mut Vec<ContactPoint<I>>) {
+    pub(crate) fn intersect_with_buffer(&self, stack: &mut Vec<Pair<I>>, output: &mut Vec<ContactPoint<I>>) {
         stack.clear();
         output.clear();
 
@@ -72,12 +74,16 @@ impl<I: IntNumber> SegmentIntersector<I> {
             ch0: self.original_segment_0.convex_hull(),
             t0: SegmentParam::half(),
             step0: SegmentParam::half(),
-            is_nearly_linear_0: self.original_segment_0.is_nearly_linear(self.options.sin_angle_neg_pow2),
+            is_nearly_linear_0: self
+                .original_segment_0
+                .is_nearly_linear(self.options.sin_angle_neg_pow2),
             s1: self.original_segment_1,
             ch1: self.original_segment_1.convex_hull(),
             t1: SegmentParam::half(),
             step1: SegmentParam::half(),
-            is_nearly_linear_1: self.original_segment_1.is_nearly_linear(self.options.sin_angle_neg_pow2),
+            is_nearly_linear_1: self
+                .original_segment_1
+                .is_nearly_linear(self.options.sin_angle_neg_pow2),
         };
 
         stack.push(first);
@@ -114,7 +120,9 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 let v0 = pair.s0.chord().vector();
                 let v1 = pair.s1.chord().vector();
                 if v0.is_nearly_collinear_with(v1, self.options.sin_angle_neg_pow2) {
-                    self.intersect_parallel(pair.s0, pair.s1, output);
+                    self.intersect_parallel(
+                        pair.s0, pair.t0, pair.step0, pair.s1, pair.t1, pair.step1, output,
+                    );
                     continue;
                 }
             }
@@ -125,7 +133,8 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 let split = pair.s1.split(pair.t1, pair.step1, a, b);
 
                 if let Some(s1) = split.s0 {
-                    let linear = pair.is_nearly_linear_1 || s1.is_nearly_linear(self.options.sin_angle_neg_pow2);
+                    let linear =
+                        pair.is_nearly_linear_1 || s1.is_nearly_linear(self.options.sin_angle_neg_pow2);
                     stack.push(Pair {
                         s0: pair.s0,
                         ch0: pair.ch0,
@@ -141,7 +150,8 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 }
 
                 if let Some(s1) = split.s1 {
-                    let linear = pair.is_nearly_linear_1 || s1.is_nearly_linear(self.options.sin_angle_neg_pow2);
+                    let linear =
+                        pair.is_nearly_linear_1 || s1.is_nearly_linear(self.options.sin_angle_neg_pow2);
                     stack.push(Pair {
                         s0: pair.s0,
                         ch0: pair.ch0,
@@ -161,7 +171,8 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 let split = pair.s0.split(pair.t0, pair.step0, a, b);
 
                 if let Some(s0) = split.s0 {
-                    let linear = pair.is_nearly_linear_0 || s0.is_nearly_linear(self.options.sin_angle_neg_pow2);
+                    let linear =
+                        pair.is_nearly_linear_0 || s0.is_nearly_linear(self.options.sin_angle_neg_pow2);
 
                     stack.push(Pair {
                         s0,
@@ -178,7 +189,8 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 }
 
                 if let Some(s0) = split.s1 {
-                    let linear = pair.is_nearly_linear_0 || s0.is_nearly_linear(self.options.sin_angle_neg_pow2);
+                    let linear =
+                        pair.is_nearly_linear_0 || s0.is_nearly_linear(self.options.sin_angle_neg_pow2);
                     stack.push(Pair {
                         s0,
                         ch0: s0.convex_hull(),
@@ -198,7 +210,7 @@ impl<I: IntNumber> SegmentIntersector<I> {
 }
 
 #[inline]
-fn global_param<I: IntNumber>(
+pub(super) fn global_param<I: IntNumber>(
     center: SegmentParam<I>,
     step: SegmentParam<I>,
     local: SegmentParam<I>,
@@ -212,8 +224,10 @@ fn global_param<I: IntNumber>(
 
 impl<I: IntNumber> Default for SplitOptions<I> {
     fn default() -> Self {
+        let min_len_pow2 = 4;
         Self {
-            min_sqr_len_pow2: 8,
+            min_len_pow2,
+            min_sqr_len_pow2: 2 * min_len_pow2,
             min_separation_log2: 2,
             sin_angle_neg_pow2: 3,
             cross_radius: I::Wide::TWO,
