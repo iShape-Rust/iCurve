@@ -9,7 +9,7 @@ use i_overlay::i_shape::int::IntPoint;
 use crate::kernel::int::math::angle::ApproximateAngle;
 
 pub(crate) struct SplitOptions<I: IntNumber> {
-    min_sqr_len: I::Wide,
+    min_sqr_len_pow2: u32,
     min_separation_log2: u32,
     sin_angle_neg_pow2: u32,
     cross_radius: I::Wide,
@@ -96,9 +96,9 @@ impl<I: IntNumber> SegmentIntersector<I> {
             let sqr_len_0 = chord0.sqr_length();
             let sqr_len_1 = chord1.sqr_length();
 
-            let min_sqr_len = sqr_len_0.max(sqr_len_1);
+            let min_sqr_len_log = sqr_len_0.max(sqr_len_1).ilog2();
 
-            if min_sqr_len < self.options.min_sqr_len {
+            if min_sqr_len_log < self.options.min_sqr_len_pow2 {
                 if let Some(ChordCross::Point(point)) = chord0.cross(&chord1, self.options.cross_radius) {
                     output.push(ContactPoint {
                         point,
@@ -213,7 +213,7 @@ fn global_param<I: IntNumber>(
 impl<I: IntNumber> Default for SplitOptions<I> {
     fn default() -> Self {
         Self {
-            min_sqr_len: I::Wide::from_usize(256),
+            min_sqr_len_pow2: 8,
             min_separation_log2: 2,
             sin_angle_neg_pow2: 3,
             cross_radius: I::Wide::TWO,
