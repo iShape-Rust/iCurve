@@ -87,7 +87,9 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 b: b.b.point,
             };
             match chord_a.cross(&chord_b, self.options.cross_radius) {
-                Some(ChordCross::Point(point)) => {
+                Some(ChordCross::Point(point))
+                    if chord_a.vector().cross_product(chord_b.vector()) != I::Wide::ZERO =>
+                {
                     push_contact(
                         output,
                         ContactPoint {
@@ -98,6 +100,7 @@ impl<I: IntNumber> SegmentIntersector<I> {
                         },
                     );
                 }
+                Some(ChordCross::Point(_)) => {}
                 Some(ChordCross::Overlay) => {
                     push_internal_overlap_ends(
                         output, axis, a, b, range0, range1, center0, step0, center1, step1,

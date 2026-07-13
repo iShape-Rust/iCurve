@@ -1,5 +1,6 @@
 use crate::collections::stack_vec::StackVec;
 use crate::kernel::int::cross::chord::ChordCross;
+use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::math::angle::ApproximateAngle;
@@ -7,7 +8,6 @@ use alloc::vec::Vec;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
-use crate::kernel::int::curve::chord::Chord;
 
 pub(crate) struct SplitOptions<I: IntNumber> {
     pub(super) max_parts_count_log: u32,
@@ -107,12 +107,15 @@ impl<I: IntNumber> SegmentIntersector<I> {
 
             if min_sqr_len_log < self.options.min_sqr_len_pow2 {
                 if let Some(ChordCross::Point(point)) = chord0.cross(&chord1, self.options.cross_radius) {
-                    output.push(ContactPoint {
-                        point,
-                        t0: global_param(pair.t0, pair.step0, chord0.param_for_point(point)),
-                        t1: global_param(pair.t1, pair.step1, chord1.param_for_point(point)),
-                        contact_type: ContactType::Cross,
-                    });
+                    push_unique_contact(
+                        output,
+                        ContactPoint {
+                            point,
+                            t0: global_param(pair.t0, pair.step0, chord0.param_for_point(point)),
+                            t1: global_param(pair.t1, pair.step1, chord1.param_for_point(point)),
+                            contact_type: ContactType::Cross,
+                        },
+                    );
                 }
                 continue;
             }
@@ -207,6 +210,12 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 }
             }
         }
+    }
+}
+
+fn push_unique_contact<I: IntNumber>(output: &mut Vec<ContactPoint<I>>, contact: ContactPoint<I>) {
+    if !output.contains(&contact) {
+        output.push(contact);
     }
 }
 

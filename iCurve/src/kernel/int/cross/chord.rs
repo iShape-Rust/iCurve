@@ -14,38 +14,68 @@ pub(crate) enum ChordCross<I: IntNumber> {
 
 impl<I: IntNumber> SegmentChord<I> {
     pub(crate) fn cross(&self, other: &Self, radius: I::Wide) -> Option<ChordCross<I>> {
-        let a0b0a1 = Triangle::clock_direction(self.a, self.b, other.a);
-        let a0b0b1 = Triangle::clock_direction(self.a, self.b, other.b);
-        let a1b1a0 = Triangle::clock_direction(other.a, other.b, self.a);
-        let a1b1b0 = Triangle::clock_direction(other.a, other.b, self.b);
+        let va = self.vector();
+        let vb = other.vector();
 
-        let one = I::Wide::ONE;
-        let zero_count =
-            (one & (a0b0a1 + one)) + (one & (a0b0b1 + one)) + (one & (a1b1a0 + one)) + (one & (a1b1b0 + one));
+        let a0 = va.cross_product(other.a - self.a);
+        let a1 = va.cross_product(other.b - self.a);
+        let b0 = vb.cross_product(self.a - other.a);
+        let b1 = vb.cross_product(self.b - other.a);
+        let zero = I::Wide::ZERO;
 
-        if zero_count == I::Wide::FOUR {
-            return Some(ChordCross::Overlay);
+        if a0 != zero && a1 != zero && b0 != zero && b1 != zero {
+            let is_cross = (a0 < zero) != (a1 < zero) && (b0 < zero) != (b1 < zero);
+            return is_cross.then(|| ChordCross::Point(self.middle_cross_point(other, radius)));
         }
 
-        let is_not_cross = a0b0a1 == a0b0b1 || a1b1a0 == a1b1b0;
-        if zero_count > I::Wide::ONE || is_not_cross {
-            return None;
+        if a0 == zero && a1 == zero && b0 == zero && b1 == zero {
+            return self.collinear_cross(other);
         }
 
-        if zero_count != I::Wide::ZERO {
-            let point = if a0b0a1 == I::Wide::ZERO {
-                other.a
-            } else if a0b0b1 == I::Wide::ZERO {
-                other.b
-            } else if a1b1a0 == I::Wide::ZERO {
-                self.a
-            } else {
-                self.b
-            };
-            return Some(ChordCross::Point(point));
+        if a0 == zero && self.contains_collinear(other.a) {
+            return Some(ChordCross::Point(other.a));
+        }
+        if a1 == zero && self.contains_collinear(other.b) {
+            return Some(ChordCross::Point(other.b));
+        }
+        if b0 == zero && other.contains_collinear(self.a) {
+            return Some(ChordCross::Point(self.a));
+        }
+        if b1 == zero && other.contains_collinear(self.b) {
+            return Some(ChordCross::Point(self.b));
         }
 
-        Some(ChordCross::Point(self.middle_cross_point(other, radius)))
+        None
+    }
+
+    fn collinear_cross(&self, other: &Self) -> Option<ChordCross<I>> {
+        let candidates = [
+            (self.a, other.contains_collinear(self.a)),
+            (self.b, other.contains_collinear(self.b)),
+            (other.a, self.contains_collinear(other.a)),
+            (other.b, self.contains_collinear(other.b)),
+        ];
+        let mut point = None;
+
+        for (candidate, is_common) in candidates {
+            if !is_common {
+                continue;
+            }
+            if point.is_some_and(|point| point != candidate) {
+                return Some(ChordCross::Overlay);
+            }
+            point = Some(candidate);
+        }
+
+        point.map(ChordCross::Point)
+    }
+
+    #[inline]
+    fn contains_collinear(&self, point: IntPoint<I>) -> bool {
+        self.a.x.min(self.b.x) <= point.x
+            && point.x <= self.a.x.max(self.b.x)
+            && self.a.y.min(self.b.y) <= point.y
+            && point.y <= self.a.y.max(self.b.y)
     }
 
     fn middle_cross_point(&self, other: &Self, radius: I::Wide) -> IntPoint<I> {
@@ -155,5 +185,47 @@ mod tests {
             b: IntPoint::new(15, 0),
         };
         assert_eq!(a.cross(&b, 1_i64), Some(ChordCross::Overlay));
+    }
+
+    #[test]
+    fn detects_shared_endpoint() {
+        let a: SegmentChord<i32> = SegmentChord {
+            a: IntPoint::new(-10, -10),
+            b: IntPoint::ZERO,
+        };
+        let b: SegmentChord<i32> = SegmentChord {
+            a: IntPoint::ZERO,
+            b: IntPoint::new(10, -10),
+        };
+
+        assert_eq!(a.cross(&b, 1_i64), Some(ChordCross::Point(IntPoint::ZERO)));
+    }
+
+    #[test]
+    fn detects_collinear_endpoint() {
+        let a: SegmentChord<i32> = SegmentChord {
+            a: IntPoint::new(0, 0),
+            b: IntPoint::new(10, 0),
+        };
+        let b: SegmentChord<i32> = SegmentChord {
+            a: IntPoint::new(10, 0),
+            b: IntPoint::new(20, 0),
+        };
+
+        assert_eq!(a.cross(&b, 1_i64), Some(ChordCross::Point(IntPoint::new(10, 0))));
+    }
+
+    #[test]
+    fn rejects_disjoint_collinear_chords() {
+        let a: SegmentChord<i32> = SegmentChord {
+            a: IntPoint::new(0, 0),
+            b: IntPoint::new(10, 0),
+        };
+        let b: SegmentChord<i32> = SegmentChord {
+            a: IntPoint::new(20, 0),
+            b: IntPoint::new(30, 0),
+        };
+
+        assert_eq!(a.cross(&b, 1_i64), None);
     }
 }

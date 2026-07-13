@@ -1,9 +1,9 @@
-use crate::kernel::int::curve::segment::Segment;
-use alloc::vec::Vec;
-use i_overlay::i_float::int::number::int::IntNumber;
 use crate::kernel::int::cross::intersector::{ContactPoint, SegmentIntersector, SplitOptions};
 use crate::kernel::int::curve::chord::Chord;
+use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::normalization::canonical::PushCanonicalSegment;
+use alloc::vec::Vec;
+use i_overlay::i_float::int::number::int::IntNumber;
 
 impl<I: IntNumber> Segment<I> {
     pub fn intersect(self, other: Self) -> Vec<ContactPoint<I>> {
@@ -147,6 +147,6 @@ mod tests {
         });
 
         let result = s0.intersect(s1);
-        assert!(!result.is_empty());
+        assert_eq!(result.len(), 1);
     }
 }
