@@ -17,8 +17,8 @@ impl<I: IntNumber> StackVec<IntPoint<I>, 4> {
 
     #[inline]
     pub(crate) fn has_separation_at_least_pow2(&self, other: &Self, min_separation_log2: u32) -> bool {
-        !self.has_separating_edge_at_least_pow2(other.as_slice(), min_separation_log2)
-            && !other.has_separating_edge_at_least_pow2(self.as_slice(), min_separation_log2)
+        self.has_separating_edge_at_least_pow2(other.as_slice(), min_separation_log2)
+            || other.has_separating_edge_at_least_pow2(self.as_slice(), min_separation_log2)
     }
 
     fn has_separate_line<const INCLUDE_BORDER: bool>(&self, points: &[IntPoint<I>]) -> bool {
@@ -116,6 +116,7 @@ fn test_overlapping_1() {
 mod tests {
     use crate::collections::stack_vec::StackVec;
     use i_overlay::i_shape::int::IntPoint;
+    use i_overlay::i_shape::int_path;
 
     #[test]
     fn test_overlapping_2() {
@@ -245,5 +246,27 @@ mod tests {
 
         assert!(!convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-7, 0)], 2));
         assert!(convex.has_separating_edge_at_least_pow2(&[IntPoint::new(-8, 0)], 2));
+    }
+
+    #[test]
+    fn test_has_separation_at_least_pow2_0() {
+        let c0 = StackVec::with_slice_as_convex(&int_path![[0, 0], [8, 0], [8, 8], [0, 8]]);
+        let c1 = StackVec::with_slice_as_convex(&int_path![[10, 5], [15, 0], [20, 5], [15, 10]]);
+
+        assert!(!c0.has_separation_at_least_pow2(&c1, 1));
+        assert!(!c0.has_separation_at_least_pow2(&c1, 2));
+        assert!(!c0.has_separation_at_least_pow2(&c1, 3));
+        assert!(!c0.has_separation_at_least_pow2(&c1, 4));
+    }
+
+    #[test]
+    fn test_has_separation_at_least_pow2_1() {
+        let c0 = StackVec::with_slice_as_convex(&int_path![[0, 0], [8, 0], [8, 8], [0, 8]]);
+        let c1 = StackVec::with_slice_as_convex(&int_path![[20, 5], [25, 0], [30, 5], [25, 10]]);
+
+        assert!(c0.has_separation_at_least_pow2(&c1, 1));
+        assert!(c0.has_separation_at_least_pow2(&c1, 2));
+        assert!(!c0.has_separation_at_least_pow2(&c1, 3));
+        assert!(!c0.has_separation_at_least_pow2(&c1, 4));
     }
 }

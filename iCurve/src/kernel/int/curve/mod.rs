@@ -1,4 +1,5 @@
 pub(crate) mod bisect;
+pub(crate) mod chord;
 pub mod cubic;
 pub mod line;
 pub mod param;

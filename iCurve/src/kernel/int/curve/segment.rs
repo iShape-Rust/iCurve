@@ -1,4 +1,5 @@
 use crate::collections::stack_vec::StackVec;
+use crate::kernel::int::curve::chord::SegmentChord;
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::quad::QuadSegment;
@@ -31,11 +32,12 @@ impl<I: IntNumber> Segment<I> {
     }
 
     #[inline]
-    pub fn ends(&self) -> [IntPoint<I>; 2] {
-        match self {
-            Segment::Line(line) => [line.control_points[0], line.control_points[1]],
+    pub(crate) fn chord(&self) -> SegmentChord<I> {
+        let [a, b] = match self {
+            Segment::Line(line) => line.control_points,
             Segment::Quad(quad) => [quad.control_points[0], quad.control_points[2]],
             Segment::Cubic(cubic) => [cubic.control_points[0], cubic.control_points[3]],
-        }
+        };
+        SegmentChord { a, b }
     }
 }
