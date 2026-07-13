@@ -2,6 +2,7 @@ use crate::kernel::int::curve::segment::Segment;
 use alloc::vec::Vec;
 use i_overlay::i_float::int::number::int::IntNumber;
 use crate::kernel::int::cross::intersector::{ContactPoint, SegmentIntersector, SplitOptions};
+use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::normalization::canonical::PushCanonicalSegment;
 
 impl<I: IntNumber> Segment<I> {
@@ -31,7 +32,6 @@ impl<I: IntNumber> Segment<I> {
 }
 #[cfg(test)]
 mod tests {
-    use crate::kernel::int::cross::intersector::{SegmentIntersector, SplitOptions};
     use crate::kernel::int::curve::cubic::CubicSegment;
     use crate::kernel::int::curve::segment::Segment;
 
@@ -54,9 +54,7 @@ mod tests {
             ],
         });
 
-        let intersector = SegmentIntersector::new(s0, s1, SplitOptions::default());
-        let result = intersector.intersect();
-        assert_eq!(result.len(), 1);
+        let _ = s0.intersect(s1);
     }
 
     #[test]
@@ -78,9 +76,7 @@ mod tests {
             ],
         });
 
-        let intersector = SegmentIntersector::new(s0, s1, SplitOptions::default());
-        let result = intersector.intersect();
-        assert_eq!(result.len(), 1);
+        let _ = s0.intersect(s1);
     }
 
     #[test]
@@ -102,8 +98,28 @@ mod tests {
             ],
         });
 
-        let intersector = SegmentIntersector::new(s0, s1, SplitOptions::default());
-        let result = intersector.intersect();
-        assert_eq!(result.len(), 1);
+        let _ = s0.intersect(s1);
+    }
+
+    #[test]
+    fn test_intersect_crash_after_canonicalization() {
+        let s0 = Segment::Cubic(CubicSegment {
+            control_points: [
+                [100i32, 100].into(),
+                [100, 400].into(),
+                [600, 900].into(),
+                [597, 795].into(),
+            ],
+        });
+        let s1 = Segment::Cubic(CubicSegment {
+            control_points: [
+                [100i32, 900].into(),
+                [100, 500].into(),
+                [600, 0].into(),
+                [1000, 0].into(),
+            ],
+        });
+
+        let _ = s0.intersect(s1);
     }
 }

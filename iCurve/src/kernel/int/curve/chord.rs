@@ -7,6 +7,10 @@ use i_overlay::i_float::int::rect::IntRect;
 use i_overlay::i_float::int::vector::IntVector;
 use i_overlay::i_shape::int::IntPoint;
 
+pub(crate) trait Chord<I: IntNumber> {
+    fn chord(&self) -> SegmentChord<I>;
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct SegmentChord<I: IntNumber> {
     pub(crate) a: IntPoint<I>,
@@ -14,6 +18,11 @@ pub(crate) struct SegmentChord<I: IntNumber> {
 }
 
 impl<I: IntNumber> SegmentChord<I> {
+    #[inline]
+    pub(crate) fn is_zero_length(&self) -> bool {
+        self.b == self.a
+    }
+
     #[inline]
     pub(crate) fn vector(&self) -> IntVector<I> {
         self.b - self.a

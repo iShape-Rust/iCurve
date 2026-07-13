@@ -1,6 +1,6 @@
 use crate::kernel::int::cross::chord::ChordCross;
 use crate::kernel::int::cross::intersector::{ContactPoint, ContactType, SegmentIntersector, global_param};
-use crate::kernel::int::curve::chord::SegmentChord;
+use crate::kernel::int::curve::chord::{Chord, SegmentChord};
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::point_at::PointAt;
 use crate::kernel::int::curve::segment::Segment;

@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
+use crate::kernel::int::curve::chord::Chord;
 
 pub(crate) struct SplitOptions<I: IntNumber> {
     pub(super) max_parts_count_log: u32,
