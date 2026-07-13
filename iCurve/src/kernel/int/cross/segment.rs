@@ -8,9 +8,9 @@ use i_overlay::i_shape::int::IntPoint;
 
 pub(super) struct Split<I: IntNumber> {
     pub(super) t0: SegmentParam<I>,
-    pub(super) s0: Segment<I>,
+    pub(super) s0: Option<Segment<I>>,
     pub(super) t1: SegmentParam<I>,
-    pub(super) s1: Segment<I>,
+    pub(super) s1: Option<Segment<I>>,
     pub(super) step: SegmentParam<I>,
 }
 

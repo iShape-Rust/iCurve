@@ -345,7 +345,7 @@ impl<I: IntNumber> CubicSegment<I> {
         })
     }
 
-    fn try_cubic_without_self_intersection(self) -> Option<Segment<I>> {
+    pub(crate) fn try_cubic_without_self_intersection(self) -> Option<Segment<I>> {
         let [p0, p1, p2, p3] = self.control_points;
 
         // Loop-free closed sub-cubic has no overlay contribution.

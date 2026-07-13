@@ -123,65 +123,74 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 let (a, b) = (chord.a, chord.b);
                 let split = pair.s1.split(pair.t1, pair.step1, a, b);
 
-                // expect that siblings mostly equal
-                let linear = pair.is_nearly_linear_1 || split.s0.is_nearly_linear(self.options.sin_angle_neg_pow2);
+                if let Some(s1) = split.s0 {
+                    let linear = pair.is_nearly_linear_1 || s1.is_nearly_linear(self.options.sin_angle_neg_pow2);
+                    stack.push(Pair {
+                        s0: pair.s0,
+                        ch0: pair.ch0,
+                        t0: pair.t0,
+                        step0: pair.step0,
+                        is_nearly_linear_0: pair.is_nearly_linear_0,
+                        s1,
+                        ch1: s1.convex_hull(),
+                        t1: split.t0,
+                        step1: split.step,
+                        is_nearly_linear_1: linear,
+                    });
+                }
 
-                stack.push(Pair {
-                    s0: pair.s0,
-                    ch0: pair.ch0,
-                    t0: pair.t0,
-                    step0: pair.step0,
-                    is_nearly_linear_0: pair.is_nearly_linear_0,
-                    s1: split.s0,
-                    ch1: split.s0.convex_hull(),
-                    t1: split.t0,
-                    step1: split.step,
-                    is_nearly_linear_1: linear,
-                });
-                stack.push(Pair {
-                    s0: pair.s0,
-                    ch0: pair.ch0,
-                    t0: pair.t0,
-                    step0: pair.step0,
-                    is_nearly_linear_0: pair.is_nearly_linear_0,
-                    s1: split.s1,
-                    ch1: split.s1.convex_hull(),
-                    t1: split.t1,
-                    step1: split.step,
-                    is_nearly_linear_1: linear,
-                });
+                if let Some(s1) = split.s1 {
+                    let linear = pair.is_nearly_linear_1 || s1.is_nearly_linear(self.options.sin_angle_neg_pow2);
+                    stack.push(Pair {
+                        s0: pair.s0,
+                        ch0: pair.ch0,
+                        t0: pair.t0,
+                        step0: pair.step0,
+                        is_nearly_linear_0: pair.is_nearly_linear_0,
+                        s1,
+                        ch1: s1.convex_hull(),
+                        t1: split.t1,
+                        step1: split.step,
+                        is_nearly_linear_1: linear,
+                    });
+                }
             } else {
                 let chord = pair.s0.chord();
                 let (a, b) = (chord.a, chord.b);
                 let split = pair.s0.split(pair.t0, pair.step0, a, b);
 
-                // expect that siblings mostly equal
-                let linear = pair.is_nearly_linear_1 || split.s0.is_nearly_linear(self.options.sin_angle_neg_pow2);
+                if let Some(s0) = split.s0 {
+                    let linear = pair.is_nearly_linear_0 || s0.is_nearly_linear(self.options.sin_angle_neg_pow2);
 
-                stack.push(Pair {
-                    s0: split.s0,
-                    ch0: split.s0.convex_hull(),
-                    t0: split.t0,
-                    step0: split.step,
-                    is_nearly_linear_0: linear,
-                    s1: pair.s1,
-                    ch1: pair.ch1,
-                    t1: pair.t1,
-                    step1: pair.step1,
-                    is_nearly_linear_1: pair.is_nearly_linear_1,
-                });
-                stack.push(Pair {
-                    s0: split.s1,
-                    ch0: split.s1.convex_hull(),
-                    t0: split.t1,
-                    step0: split.step,
-                    is_nearly_linear_0: linear,
-                    s1: pair.s1,
-                    ch1: pair.ch1,
-                    t1: pair.t1,
-                    step1: pair.step1,
-                    is_nearly_linear_1: pair.is_nearly_linear_1,
-                });
+                    stack.push(Pair {
+                        s0,
+                        ch0: s0.convex_hull(),
+                        t0: split.t0,
+                        step0: split.step,
+                        is_nearly_linear_0: linear,
+                        s1: pair.s1,
+                        ch1: pair.ch1,
+                        t1: pair.t1,
+                        step1: pair.step1,
+                        is_nearly_linear_1: pair.is_nearly_linear_1,
+                    });
+                }
+
+                if let Some(s0) = split.s1 {
+                    let linear = pair.is_nearly_linear_0 || s0.is_nearly_linear(self.options.sin_angle_neg_pow2);
+                    stack.push(Pair {
+                        s0,
+                        ch0: s0.convex_hull(),
+                        t0: split.t1,
+                        step0: split.step,
+                        is_nearly_linear_0: linear,
+                        s1: pair.s1,
+                        ch1: pair.ch1,
+                        t1: pair.t1,
+                        step1: pair.step1,
+                        is_nearly_linear_1: pair.is_nearly_linear_1,
+                    });
+                }
             }
         }
 

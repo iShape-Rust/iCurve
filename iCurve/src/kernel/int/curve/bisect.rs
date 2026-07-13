@@ -6,6 +6,7 @@ use crate::kernel::int::curve::quad::QuadSegment;
 use crate::kernel::int::curve::segment::Segment;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
+use crate::int::curve::segment::CurveSegment::Quad;
 
 pub(crate) trait Bisect<I: IntNumber> {
     fn bisect(&self, start: IntPoint<I>, end: IntPoint<I>, t: SegmentParam<I>) -> [Self; 2]
@@ -45,29 +46,29 @@ impl<I: IntNumber> Bisect<I> for [IntPoint<I>; 4] {
     }
 }
 
-impl<I: IntNumber> Bisect<I> for Segment<I> {
-    fn bisect(&self, a: IntPoint<I>, b: IntPoint<I>, t: SegmentParam<I>) -> [Self; 2] {
+impl<I: IntNumber> Segment<I> {
+    pub(crate) fn bisect(&self, a: IntPoint<I>, b: IntPoint<I>, t: SegmentParam<I>) -> [Option<Self>; 2] {
         match self {
             Segment::Line(line) => {
                 let [l0, l1] = line.control_points.bisect(a, b, t);
-                [
-                    Segment::Line(LineSegment { control_points: l0 }),
-                    Segment::Line(LineSegment { control_points: l1 }),
-                ]
+                let n0 = LineSegment { control_points: l0 }.try_segment();
+                let n1 = LineSegment { control_points: l1 }.try_segment();
+
+                [n0, n1]
             }
             Segment::Quad(quad) => {
                 let [q0, q1] = quad.control_points.bisect(a, b, t);
-                [
-                    Segment::Quad(QuadSegment { control_points: q0 }),
-                    Segment::Quad(QuadSegment { control_points: q1 }),
-                ]
+                let n0 = QuadSegment { control_points: q0 }.try_segment();
+                let n1 = QuadSegment { control_points: q1 }.try_segment();
+
+                [n0, n1]
             }
             Segment::Cubic(cubic) => {
                 let [c0, c1] = cubic.control_points.bisect(a, b, t);
-                [
-                    Segment::Cubic(CubicSegment { control_points: c0 }),
-                    Segment::Cubic(CubicSegment { control_points: c1 }),
-                ]
+                let n0 = CubicSegment { control_points: c0 }.try_cubic_without_self_intersection();
+                let n1 = CubicSegment { control_points: c1 }.try_cubic_without_self_intersection();
+
+                [n0, n1]
             }
         }
     }
