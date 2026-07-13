@@ -34,8 +34,6 @@ struct Pair<I: IntNumber> {
     is_nearly_linear_1: bool,
 }
 
-pub(crate) type Intersection<I> = Vec<ContactPoint<I>>;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ContactPoint<I: IntNumber> {
     pub(crate) point: IntPoint<I>,
@@ -58,14 +56,16 @@ impl<I: IntNumber> SegmentIntersector<I> {
         }
     }
 
-    pub(crate) fn intersect(&self) -> Intersection<I> {
+    pub(crate) fn intersect(&self) -> Vec<ContactPoint<I>> {
         let mut stack = Vec::new();
-        self.intersect_with_buffer(&mut stack)
+        let mut output = Vec::new();
+        self.intersect_with_buffer(&mut stack, &mut output);
+        output
     }
 
-    fn intersect_with_buffer(&self, stack: &mut Vec<Pair<I>>) -> Intersection<I> {
+    fn intersect_with_buffer(&self, stack: &mut Vec<Pair<I>>, output: &mut Vec<ContactPoint<I>>) {
         stack.clear();
-        let mut output = Vec::new();
+        output.clear();
 
         let first = Pair {
             s0: self.original_segment_0,
@@ -114,7 +114,8 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 let v0 = pair.s0.chord().vector();
                 let v1 = pair.s1.chord().vector();
                 if v0.is_nearly_collinear_with(v1, self.options.sin_angle_neg_pow2) {
-                    // TODO parallel case
+                    self.intersect_parallel(pair.s0, pair.s1, output);
+                    return
                 }
             }
 
@@ -193,8 +194,6 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 }
             }
         }
-
-        output
     }
 }
 
