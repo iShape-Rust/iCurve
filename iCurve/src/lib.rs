@@ -4,4 +4,4 @@ pub mod collections;
 mod float;
 pub(crate) mod geom;
 pub mod int;
-mod kernel;
+pub mod kernel;

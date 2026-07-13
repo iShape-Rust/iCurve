@@ -53,8 +53,8 @@ impl<I: IntNumber> SegmentIntersector<I> {
         let chord0 = s0.chord();
         let chord1 = s1.chord();
         let axis = ProjectionAxis::for_chords(chord0, chord1);
-        let parts0 = chord0.parts_count(self.options.min_len_pow2);
-        let parts1 = chord1.parts_count(self.options.min_len_pow2);
+        let parts0 = chord0.parts_count(self.options.min_len_pow2, self.options.max_parts_count_log);
+        let parts1 = chord1.parts_count(self.options.min_len_pow2, self.options.max_parts_count_log);
         let range0 = chord0.projection_range(axis);
         let range1 = chord1.projection_range(axis);
 
@@ -207,12 +207,12 @@ impl<I: IntNumber> SegmentChord<I> {
     /// Returns a power-of-two subdivision count for an approximate target piece
     /// length of `2^min_len_pow2`. This is a preferred scale, not a strict
     /// upper bound for every generated curve piece.
-    fn parts_count(&self, min_len_pow2: u32) -> usize {
+    fn parts_count(&self, min_len_pow2: u32, max_parts_count_log: u32) -> usize {
         let len_log = self.vector().sqr_length().ilog2() >> 1;
         if len_log <= min_len_pow2 {
             1
         } else {
-            let cnt_log = len_log - min_len_pow2;
+            let cnt_log = (len_log - min_len_pow2).min(max_parts_count_log);
             1 << cnt_log
         }
     }

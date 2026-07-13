@@ -29,3 +29,81 @@ impl<I: IntNumber> Segment<I> {
         output
     }
 }
+#[cfg(test)]
+mod tests {
+    use crate::kernel::int::cross::intersector::{SegmentIntersector, SplitOptions};
+    use crate::kernel::int::curve::cubic::CubicSegment;
+    use crate::kernel::int::curve::segment::Segment;
+
+    #[test]
+    fn test_0() {
+        let s0 = Segment::Cubic(CubicSegment {
+            control_points: [
+                [100i32, 100].into(),
+                [100, 400].into(),
+                [600, 900].into(),
+                [940, 899].into(),
+            ],
+        });
+        let s1 = Segment::Cubic(CubicSegment {
+            control_points: [
+                [100, 900].into(),
+                [100, 500].into(),
+                [600, 0].into(),
+                [1000, 0].into(),
+            ],
+        });
+
+        let intersector = SegmentIntersector::new(s0, s1, SplitOptions::default());
+        let result = intersector.intersect();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_1() {
+        let s0 = Segment::Cubic(CubicSegment {
+            control_points: [
+                [100i32, 100].into(),
+                [100, 400].into(),
+                [600, 900].into(),
+                [900, 700].into(),
+            ],
+        });
+        let s1 = Segment::Cubic(CubicSegment {
+            control_points: [
+                [100i32, 900].into(),
+                [100, 500].into(),
+                [600, 0].into(),
+                [1000, 0].into(),
+            ],
+        });
+
+        let intersector = SegmentIntersector::new(s0, s1, SplitOptions::default());
+        let result = intersector.intersect();
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_2() {
+        let s0 = Segment::Cubic(CubicSegment {
+            control_points: [
+                [100i32, 100].into(),
+                [100, 400].into(),
+                [600, 900].into(),
+                [596, 795].into(),
+            ],
+        });
+        let s1 = Segment::Cubic(CubicSegment {
+            control_points: [
+                [100i32, 900].into(),
+                [100, 500].into(),
+                [600, 0].into(),
+                [1000, 0].into(),
+            ],
+        });
+
+        let intersector = SegmentIntersector::new(s0, s1, SplitOptions::default());
+        let result = intersector.intersect();
+        assert_eq!(result.len(), 1);
+    }
+}

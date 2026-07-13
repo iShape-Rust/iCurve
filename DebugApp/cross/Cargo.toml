@@ -7,3 +7,4 @@ edition = "2024"
 eframe = "^0.34.0"
 debug_ui = { path = "../debug_ui" }
 i_curve = { path = "../../iCurve" }
+i_overlay = { path = "../../../iOverlay/iOverlay" }

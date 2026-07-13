@@ -50,6 +50,7 @@ impl<I: IntNumber> StackVec<IntPoint<I>, 4> {
 
         'main_loop: for &b in self.as_slice().iter() {
             let ba = b - a;
+            debug_assert!(b != a);
             let log_ba = ba.sqr_length().ilog2() / 2;
 
             for &p in points.iter() {
@@ -61,10 +62,7 @@ impl<I: IntNumber> StackVec<IntPoint<I>, 4> {
                 }
 
                 let log_cross = cross.ilog2();
-                debug_assert!(log_cross >= log_ba);
-                let log_dist = log_cross - log_ba;
-
-                if log_dist <= min_separation_log2 {
+                if log_cross <= log_ba || log_cross - log_ba <= min_separation_log2 {
                     a = b;
                     continue 'main_loop;
                 }

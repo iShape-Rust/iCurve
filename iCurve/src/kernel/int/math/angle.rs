@@ -21,7 +21,9 @@ impl<I: IntNumber> ApproximateAngle for IntVector<I> {
 
         let log_len = (sqr_len_0.ilog2() + sqr_len_1.ilog2()) >> 1;
 
-        debug_assert!(log_len >= log_cross);
+        if log_len < log_cross {
+            return false;
+        }
 
         log_len - log_cross >= sin_angle_neg_pow2
     }

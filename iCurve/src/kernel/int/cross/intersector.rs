@@ -9,6 +9,7 @@ use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 pub(crate) struct SplitOptions<I: IntNumber> {
+    pub(super) max_parts_count_log: u32,
     pub(super) min_len_pow2: u32,
     pub(super) min_sqr_len_pow2: u32,
     min_separation_log2: u32,
@@ -226,6 +227,7 @@ impl<I: IntNumber> Default for SplitOptions<I> {
     fn default() -> Self {
         let min_len_pow2 = 4;
         Self {
+            max_parts_count_log: 6,
             min_len_pow2,
             min_sqr_len_pow2: 2 * min_len_pow2,
             min_separation_log2: 2,
