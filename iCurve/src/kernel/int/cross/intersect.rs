@@ -54,7 +54,8 @@ mod tests {
             ],
         });
 
-        let _ = s0.intersect(s1);
+        let result = s0.intersect(s1);
+        assert!(!result.is_empty());
     }
 
     #[test]
@@ -76,7 +77,8 @@ mod tests {
             ],
         });
 
-        let _ = s0.intersect(s1);
+        let result = s0.intersect(s1);
+        assert!(!result.is_empty());
     }
 
     #[test]
@@ -98,7 +100,8 @@ mod tests {
             ],
         });
 
-        let _ = s0.intersect(s1);
+        let result = s0.intersect(s1);
+        assert!(!result.is_empty());
     }
 
     #[test]
@@ -120,6 +123,7 @@ mod tests {
             ],
         });
 
-        let _ = s0.intersect(s1);
+        let result = s0.intersect(s1);
+        assert!(!result.is_empty());
     }
 }
