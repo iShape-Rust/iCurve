@@ -69,7 +69,6 @@ impl<I: IntNumber> SegmentIntersector<I> {
 
     pub(crate) fn intersect_with_buffer(&self, stack: &mut Vec<Pair<I>>, output: &mut Vec<ContactPoint<I>>) {
         stack.clear();
-        output.clear();
 
         let first = Pair {
             s0: self.original_segment_0,

@@ -105,13 +105,36 @@ mod tests {
     }
 
     #[test]
-    fn test_intersect_crash_after_canonicalization() {
+    fn test_3() {
         let s0 = Segment::Cubic(CubicSegment {
             control_points: [
                 [100i32, 100].into(),
                 [100, 400].into(),
                 [600, 900].into(),
                 [597, 795].into(),
+            ],
+        });
+        let s1 = Segment::Cubic(CubicSegment {
+            control_points: [
+                [100i32, 900].into(),
+                [100, 500].into(),
+                [600, 0].into(),
+                [1000, 0].into(),
+            ],
+        });
+
+        let result = s0.intersect(s1);
+        assert!(!result.is_empty());
+    }
+
+    #[test]
+    fn test_4() {
+        let s0 = Segment::Cubic(CubicSegment {
+            control_points: [
+                [100i32, 100].into(),
+                [100, 400].into(),
+                [600, 900].into(),
+                [1263, 176].into(),
             ],
         });
         let s1 = Segment::Cubic(CubicSegment {
