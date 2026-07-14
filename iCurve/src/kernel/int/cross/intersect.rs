@@ -149,4 +149,27 @@ mod tests {
         let result = s0.intersect(s1);
         assert_eq!(result.len(), 1);
     }
+
+    #[test]
+    fn test_5() {
+        let s0 = Segment::Cubic(CubicSegment {
+            control_points: [
+                [100i32, 100].into(),
+                [100, 400].into(),
+                [600, 900].into(),
+                [464, 732].into(),
+            ],
+        });
+        let s1 = Segment::Cubic(CubicSegment {
+            control_points: [
+                [100i32, 900].into(),
+                [100, 500].into(),
+                [600, 0].into(),
+                [1000, 0].into(),
+            ],
+        });
+
+        let result = s0.intersect(s1);
+        assert_eq!(result.len(), 1);
+    }
 }

@@ -102,9 +102,14 @@ mod tests {
         let parts = cubic.decompose_into_monotone();
         let parts = parts.as_slice();
 
-        assert_eq!(parts.len(), 5);
+        assert_eq!(parts.len(), 3);
+        assert!(
+            parts
+                .iter()
+                .all(|part| part.control_points[0] != part.control_points[3])
+        );
         assert_eq!(parts[0].control_points[0], cubic.control_points[0]);
-        assert_eq!(parts[4].control_points[3], cubic.control_points[3]);
+        assert_eq!(parts[2].control_points[3], cubic.control_points[3]);
     }
 
     #[test]

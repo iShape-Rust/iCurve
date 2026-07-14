@@ -98,7 +98,12 @@ mod tests {
         let parts = quad.decompose_into_monotone();
         let parts = parts.as_slice();
 
-        assert_eq!(parts.len(), 3);
+        assert_eq!(parts.len(), 2);
+        assert!(
+            parts
+                .iter()
+                .all(|part| part.control_points[0] != part.control_points[2])
+        );
         assert_eq!(
             parts[0].control_points[0],
             quad.control_points.point_at(SegmentParam::new(0))
@@ -108,11 +113,11 @@ mod tests {
             quad.control_points.point_at(SegmentParam::from_int(1, 4))
         );
         assert_eq!(
-            parts[1].control_points[2],
+            parts[1].control_points[0],
             quad.control_points.point_at(SegmentParam::from_int(1, 2))
         );
         assert_eq!(
-            parts[2].control_points[2],
+            parts[1].control_points[2],
             quad.control_points
                 .point_at(SegmentParam::new(SegmentParam::<i32>::DENOMINATOR as i32))
         );
