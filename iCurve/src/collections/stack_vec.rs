@@ -30,14 +30,6 @@ impl<T: Copy + Default, const CAP: usize> StackVec<T, CAP> {
     }
 
     #[inline]
-    pub(crate) fn init_with(&mut self, src: &[T]) {
-        assert!(src.len() <= CAP);
-
-        self.buffer[0..src.len()].copy_from_slice(src);
-        self.len = src.len();
-    }
-
-    #[inline]
     pub(crate) fn extend_from_slice(&mut self, src: &[T]) {
         assert!(self.len + src.len() <= CAP);
 

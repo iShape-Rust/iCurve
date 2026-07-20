@@ -1,7 +1,6 @@
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 use crate::kernel::int::curve::chord::{Chord, SegmentChord};
-use crate::kernel::int::curve::quad::QuadSegment;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CubicSegment<I: IntNumber> {

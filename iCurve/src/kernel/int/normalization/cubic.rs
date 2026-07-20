@@ -27,12 +27,6 @@ pub(crate) enum CubicSShapeNormalization<I: IntNumber> {
 
 impl<I: IntNumber> CubicSegment<I> {
     #[inline]
-    pub(crate) fn self_intersection_point(&self) -> Option<IntPoint<I>> {
-        self.resolve_self_intersection()
-            .map(|intersection| intersection.point)
-    }
-
-    #[inline]
     pub(crate) fn try_segment(self) -> StackVec<Segment<I>, 4> {
         let [p0, p1, p2, p3] = self.control_points;
         let mut segments = StackVec::new();
