@@ -6,6 +6,7 @@ use crate::kernel::int::curve::point_at::PointAt;
 use crate::kernel::int::curve::quad::QuadSegment;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::curve::split_at::SplitAt;
+use crate::kernel::int::normalization::monotone::decomposition::roots_to_segments;
 use crate::kernel::int::normalization::unit_quadratic::solve_unit_quadratic;
 use i_overlay::i_float::int::number::fixed_scale::FixedScale;
 use i_overlay::i_float::int::number::int::IntNumber;
@@ -26,6 +27,46 @@ pub(crate) enum CubicSShapeNormalization<I: IntNumber> {
 }
 
 impl<I: IntNumber> CubicSegment<I> {
+    pub(crate) fn split_at_cusps(&self) -> StackVec<Self, 3> {
+        roots_to_segments(self, self.cusp_roots())
+    }
+
+    fn cusp_roots(&self) -> StackVec<SegmentParam<I>, 2> {
+        let [p0, p1, p2, p3] = self.control_points;
+        let u = IntVector::<I>::new(p1.x.to_wide() - p0.x.to_wide(), p1.y.to_wide() - p0.y.to_wide());
+        let v = IntVector::<I>::new(p2.x.to_wide() - p1.x.to_wide(), p2.y.to_wide() - p1.y.to_wide());
+        let w = IntVector::<I>::new(p3.x.to_wide() - p2.x.to_wide(), p3.y.to_wide() - p2.y.to_wide());
+        let s = IntVector::<I>::new(v.x - u.x, v.y - u.y);
+        let r = IntVector::<I>::new(w.x - I::Wide::TWO * v.x + u.x, w.y - I::Wide::TWO * v.y + u.y);
+
+        let x_is_zero = r.x == I::Wide::ZERO && s.x == I::Wide::ZERO && u.x == I::Wide::ZERO;
+        let y_is_zero = r.y == I::Wide::ZERO && s.y == I::Wide::ZERO && u.y == I::Wide::ZERO;
+        let x_roots = solve_unit_quadratic::<I>(r.x, I::Wide::TWO * s.x, u.x);
+        let y_roots = solve_unit_quadratic::<I>(r.y, I::Wide::TWO * s.y, u.y);
+
+        if x_is_zero {
+            return y_roots;
+        }
+        if y_is_zero {
+            return x_roots;
+        }
+
+        let mut roots = StackVec::new();
+        for &x in x_roots.as_slice() {
+            for &y in y_roots.as_slice() {
+                let delta = x.value() - y.value();
+                let distance = if delta < I::Wide::ZERO { -delta } else { delta };
+                if distance <= I::Wide::ONE {
+                    roots.push(x);
+                    break;
+                }
+            }
+        }
+        roots.as_mut_slice().sort_unstable_by_key(|root| root.value());
+        roots.dedup();
+        roots
+    }
+
     #[inline]
     pub(crate) fn try_segment(self) -> StackVec<Segment<I>, 4> {
         let [p0, p1, p2, p3] = self.control_points;
@@ -569,5 +610,25 @@ mod tests {
         assert!((intersection.t0.value() - SegmentParam::<i32>::from_int(3, 7).value()).abs() <= 1);
         assert!((intersection.t1.value() - SegmentParam::<i32>::from_int(6, 7).value()).abs() <= 1);
         assert_eq!(intersection.point, IntPoint::new(-17, -14));
+    }
+
+    #[test]
+    fn splits_cubic_at_cusp() {
+        let cubic = CubicSegment {
+            control_points: [
+                IntPoint::new(0, 0),
+                IntPoint::new(100, 100),
+                IntPoint::new(0, 100),
+                IntPoint::new(100, 0),
+            ],
+        };
+
+        let segments = cubic.split_at_cusps();
+        let segments = segments.as_slice();
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].control_points[0], cubic.control_points[0]);
+        assert_eq!(segments[1].control_points[3], cubic.control_points[3]);
+        assert_eq!(segments[0].control_points[3], segments[1].control_points[0]);
     }
 }

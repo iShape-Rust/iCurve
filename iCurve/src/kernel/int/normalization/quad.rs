@@ -1,10 +1,50 @@
+use crate::collections::stack_vec::StackVec;
 use crate::kernel::int::curve::line::LineSegment;
+use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::quad::QuadSegment;
 use crate::kernel::int::curve::segment::Segment;
+use crate::kernel::int::normalization::monotone::decomposition::roots_to_segments;
+use i_overlay::i_float::int::number::fixed_scale::FixedScale;
 use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::i_float::int::number::wide_int::WideIntNumber;
+use i_overlay::i_float::int::vector::IntVector;
 use i_overlay::i_float::triangle::Triangle;
 
 impl<I: IntNumber> QuadSegment<I> {
+    pub(crate) fn split_at_cusp(&self) -> StackVec<Self, 2> {
+        let mut roots = StackVec::<SegmentParam<I>, 1>::new();
+        roots.push_some(self.cusp_param());
+        roots_to_segments(self, roots)
+    }
+
+    fn cusp_param(&self) -> Option<SegmentParam<I>> {
+        let [p0, p1, p2] = self.control_points;
+        let tangent = IntVector::<I>::new(p1.x.to_wide() - p0.x.to_wide(), p1.y.to_wide() - p0.y.to_wide());
+        let delta = IntVector::<I>::new(
+            p2.x.to_wide() - I::Wide::TWO * p1.x.to_wide() + p0.x.to_wide(),
+            p2.y.to_wide() - I::Wide::TWO * p1.y.to_wide() + p0.y.to_wide(),
+        );
+
+        if delta.x == I::Wide::ZERO && delta.y == I::Wide::ZERO {
+            return None;
+        }
+        if tangent.cross_product(delta) != I::Wide::ZERO {
+            return None;
+        }
+
+        let t = if delta.x.unsigned_abs() >= delta.y.unsigned_abs() {
+            FixedScale::<I>::div_to_scaled_round(-tangent.x, delta.x)
+        } else {
+            FixedScale::<I>::div_to_scaled_round(-tangent.y, delta.y)
+        };
+
+        if t > I::Wide::ZERO && t < SegmentParam::<I>::DENOMINATOR {
+            Some(SegmentParam::new(I::from_wide(t)))
+        } else {
+            None
+        }
+    }
+
     #[inline]
     pub(crate) fn try_segment(self) -> Option<Segment<I>> {
         let [p0, p1, p2] = self.control_points;
@@ -74,5 +114,20 @@ mod tests {
             Some(Segment::Quad(segment)) => assert_eq!(segment.control_points, [p0, p1, p2]),
             _ => panic!("expected quad segment"),
         }
+    }
+
+    #[test]
+    fn splits_quad_at_cusp() {
+        let quad = QuadSegment {
+            control_points: [IntPoint::new(0, 0), IntPoint::new(4, 0), IntPoint::new(2, 0)],
+        };
+
+        let segments = quad.split_at_cusp();
+        let segments = segments.as_slice();
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].control_points[0], quad.control_points[0]);
+        assert_eq!(segments[1].control_points[2], quad.control_points[2]);
+        assert_eq!(segments[0].control_points[2], segments[1].control_points[0]);
     }
 }

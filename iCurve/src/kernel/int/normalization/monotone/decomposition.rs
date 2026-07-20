@@ -17,7 +17,7 @@ pub(crate) trait DecomposeIntoMonotone {
 }
 
 #[inline]
-pub(super) fn roots_to_segments<I, S, const ROOT_CAP: usize, const SEGMENT_CAP: usize>(
+pub(crate) fn roots_to_segments<I, S, const ROOT_CAP: usize, const SEGMENT_CAP: usize>(
     segment: &S,
     mut roots: StackVec<SegmentParam<I>, ROOT_CAP>,
 ) -> StackVec<S, SEGMENT_CAP>

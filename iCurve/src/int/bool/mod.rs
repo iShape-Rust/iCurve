@@ -1,2 +1,3 @@
+mod edge;
 mod overlay;
-mod segment;
+mod slice;
