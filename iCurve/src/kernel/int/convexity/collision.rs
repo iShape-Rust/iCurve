@@ -4,6 +4,40 @@ use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 impl<I: IntNumber> StackVec<IntPoint<I>, 4> {
+    pub(crate) fn contains_point_border_included(&self, point: IntPoint<I>) -> bool {
+        let points = self.as_slice();
+        match points {
+            [] => false,
+            [a] => *a == point,
+            [a, b] => {
+                let ab = *b - *a;
+                let ap = point - *a;
+                ab.cross_product(ap) == I::Wide::ZERO
+                    && a.x.min(b.x) <= point.x
+                    && point.x <= a.x.max(b.x)
+                    && a.y.min(b.y) <= point.y
+                    && point.y <= a.y.max(b.y)
+            }
+            _ => {
+                let mut has_positive = false;
+                let mut has_negative = false;
+                let mut a = *points.last().unwrap();
+
+                for &b in points {
+                    let cross = (b - a).cross_product(point - a);
+                    has_positive |= cross > I::Wide::ZERO;
+                    has_negative |= cross < I::Wide::ZERO;
+                    if has_positive && has_negative {
+                        return false;
+                    }
+                    a = b;
+                }
+
+                true
+            }
+        }
+    }
+
     #[inline]
     pub(crate) fn is_overlapping_border_excluded(&self, other: &Self) -> bool {
         !self.has_separate_line::<true>(other.as_slice()) && !other.has_separate_line::<true>(self.as_slice())
@@ -115,6 +149,23 @@ mod tests {
     use crate::collections::stack_vec::StackVec;
     use i_overlay::i_shape::int::IntPoint;
     use i_overlay::i_shape::int_path;
+
+    #[test]
+    fn contains_point_with_border_for_polygon_and_line_hulls() {
+        let polygon = StackVec::with_slice_as_convex(&[
+            IntPoint::new(0, 0),
+            IntPoint::new(10, 0),
+            IntPoint::new(10, 10),
+            IntPoint::new(0, 10),
+        ]);
+        assert!(polygon.contains_point_border_included(IntPoint::new(5, 5)));
+        assert!(polygon.contains_point_border_included(IntPoint::new(0, 5)));
+        assert!(!polygon.contains_point_border_included(IntPoint::new(-1, 5)));
+
+        let line = StackVec::with_slice_as_convex(&[IntPoint::new(0, 0), IntPoint::new(10, 10)]);
+        assert!(line.contains_point_border_included(IntPoint::new(5, 5)));
+        assert!(!line.contains_point_border_included(IntPoint::new(5, 6)));
+    }
 
     #[test]
     fn test_overlapping_2() {

@@ -1,6 +1,6 @@
+use crate::kernel::int::curve::chord::{Chord, SegmentChord};
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
-use crate::kernel::int::curve::chord::{Chord, SegmentChord};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct LineSegment<I: IntNumber> {
@@ -10,6 +10,9 @@ pub struct LineSegment<I: IntNumber> {
 impl<I: IntNumber> Chord<I> for LineSegment<I> {
     #[inline]
     fn chord(&self) -> SegmentChord<I> {
-        SegmentChord { a: self.control_points[0], b: self.control_points[1] }
+        SegmentChord {
+            a: self.control_points[0],
+            b: self.control_points[1],
+        }
     }
 }

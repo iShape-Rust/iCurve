@@ -3,7 +3,9 @@ use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::point_at::PointAt;
 use crate::kernel::int::curve::quad::QuadSegment;
+use crate::kernel::int::curve::segment::Segment;
 use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::i_shape::int::IntPoint;
 
 pub trait SplitAt<I: IntNumber> {
     type Output;
@@ -144,6 +146,54 @@ impl<I: IntNumber> SplitAt<I> for CubicSegment<I> {
 
         Self {
             control_points: [p0123, p123, p23, p3],
+        }
+    }
+}
+
+impl<I: IntNumber> Segment<I> {
+    pub(crate) fn split_at_point(&self, t: SegmentParam<I>, point: IntPoint<I>) -> [Self; 2] {
+        match self {
+            Segment::Line(line) => {
+                let [mut left, mut right] = line.split_at(t);
+                left.control_points[1] = point;
+                right.control_points[0] = point;
+                [Segment::Line(left), Segment::Line(right)]
+            }
+            Segment::Quad(quad) => {
+                let [mut left, mut right] = quad.split_at(t);
+                left.control_points[2] = point;
+                right.control_points[0] = point;
+                [Segment::Quad(left), Segment::Quad(right)]
+            }
+            Segment::Cubic(cubic) => {
+                let [mut left, mut right] = cubic.split_at(t);
+                left.control_points[3] = point;
+                right.control_points[0] = point;
+                [Segment::Cubic(left), Segment::Cubic(right)]
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod segment_tests {
+    use super::*;
+
+    #[test]
+    fn split_at_point_uses_requested_shared_point() {
+        let segment = Segment::Quad(QuadSegment {
+            control_points: [IntPoint::new(0, 0), IntPoint::new(5, 8), IntPoint::new(10, 0)],
+        });
+        let point = IntPoint::new(5, 5);
+
+        let [left, right] = segment.split_at_point(SegmentParam::half(), point);
+
+        match (left, right) {
+            (Segment::Quad(left), Segment::Quad(right)) => {
+                assert_eq!(left.control_points[2], point);
+                assert_eq!(right.control_points[0], point);
+            }
+            _ => panic!("expected quadratic segments"),
         }
     }
 }

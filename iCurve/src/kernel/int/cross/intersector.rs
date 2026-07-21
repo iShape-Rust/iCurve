@@ -18,13 +18,13 @@ pub(crate) struct SplitOptions<I: IntNumber> {
     pub(super) cross_radius: I::Wide,
 }
 
-pub(super) struct SegmentIntersector<I: IntNumber> {
+pub(crate) struct SegmentIntersector<I: IntNumber> {
     pub(super) options: SplitOptions<I>,
     original_segment_0: Segment<I>,
     original_segment_1: Segment<I>,
 }
 
-pub(super) struct Pair<I: IntNumber> {
+struct Pair<I: IntNumber> {
     s0: Segment<I>,
     ch0: StackVec<IntPoint<I>, 4>,
     t0: SegmentParam<I>,
@@ -35,6 +35,11 @@ pub(super) struct Pair<I: IntNumber> {
     t1: SegmentParam<I>,
     step1: SegmentParam<I>,
     is_nearly_linear_1: bool,
+}
+
+pub(crate) struct SegmentIntersectionBuffer<I: IntNumber> {
+    stack: Vec<Pair<I>>,
+    contacts: Vec<ContactPoint<I>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,13 +66,21 @@ impl<I: IntNumber> SegmentIntersector<I> {
     }
 
     pub(crate) fn intersect(&self) -> Vec<ContactPoint<I>> {
-        let mut stack = Vec::new();
-        let mut output = Vec::new();
-        self.intersect_with_buffer(&mut stack, &mut output);
-        output
+        let mut buffer = SegmentIntersectionBuffer::default();
+        self.intersect_with_buffer(&mut buffer);
+        buffer.contacts
     }
 
-    pub(crate) fn intersect_with_buffer(&self, stack: &mut Vec<Pair<I>>, output: &mut Vec<ContactPoint<I>>) {
+    pub(crate) fn intersect_with_buffer<'a>(
+        &self,
+        buffer: &'a mut SegmentIntersectionBuffer<I>,
+    ) -> &'a [ContactPoint<I>] {
+        buffer.contacts.clear();
+        self.intersect_into(&mut buffer.stack, &mut buffer.contacts);
+        &buffer.contacts
+    }
+
+    fn intersect_into(&self, stack: &mut Vec<Pair<I>>, output: &mut Vec<ContactPoint<I>>) {
         stack.clear();
 
         let first = Pair {
@@ -209,6 +222,15 @@ impl<I: IntNumber> SegmentIntersector<I> {
                     });
                 }
             }
+        }
+    }
+}
+
+impl<I: IntNumber> Default for SegmentIntersectionBuffer<I> {
+    fn default() -> Self {
+        Self {
+            stack: Vec::new(),
+            contacts: Vec::new(),
         }
     }
 }

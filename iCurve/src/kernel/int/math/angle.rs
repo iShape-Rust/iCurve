@@ -31,8 +31,8 @@ impl<I: IntNumber> ApproximateAngle for IntVector<I> {
 
 #[cfg(test)]
 mod tests {
-    use i_overlay::i_float::int::vector::IntVector;
     use crate::kernel::int::math::angle::ApproximateAngle;
+    use i_overlay::i_float::int::vector::IntVector;
 
     #[test]
     fn test_0() {

@@ -1,4 +1,6 @@
-use crate::kernel::int::cross::intersector::{ContactPoint, SegmentIntersector, SplitOptions};
+use crate::kernel::int::cross::intersector::{
+    ContactPoint, SegmentIntersectionBuffer, SegmentIntersector, SplitOptions,
+};
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::normalization::canonical::PushCanonicalSegment;
@@ -13,7 +15,7 @@ impl<I: IntNumber> Segment<I> {
         a_segments.push_canonical(self);
         b_segments.push_canonical(other);
 
-        let mut stack = Vec::new();
+        let mut buffer = SegmentIntersectionBuffer::default();
         let mut output = Vec::new();
 
         for a in a_segments.iter() {
@@ -22,7 +24,11 @@ impl<I: IntNumber> Segment<I> {
                 let b_rect = b.chord().to_rect();
                 if a_rect.is_intersect_border_exclude(&b_rect) {
                     let intersector = SegmentIntersector::new(*a, *b, SplitOptions::default());
-                    intersector.intersect_with_buffer(&mut stack, &mut output);
+                    for &contact in intersector.intersect_with_buffer(&mut buffer) {
+                        if !output.contains(&contact) {
+                            output.push(contact);
+                        }
+                    }
                 }
             }
         }

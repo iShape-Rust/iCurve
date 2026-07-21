@@ -1,10 +1,10 @@
+use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::math::angle::ApproximateAngle;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
-use crate::kernel::int::curve::chord::Chord;
 
 pub(super) struct Split<I: IntNumber> {
     pub(super) t0: SegmentParam<I>,

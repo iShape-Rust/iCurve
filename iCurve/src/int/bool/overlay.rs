@@ -1,4 +1,6 @@
+use crate::int::bool::chord_refine::{ChordTopologyRefiner, RefineOutcome};
 use crate::int::bool::edge::CurveEdge;
+use crate::int::bool::planarize::CurvePlanarizer;
 use crate::int::bool::slice::{CurveId, CurveSlice};
 use crate::int::curve::shape::CurveShape;
 use crate::kernel::int::normalization::canonical::{PushCanonicalSimpleSegment, PushSimpleSegment};
@@ -59,8 +61,25 @@ impl<I: IntNumber> IntCurveOverlay<I> {
         // 1. prepare topology
         // add_shape already stores simple CurveSlices and converts them into canonical CurveEdges with stable CurveIds
 
-        // find all intersection and split segments in all intersection points, the goal the result segments must not intersect each other but can touch each other at ends
-        // the segments (convex hull) can not contain chord of other segments and if it has we also must break this segment. We will use special approximate api for it like find closest point to a chord to split a segment
+        let mut planarizer = CurvePlanarizer::new();
+        let mut chord_refiner = ChordTopologyRefiner::new();
+
+        loop {
+            planarizer.planarize(&mut self.curve_edges);
+
+            match chord_refiner.refine(&mut self.curve_edges) {
+                RefineOutcome::PlanarityPreserved => break,
+                RefineOutcome::Replanarize { escaped_marks } => {
+                    #[cfg(all(debug_assertions, feature = "std"))]
+                    std::eprintln!(
+                        "ChordTopologyRefiner: {escaped_marks} marks escaped their source hull; running CurvePlanarizer again"
+                    );
+
+                    #[cfg(not(all(debug_assertions, feature = "std")))]
+                    let _ = escaped_marks;
+                }
+            }
+        }
 
         // 2. all prepared segments can now successfully use EdgeOverlay as a segment data we will use id/or index to shape id/index
 
