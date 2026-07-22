@@ -23,6 +23,13 @@ pub struct IntCurveOverlay<I: IntNumber> {
 }
 
 impl<I: IntNumber> IntCurveOverlay<I> {
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            curve_slices: Vec::with_capacity(capacity),
+            curve_edges: Vec::with_capacity(capacity),
+        }
+    }
+
     pub fn add_shape(&mut self, shape: CurveShape<I>, shape_type: ShapeType) {
         let mut simple_curves = Vec::new();
         let mut canonical_curves = Vec::new();

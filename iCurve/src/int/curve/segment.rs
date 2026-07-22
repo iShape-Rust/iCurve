@@ -5,6 +5,7 @@ use crate::kernel::int::curve::segment::Segment;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CurveSegment<I: IntNumber> {
     Line {
         to: IntPoint<I>,

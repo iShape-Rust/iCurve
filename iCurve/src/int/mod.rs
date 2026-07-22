@@ -1,2 +1,2 @@
-mod bool;
+pub mod bool;
 pub mod curve;
