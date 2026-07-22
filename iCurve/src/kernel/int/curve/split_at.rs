@@ -15,30 +15,65 @@ pub trait SplitAt<I: IntNumber> {
     fn split_at_right(&self, t: SegmentParam<I>) -> Self;
 }
 
+pub(crate) trait SetSegmentEndpoints<I: IntNumber> {
+    fn set_endpoints(&mut self, start: IntPoint<I>, end: IntPoint<I>);
+}
+
 #[inline]
-pub(crate) fn segment_range<I, S>(segment: &S, start: SegmentParam<I>, end: SegmentParam<I>) -> S
+pub(crate) fn segment_range<I, S>(
+    segment: &S,
+    start_param: SegmentParam<I>,
+    start_point: IntPoint<I>,
+    end_param: SegmentParam<I>,
+    end_point: IntPoint<I>,
+) -> S
 where
     I: IntNumber,
-    S: SplitAt<I, Output = [S; 2]> + Copy,
+    S: SplitAt<I, Output = [S; 2]> + SetSegmentEndpoints<I> + Copy,
 {
-    if start.value() == I::Wide::ZERO && end.value() == SegmentParam::<I>::DENOMINATOR {
-        return *segment;
+    let mut result =
+        if start_param.value() == I::Wide::ZERO && end_param.value() == SegmentParam::<I>::DENOMINATOR {
+            *segment
+        } else if start_param.value() == I::Wide::ZERO {
+            segment.split_at_left(end_param)
+        } else {
+            let right = segment.split_at_right(start_param);
+            if end_param.value() == SegmentParam::<I>::DENOMINATOR {
+                right
+            } else {
+                let numerator = end_param.value() - start_param.value();
+                let denominator = SegmentParam::<I>::DENOMINATOR - start_param.value();
+                let local = SegmentParam::from_int(I::from_wide(numerator), I::from_wide(denominator));
+                right.split_at_left(local)
+            }
+        };
+
+    result.set_endpoints(start_point, end_point);
+    result
+}
+
+impl<I: IntNumber> SetSegmentEndpoints<I> for LineSegment<I> {
+    #[inline]
+    fn set_endpoints(&mut self, start: IntPoint<I>, end: IntPoint<I>) {
+        self.control_points[0] = start;
+        self.control_points[1] = end;
     }
+}
 
-    if start.value() == I::Wide::ZERO {
-        return segment.split_at_left(end);
+impl<I: IntNumber> SetSegmentEndpoints<I> for QuadSegment<I> {
+    #[inline]
+    fn set_endpoints(&mut self, start: IntPoint<I>, end: IntPoint<I>) {
+        self.control_points[0] = start;
+        self.control_points[2] = end;
     }
+}
 
-    let right = segment.split_at_right(start);
-    if end.value() == SegmentParam::<I>::DENOMINATOR {
-        return right;
+impl<I: IntNumber> SetSegmentEndpoints<I> for CubicSegment<I> {
+    #[inline]
+    fn set_endpoints(&mut self, start: IntPoint<I>, end: IntPoint<I>) {
+        self.control_points[0] = start;
+        self.control_points[3] = end;
     }
-
-    let numerator = end.value() - start.value();
-    let denominator = SegmentParam::<I>::DENOMINATOR - start.value();
-    let local = SegmentParam::from_int(I::from_wide(numerator), I::from_wide(denominator));
-
-    right.split_at_left(local)
 }
 
 impl<I: IntNumber> SplitAt<I> for LineSegment<I> {
@@ -215,16 +250,34 @@ impl<I: IntNumber> Segment<I> {
         }
 
         let reverse = start_value > end_value;
-        let (range_start, range_end) = if reverse {
-            (end_param, start_param)
+        let (range_start_param, range_start_point, range_end_param, range_end_point) = if reverse {
+            (end_param, end_point, start_param, start_point)
         } else {
-            (start_param, end_param)
+            (start_param, start_point, end_param, end_point)
         };
 
         let mut result = match self {
-            Segment::Line(line) => Segment::Line(segment_range(line, range_start, range_end)),
-            Segment::Quad(quad) => Segment::Quad(segment_range(quad, range_start, range_end)),
-            Segment::Cubic(cubic) => Segment::Cubic(segment_range(cubic, range_start, range_end)),
+            Segment::Line(line) => Segment::Line(segment_range(
+                line,
+                range_start_param,
+                range_start_point,
+                range_end_param,
+                range_end_point,
+            )),
+            Segment::Quad(quad) => Segment::Quad(segment_range(
+                quad,
+                range_start_param,
+                range_start_point,
+                range_end_param,
+                range_end_point,
+            )),
+            Segment::Cubic(cubic) => Segment::Cubic(segment_range(
+                cubic,
+                range_start_param,
+                range_start_point,
+                range_end_param,
+                range_end_point,
+            )),
         };
 
         if reverse {
@@ -235,21 +288,6 @@ impl<I: IntNumber> Segment<I> {
             }
         }
 
-        match &mut result {
-            Segment::Line(line) => {
-                line.control_points[0] = start_point;
-                line.control_points[1] = end_point;
-            }
-            Segment::Quad(quad) => {
-                quad.control_points[0] = start_point;
-                quad.control_points[2] = end_point;
-            }
-            Segment::Cubic(cubic) => {
-                cubic.control_points[0] = start_point;
-                cubic.control_points[3] = end_point;
-            }
-        }
-
         Some(result)
     }
 }
@@ -257,6 +295,26 @@ impl<I: IntNumber> Segment<I> {
 #[cfg(test)]
 mod segment_tests {
     use super::*;
+
+    #[test]
+    fn segment_range_uses_requested_endpoints() {
+        let segment = QuadSegment {
+            control_points: [IntPoint::new(0, 0), IntPoint::new(5, 8), IntPoint::new(10, 0)],
+        };
+        let start = IntPoint::new(3, 4);
+        let end = IntPoint::new(7, 4);
+
+        let range = segment_range(
+            &segment,
+            SegmentParam::from_int(1, 4),
+            start,
+            SegmentParam::from_int(3, 4),
+            end,
+        );
+
+        assert_eq!(range.control_points[0], start);
+        assert_eq!(range.control_points[2], end);
+    }
 
     #[test]
     fn split_at_point_uses_requested_shared_point() {

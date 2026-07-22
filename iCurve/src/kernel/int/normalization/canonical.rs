@@ -1,5 +1,6 @@
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::{SegmentParam, interpolate_segment_param};
+use crate::kernel::int::curve::point_at::PointAt;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::curve::split_at::{SplitAt, segment_range};
 use crate::kernel::int::normalization::cubic::CubicSShapeNormalization;
@@ -132,23 +133,29 @@ impl<I: IntNumber> PushCanonicalSimpleParametricSegment<I> for Vec<ParametricSeg
             Segment::Quad(quad) => {
                 let roots = quad.monotone_roots();
                 let mut start = zero;
+                let mut start_point = quad.chord().a;
 
                 for end in roots.into_iter().chain(core::iter::once(one)) {
-                    let curve = Segment::Quad(segment_range(&quad, start, end));
+                    let end_point = quad.control_points.point_at(end);
+                    let curve = Segment::Quad(segment_range(&quad, start, start_point, end, end_point));
                     if !curve.chord().is_zero_length() {
                         self.push(ParametricSegment { curve, start, end });
                     }
                     start = end;
+                    start_point = end_point;
                 }
             }
             Segment::Cubic(cubic) => {
                 let roots = cubic.monotone_roots();
                 let mut start = zero;
+                let mut start_point = cubic.chord().a;
 
                 for end in roots.into_iter().chain(core::iter::once(one)) {
-                    let monotone = segment_range(&cubic, start, end);
+                    let end_point = cubic.control_points.point_at(end);
+                    let monotone = segment_range(&cubic, start, start_point, end, end_point);
                     if monotone.chord().is_zero_length() {
                         start = end;
+                        start_point = end_point;
                         continue;
                     }
 
@@ -174,8 +181,42 @@ impl<I: IntNumber> PushCanonicalSimpleParametricSegment<I> for Vec<ParametricSeg
                     }
 
                     start = end;
+                    start_point = end_point;
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::kernel::int::curve::quad::QuadSegment;
+    use i_overlay::i_shape::int::IntPoint;
+
+    #[test]
+    fn parametric_quad_pieces_share_monotone_root_point() {
+        let quad = Segment::Quad(QuadSegment {
+            control_points: [
+                IntPoint::new(110, 55),
+                IntPoint::new(-177, -145),
+                IntPoint::new(-110, 55),
+            ],
+        });
+        let mut pieces = Vec::new();
+
+        pieces.push_canonical_simple_parametric(quad);
+
+        assert_eq!(pieces.len(), 3);
+        for pair in pieces.windows(2) {
+            let [left, right] = pair else { unreachable!() };
+            assert_eq!(left.end, right.start);
+            assert_eq!(
+                left.curve.chord().b,
+                right.curve.chord().a,
+                "canonical pieces must share the point at parameter {:?}",
+                left.end
+            );
         }
     }
 }
