@@ -2,6 +2,7 @@ use crate::int::bool::chord_refine::{ChordTopologyRefiner, RefineOutcome};
 use crate::int::bool::data::{CurveEdgeData, CurveEdgeDataStore};
 use crate::int::bool::edge::CurveEdge;
 use crate::int::bool::planarize::CurvePlanarizer;
+use crate::int::bool::recompose::CurveRecomposer;
 use crate::int::bool::slice::{CurveId, CurveMark, CurveSlice};
 use crate::int::curve::shape::CurveShape;
 use crate::kernel::int::curve::chord::Chord;
@@ -66,16 +67,7 @@ impl<I: IntNumber> IntCurveOverlay<I> {
     }
 
     fn prepare(&mut self) {
-        // we will have several steps
-        // 1. prepare topology, split into segments and bake curve type in each segment
-        // 2. use this topology find overlay using i_overlay::core::edge_overlay::EdgeOverlay
-        // 3. build curve back using baked information in segments
-
-        // Now all steps more detailed
-
-        // 1. prepare topology
-        // add_shape already stores simple CurveSlices and converts them into canonical CurveEdges with stable CurveIds
-
+        // Split curves until their chords preserve the planar curve topology.
         let mut planarizer = CurvePlanarizer::new();
         let mut chord_refiner = ChordTopologyRefiner::new();
 
@@ -133,13 +125,11 @@ impl<I: IntNumber> IntCurveOverlay<I> {
     {
         self.prepare();
 
-        // 2. prepared chords carry their CurveId through EdgeOverlay. Coincident chords merge
-        // their provenance into an interned CurveId set.
-        let (_vector_shapes, _data_store) = self.build_vector_shapes(overlay_rule, fill_rule);
+        // Resolve the boolean topology while preserving CurveId provenance.
+        let (vector_shapes, data_store) = self.build_vector_shapes(overlay_rule, fill_rule);
 
-        // 3. by EdgeOverlay result segments collect curve slices if neighbor segments has same id it's a part of the same curve slice we join it
-
-        Vec::new()
+        // Restore maximal runs from their source curve slices.
+        CurveRecomposer::new().recompose(vector_shapes, &data_store, &self.curve_slices)
     }
 }
 
@@ -415,5 +405,14 @@ mod tests {
             let second_type = overlay.curve_slices[ids[1].0].shape_type;
             assert_ne!(first_type, second_type);
         }
+
+        let result = CurveRecomposer::new().recompose(shapes, &store, &overlay.curve_slices);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].contours.len(), 1);
+        assert_eq!(result[0].contours[0].segments.len(), 4);
+
+        let public_result = overlay.overlay(OverlayRule::Intersect, FillRule::NonZero);
+        assert_eq!(public_result.len(), 1);
+        assert_eq!(public_result[0].contours[0].segments.len(), 4);
     }
 }

@@ -5,6 +5,7 @@ use crate::kernel::int::curve::point_at::PointAt;
 use crate::kernel::int::curve::quad::QuadSegment;
 use crate::kernel::int::curve::segment::Segment;
 use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 pub trait SplitAt<I: IntNumber> {
@@ -12,6 +13,32 @@ pub trait SplitAt<I: IntNumber> {
     fn split_at(&self, t: SegmentParam<I>) -> Self::Output;
     fn split_at_left(&self, t: SegmentParam<I>) -> Self;
     fn split_at_right(&self, t: SegmentParam<I>) -> Self;
+}
+
+#[inline]
+pub(crate) fn segment_range<I, S>(segment: &S, start: SegmentParam<I>, end: SegmentParam<I>) -> S
+where
+    I: IntNumber,
+    S: SplitAt<I, Output = [S; 2]> + Copy,
+{
+    if start.value() == I::Wide::ZERO && end.value() == SegmentParam::<I>::DENOMINATOR {
+        return *segment;
+    }
+
+    if start.value() == I::Wide::ZERO {
+        return segment.split_at_left(end);
+    }
+
+    let right = segment.split_at_right(start);
+    if end.value() == SegmentParam::<I>::DENOMINATOR {
+        return right;
+    }
+
+    let numerator = end.value() - start.value();
+    let denominator = SegmentParam::<I>::DENOMINATOR - start.value();
+    let local = SegmentParam::from_int(I::from_wide(numerator), I::from_wide(denominator));
+
+    right.split_at_left(local)
 }
 
 impl<I: IntNumber> SplitAt<I> for LineSegment<I> {
@@ -173,6 +200,58 @@ impl<I: IntNumber> Segment<I> {
             }
         }
     }
+
+    pub(crate) fn subsegment(
+        &self,
+        start_param: SegmentParam<I>,
+        start_point: IntPoint<I>,
+        end_param: SegmentParam<I>,
+        end_point: IntPoint<I>,
+    ) -> Option<Self> {
+        let start_value = start_param.value();
+        let end_value = end_param.value();
+        if start_value == end_value {
+            return None;
+        }
+
+        let reverse = start_value > end_value;
+        let (range_start, range_end) = if reverse {
+            (end_param, start_param)
+        } else {
+            (start_param, end_param)
+        };
+
+        let mut result = match self {
+            Segment::Line(line) => Segment::Line(segment_range(line, range_start, range_end)),
+            Segment::Quad(quad) => Segment::Quad(segment_range(quad, range_start, range_end)),
+            Segment::Cubic(cubic) => Segment::Cubic(segment_range(cubic, range_start, range_end)),
+        };
+
+        if reverse {
+            match &mut result {
+                Segment::Line(line) => line.control_points.reverse(),
+                Segment::Quad(quad) => quad.control_points.reverse(),
+                Segment::Cubic(cubic) => cubic.control_points.reverse(),
+            }
+        }
+
+        match &mut result {
+            Segment::Line(line) => {
+                line.control_points[0] = start_point;
+                line.control_points[1] = end_point;
+            }
+            Segment::Quad(quad) => {
+                quad.control_points[0] = start_point;
+                quad.control_points[2] = end_point;
+            }
+            Segment::Cubic(cubic) => {
+                cubic.control_points[0] = start_point;
+                cubic.control_points[3] = end_point;
+            }
+        }
+
+        Some(result)
+    }
 }
 
 #[cfg(test)]
@@ -194,6 +273,60 @@ mod segment_tests {
                 assert_eq!(right.control_points[0], point);
             }
             _ => panic!("expected quadratic segments"),
+        }
+    }
+
+    #[test]
+    fn extracts_and_reverses_cubic_subsegment() {
+        let segment = Segment::Cubic(CubicSegment {
+            control_points: [
+                IntPoint::new(0, 0),
+                IntPoint::new(0, 8),
+                IntPoint::new(8, 8),
+                IntPoint::new(8, 0),
+            ],
+        });
+        let middle = IntPoint::new(4, 6);
+
+        let forward = segment
+            .subsegment(
+                SegmentParam::new(0),
+                IntPoint::new(0, 0),
+                SegmentParam::half(),
+                middle,
+            )
+            .unwrap();
+        let reverse = segment
+            .subsegment(
+                SegmentParam::half(),
+                middle,
+                SegmentParam::new(0),
+                IntPoint::new(0, 0),
+            )
+            .unwrap();
+
+        match (forward, reverse) {
+            (Segment::Cubic(forward), Segment::Cubic(reverse)) => {
+                assert_eq!(
+                    forward.control_points,
+                    [
+                        IntPoint::new(0, 0),
+                        IntPoint::new(0, 4),
+                        IntPoint::new(2, 6),
+                        middle,
+                    ]
+                );
+                assert_eq!(
+                    reverse.control_points,
+                    [
+                        middle,
+                        IntPoint::new(2, 6),
+                        IntPoint::new(0, 4),
+                        IntPoint::new(0, 0),
+                    ]
+                );
+            }
+            _ => panic!("expected cubic segments"),
         }
     }
 }

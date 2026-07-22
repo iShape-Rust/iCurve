@@ -21,6 +21,23 @@ pub enum CurveSegment<I: IntNumber> {
 }
 
 impl<I: IntNumber> CurveSegment<I> {
+    pub(crate) fn from_kernel_segment(segment: Segment<I>) -> Self {
+        match segment {
+            Segment::Line(line) => Self::Line {
+                to: line.control_points[1],
+            },
+            Segment::Quad(quad) => Self::Quad {
+                ctrl: quad.control_points[1],
+                to: quad.control_points[2],
+            },
+            Segment::Cubic(cubic) => Self::Cubic {
+                ctrl0: cubic.control_points[1],
+                ctrl1: cubic.control_points[2],
+                to: cubic.control_points[3],
+            },
+        }
+    }
+
     pub(crate) fn into_kernel_segment(self, start: IntPoint<I>) -> (Segment<I>, IntPoint<I>) {
         match self {
             Self::Line { to } => (

@@ -1,9 +1,9 @@
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::{SegmentParam, interpolate_segment_param};
 use crate::kernel::int::curve::segment::Segment;
-use crate::kernel::int::curve::split_at::SplitAt;
+use crate::kernel::int::curve::split_at::{SplitAt, segment_range};
 use crate::kernel::int::normalization::cubic::CubicSShapeNormalization;
-use crate::kernel::int::normalization::monotone::decomposition::{DecomposeIntoMonotone, segment_range};
+use crate::kernel::int::normalization::monotone::decomposition::DecomposeIntoMonotone;
 use alloc::vec::Vec;
 use i_overlay::i_float::int::number::int::IntNumber;
 
