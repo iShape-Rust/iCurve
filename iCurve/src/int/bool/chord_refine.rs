@@ -1,6 +1,7 @@
 use crate::int::bool::edge::CurveEdge;
 use crate::int::bool::slice::CurveSlice;
 use crate::int::bool::split::{CurveEdgeSplitter, CurveSplitMark};
+use crate::kernel::int::cross::ChordCross;
 use crate::kernel::int::curve::chord::{Chord, SegmentChord};
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::point_at::PointAt;
@@ -29,7 +30,10 @@ pub(crate) struct ChordTopologyRefiner<I: IntNumber> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RefineOutcome {
     PlanarityPreserved,
-    Replanarize { escaped_marks: usize },
+    Replanarize {
+        escaped_marks: usize,
+        crossed_chords: usize,
+    },
 }
 
 impl<I: IntNumber> ChordTopologyRefiner<I> {
@@ -52,14 +56,14 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
         }
 
         self.build_bounds(edges);
-        self.collect_split_marks(edges);
-        let outcome = Self::outcome(edges, &self.split_marks);
+        let crossed_chords = self.collect_split_marks(edges);
+        let outcome = Self::outcome(edges, &self.split_marks, crossed_chords);
         self.splitter.split(edges, &self.split_marks, slices);
 
         outcome
     }
 
-    fn outcome(edges: &[CurveEdge<I>], marks: &[CurveSplitMark<I>]) -> RefineOutcome {
+    fn outcome(edges: &[CurveEdge<I>], marks: &[CurveSplitMark<I>], crossed_chords: usize) -> RefineOutcome {
         let escaped_marks = marks
             .iter()
             .filter(|mark| {
@@ -70,10 +74,13 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
             })
             .count();
 
-        if escaped_marks == 0 {
+        if escaped_marks == 0 && crossed_chords == 0 {
             RefineOutcome::PlanarityPreserved
         } else {
-            RefineOutcome::Replanarize { escaped_marks }
+            RefineOutcome::Replanarize {
+                escaped_marks,
+                crossed_chords,
+            }
         }
     }
 
@@ -91,9 +98,10 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
             .sort_unstable_by_key(|item| (item.rect.min_x, item.rect.min_y));
     }
 
-    fn collect_split_marks(&mut self, edges: &[CurveEdge<I>]) {
+    fn collect_split_marks(&mut self, edges: &[CurveEdge<I>]) -> usize {
         self.active.clear();
         self.split_marks.clear();
+        let mut crossed_chords = 0;
 
         for bounds_index in 0..self.bounds.len() {
             let current = self.bounds[bounds_index];
@@ -105,13 +113,14 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
                     continue;
                 }
 
-                self.collect_pair_marks(edges, other, current);
+                crossed_chords += self.collect_pair_marks(edges, other, current);
             }
 
             self.active.push(current);
         }
 
         CurveSplitMark::sort_and_dedup(&mut self.split_marks);
+        crossed_chords
     }
 
     fn collect_pair_marks(
@@ -119,7 +128,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
         edges: &[CurveEdge<I>],
         first: CurveHullBounds<I>,
         second: CurveHullBounds<I>,
-    ) {
+    ) -> usize {
         let first_edge = edges[first.edge_index];
         let second_edge = edges[second.edge_index];
         let first_chord = first_edge.curve.chord();
@@ -132,13 +141,56 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
                 second.edge_index,
                 second_edge.curve,
             );
-            return;
+            return 0;
+        }
+
+        if let Some(ChordCross::Point(point)) = first_chord.cross(&second_chord, I::Wide::ZERO) {
+            let first_split =
+                self.collect_chord_cross_mark(first.edge_index, first_edge.curve, first_chord, point);
+            let second_split =
+                self.collect_chord_cross_mark(second.edge_index, second_edge.curve, second_chord, point);
+
+            if first_split || second_split {
+                return 1;
+            }
         }
 
         self.collect_endpoint_mark(second.edge_index, second_edge.curve, second.rect, first_chord.a);
         self.collect_endpoint_mark(second.edge_index, second_edge.curve, second.rect, first_chord.b);
         self.collect_endpoint_mark(first.edge_index, first_edge.curve, first.rect, second_chord.a);
         self.collect_endpoint_mark(first.edge_index, first_edge.curve, first.rect, second_chord.b);
+
+        0
+    }
+
+    fn collect_chord_cross_mark(
+        &mut self,
+        edge_index: usize,
+        curve: Segment<I>,
+        chord: SegmentChord<I>,
+        cross_point: IntPoint<I>,
+    ) -> bool {
+        let denominator = SegmentParam::<I>::DENOMINATOR;
+        let mut param = chord.param_for_point(cross_point);
+        if param.value() <= I::Wide::ZERO || param.value() >= denominator {
+            return false;
+        }
+
+        let mut point = Self::point_at(curve, param);
+        if point == chord.a || point == chord.b {
+            param = SegmentParam::half();
+            point = Self::point_at(curve, param);
+            if point == chord.a || point == chord.b {
+                return false;
+            }
+        }
+
+        self.split_marks.push(CurveSplitMark {
+            edge_index,
+            point,
+            param,
+        });
+        true
     }
 
     fn collect_endpoint_mark(
@@ -547,6 +599,28 @@ mod tests {
     }
 
     #[test]
+    fn splits_both_curves_when_their_chords_cross() {
+        let mut edges = vec![
+            quad(0, [[0, 120], [-55, 120], [-110, 84]]),
+            quad(1, [[-14, 124], [-69, 124], [-110, 55]]),
+        ];
+        let mut slices = slices(&edges);
+        let mut refiner = ChordTopologyRefiner::new();
+
+        let outcome = refiner.refine(&mut edges, &mut slices);
+
+        assert_eq!(
+            outcome,
+            RefineOutcome::Replanarize {
+                escaped_marks: 0,
+                crossed_chords: 1,
+            }
+        );
+        assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
+        assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(1)).count(), 2);
+    }
+
+    #[test]
     fn requests_replanarization_when_mark_escapes_source_hull() {
         let edges = vec![quad(0, [[0, 0], [5, 10], [10, 0]])];
         let marks = vec![CurveSplitMark {
@@ -556,8 +630,11 @@ mod tests {
         }];
 
         assert_eq!(
-            ChordTopologyRefiner::outcome(&edges, &marks),
-            RefineOutcome::Replanarize { escaped_marks: 1 }
+            ChordTopologyRefiner::outcome(&edges, &marks, 0),
+            RefineOutcome::Replanarize {
+                escaped_marks: 1,
+                crossed_chords: 0,
+            }
         );
     }
 
@@ -571,7 +648,7 @@ mod tests {
         }];
 
         assert_eq!(
-            ChordTopologyRefiner::outcome(&edges, &marks),
+            ChordTopologyRefiner::outcome(&edges, &marks, 0),
             RefineOutcome::PlanarityPreserved
         );
     }

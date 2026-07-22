@@ -37,6 +37,8 @@ struct ParallelPointIter<I: IntNumber> {
 struct ParallelEdgeIter<I: IntNumber> {
     points: ParallelPointIter<I>,
     previous: Option<Sample<I>>,
+    #[cfg(debug_assertions)]
+    last_end: Option<IntPoint<I>>,
 }
 
 impl<I: IntNumber> SegmentIntersector<I> {
@@ -178,6 +180,8 @@ impl<I: IntNumber> ParallelEdgeIter<I> {
         Self {
             points: ParallelPointIter::new(segment, axis, parts),
             previous: None,
+            #[cfg(debug_assertions)]
+            last_end: None,
         }
     }
 }
@@ -190,6 +194,14 @@ impl<I: IntNumber> Iterator for ParallelEdgeIter<I> {
             let sample = self.points.next()?;
             if let Some(previous) = self.previous.replace(sample) {
                 if previous.point != sample.point {
+                    #[cfg(debug_assertions)]
+                    {
+                        debug_assert!(
+                            self.last_end.is_none_or(|end| end == previous.point),
+                            "consecutive ParallelEdgeIter edges must share an endpoint"
+                        );
+                        self.last_end = Some(sample.point);
+                    }
                     return Some(PolylineEdge {
                         a: previous,
                         b: sample,

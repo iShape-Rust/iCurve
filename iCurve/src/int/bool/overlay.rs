@@ -83,14 +83,17 @@ impl<I: IntNumber> IntCurveOverlay<I> {
 
             match chord_refiner.refine(&mut self.curve_edges, &mut self.curve_slices) {
                 RefineOutcome::PlanarityPreserved => break,
-                RefineOutcome::Replanarize { escaped_marks } => {
+                RefineOutcome::Replanarize {
+                    escaped_marks,
+                    crossed_chords,
+                } => {
                     #[cfg(all(debug_assertions, feature = "std"))]
                     std::eprintln!(
-                        "ChordTopologyRefiner: {escaped_marks} marks escaped their source hull; running CurvePlanarizer again"
+                        "ChordTopologyRefiner: {escaped_marks} marks escaped their source hull and {crossed_chords} chord crossings were refined; running CurvePlanarizer again"
                     );
 
                     #[cfg(not(all(debug_assertions, feature = "std")))]
-                    let _ = escaped_marks;
+                    let _ = (escaped_marks, crossed_chords);
                 }
             }
         }
