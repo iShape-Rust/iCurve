@@ -161,17 +161,25 @@ impl<I: IntNumber> PushCanonicalSimpleParametricSegment<I> for Vec<ParametricSeg
 
                     if let Some(local) = monotone.s_shape_split_param() {
                         let [first, last] = monotone.split_at(local);
-                        let middle = interpolate_segment_param(start, end, local);
-                        self.push(ParametricSegment {
-                            curve: Segment::Cubic(first),
-                            start,
-                            end: middle,
-                        });
-                        self.push(ParametricSegment {
-                            curve: Segment::Cubic(last),
-                            start: middle,
-                            end,
-                        });
+                        if first.chord().is_zero_length() || last.chord().is_zero_length() {
+                            self.push(ParametricSegment {
+                                curve: Segment::Cubic(monotone),
+                                start,
+                                end,
+                            });
+                        } else {
+                            let middle = interpolate_segment_param(start, end, local);
+                            self.push(ParametricSegment {
+                                curve: Segment::Cubic(first),
+                                start,
+                                end: middle,
+                            });
+                            self.push(ParametricSegment {
+                                curve: Segment::Cubic(last),
+                                start: middle,
+                                end,
+                            });
+                        }
                     } else {
                         self.push(ParametricSegment {
                             curve: Segment::Cubic(monotone),
@@ -191,6 +199,7 @@ impl<I: IntNumber> PushCanonicalSimpleParametricSegment<I> for Vec<ParametricSeg
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::kernel::int::curve::cubic::CubicSegment;
     use crate::kernel::int::curve::quad::QuadSegment;
     use i_overlay::i_shape::int::IntPoint;
 
@@ -218,5 +227,25 @@ mod tests {
                 left.end
             );
         }
+    }
+
+    #[test]
+    fn parametric_cubic_does_not_emit_degenerate_s_shape_piece() {
+        let cubic = Segment::Cubic(CubicSegment {
+            control_points: [
+                IntPoint::new(170, 65),
+                IntPoint::new(-192, 115),
+                IntPoint::new(-197, 128),
+                IntPoint::new(-145, -40),
+            ],
+        });
+        let mut pieces = Vec::new();
+
+        pieces.push_canonical_simple_parametric(cubic);
+
+        assert!(
+            pieces.iter().all(|piece| !piece.curve.chord().is_zero_length()),
+            "canonicalization must not emit zero-length curve pieces"
+        );
     }
 }
