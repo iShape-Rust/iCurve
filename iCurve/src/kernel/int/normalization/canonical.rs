@@ -1,6 +1,9 @@
+use crate::kernel::int::curve::chord::Chord;
+use crate::kernel::int::curve::param::{SegmentParam, interpolate_segment_param};
 use crate::kernel::int::curve::segment::Segment;
+use crate::kernel::int::curve::split_at::SplitAt;
 use crate::kernel::int::normalization::cubic::CubicSShapeNormalization;
-use crate::kernel::int::normalization::monotone::decomposition::DecomposeIntoMonotone;
+use crate::kernel::int::normalization::monotone::decomposition::{DecomposeIntoMonotone, segment_range};
 use alloc::vec::Vec;
 use i_overlay::i_float::int::number::int::IntNumber;
 
@@ -14,6 +17,17 @@ pub(crate) trait PushSimpleSegment<I: IntNumber> {
 
 pub(crate) trait PushCanonicalSimpleSegment<I: IntNumber> {
     fn push_canonical_simple(&mut self, segment: Segment<I>);
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ParametricSegment<I: IntNumber> {
+    pub(crate) curve: Segment<I>,
+    pub(crate) start: SegmentParam<I>,
+    pub(crate) end: SegmentParam<I>,
+}
+
+pub(crate) trait PushCanonicalSimpleParametricSegment<I: IntNumber> {
+    fn push_canonical_simple_parametric(&mut self, segment: Segment<I>);
 }
 
 impl<I: IntNumber> PushCanonicalSegment<I> for Vec<Segment<I>> {
@@ -98,6 +112,68 @@ impl<I: IntNumber> PushCanonicalSimpleSegment<I> for Vec<Segment<I>> {
                             self.push(Segment::Cubic(s1));
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+impl<I: IntNumber> PushCanonicalSimpleParametricSegment<I> for Vec<ParametricSegment<I>> {
+    fn push_canonical_simple_parametric(&mut self, segment: Segment<I>) {
+        let zero = SegmentParam::new(I::ZERO);
+        let one = SegmentParam::new(I::from_wide(SegmentParam::<I>::DENOMINATOR));
+
+        match segment {
+            Segment::Line(line) => self.push(ParametricSegment {
+                curve: Segment::Line(line),
+                start: zero,
+                end: one,
+            }),
+            Segment::Quad(quad) => {
+                let roots = quad.monotone_roots();
+                let mut start = zero;
+
+                for end in roots.into_iter().chain(core::iter::once(one)) {
+                    let curve = Segment::Quad(segment_range(&quad, start, end));
+                    if !curve.chord().is_zero_length() {
+                        self.push(ParametricSegment { curve, start, end });
+                    }
+                    start = end;
+                }
+            }
+            Segment::Cubic(cubic) => {
+                let roots = cubic.monotone_roots();
+                let mut start = zero;
+
+                for end in roots.into_iter().chain(core::iter::once(one)) {
+                    let monotone = segment_range(&cubic, start, end);
+                    if monotone.chord().is_zero_length() {
+                        start = end;
+                        continue;
+                    }
+
+                    if let Some(local) = monotone.s_shape_split_param() {
+                        let [first, last] = monotone.split_at(local);
+                        let middle = interpolate_segment_param(start, end, local);
+                        self.push(ParametricSegment {
+                            curve: Segment::Cubic(first),
+                            start,
+                            end: middle,
+                        });
+                        self.push(ParametricSegment {
+                            curve: Segment::Cubic(last),
+                            start: middle,
+                            end,
+                        });
+                    } else {
+                        self.push(ParametricSegment {
+                            curve: Segment::Cubic(monotone),
+                            start,
+                            end,
+                        });
+                    }
+
+                    start = end;
                 }
             }
         }

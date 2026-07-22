@@ -1,4 +1,5 @@
 use crate::int::bool::edge::CurveEdge;
+use crate::int::bool::slice::CurveSlice;
 use crate::int::bool::split::{CurveEdgeSplitter, CurveSplitMark};
 use crate::kernel::int::cross::intersector::{SegmentIntersectionBuffer, SegmentIntersector, SplitOptions};
 use alloc::vec::Vec;
@@ -30,14 +31,14 @@ impl<I: IntNumber> CurvePlanarizer<I> {
         }
     }
 
-    pub(crate) fn planarize(&mut self, edges: &mut Vec<CurveEdge<I>>) {
+    pub(crate) fn planarize(&mut self, edges: &mut Vec<CurveEdge<I>>, slices: &mut [CurveSlice<I>]) {
         if edges.len() < 2 {
             return;
         }
 
         self.build_bounds(edges);
         self.collect_split_marks(edges);
-        self.splitter.split(edges, &self.split_marks);
+        self.splitter.split(edges, &self.split_marks, slices);
     }
 
     fn build_bounds(&mut self, edges: &[CurveEdge<I>]) {
@@ -116,11 +117,12 @@ impl<I: IntNumber> CurvePlanarizer<I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::int::bool::slice::CurveId;
+    use crate::int::bool::slice::{CurveId, CurveSlice};
     use crate::kernel::int::curve::chord::Chord;
     use crate::kernel::int::curve::line::LineSegment;
     use crate::kernel::int::curve::segment::Segment;
     use alloc::vec;
+    use i_overlay::core::overlay::ShapeType;
     use i_overlay::i_shape::int::IntPoint;
 
     fn line(id: usize, a: [i32; 2], b: [i32; 2]) -> CurveEdge<i32> {
@@ -132,12 +134,20 @@ mod tests {
         }
     }
 
+    fn slices(edges: &[CurveEdge<i32>]) -> Vec<CurveSlice<i32>> {
+        edges
+            .iter()
+            .map(|edge| CurveSlice::new(edge.curve, ShapeType::Subject))
+            .collect()
+    }
+
     #[test]
     fn splits_crossing_edges_and_preserves_curve_ids() {
         let mut edges = vec![line(0, [0, 0], [10, 10]), line(1, [0, 10], [10, 0])];
+        let mut slices = slices(&edges);
         let mut planarizer = CurvePlanarizer::new();
 
-        planarizer.planarize(&mut edges);
+        planarizer.planarize(&mut edges, &mut slices);
 
         assert_eq!(edges.len(), 4);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
@@ -146,14 +156,23 @@ mod tests {
             let chord = edge.curve.chord();
             chord.a == IntPoint::new(5, 5) || chord.b == IntPoint::new(5, 5)
         }));
+        assert_eq!(
+            slices[0].param_at(IntPoint::new(5, 5)),
+            Some(crate::kernel::int::curve::param::SegmentParam::half())
+        );
+        assert_eq!(
+            slices[1].param_at(IntPoint::new(5, 5)),
+            Some(crate::kernel::int::curve::param::SegmentParam::half())
+        );
     }
 
     #[test]
     fn does_not_split_edges_at_shared_endpoint() {
         let mut edges = vec![line(0, [0, 0], [5, 5]), line(1, [5, 5], [10, 0])];
+        let mut slices = slices(&edges);
         let mut planarizer = CurvePlanarizer::new();
 
-        planarizer.planarize(&mut edges);
+        planarizer.planarize(&mut edges, &mut slices);
 
         assert_eq!(edges.len(), 2);
     }
@@ -165,22 +184,32 @@ mod tests {
             line(1, [25, -50], [25, 50]),
             line(2, [75, -50], [75, 50]),
         ];
+        let mut slices = slices(&edges);
         let mut planarizer = CurvePlanarizer::new();
 
-        planarizer.planarize(&mut edges);
+        planarizer.planarize(&mut edges, &mut slices);
 
         assert_eq!(edges.len(), 7);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 3);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(1)).count(), 2);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(2)).count(), 2);
+        assert_eq!(
+            slices[0].param_at(IntPoint::new(25, 0)),
+            Some(crate::kernel::int::curve::param::SegmentParam::from_int(1, 4))
+        );
+        assert_eq!(
+            slices[0].param_at(IntPoint::new(75, 0)),
+            Some(crate::kernel::int::curve::param::SegmentParam::from_int(3, 4))
+        );
     }
 
     #[test]
     fn splits_parallel_overlap_boundaries_without_changing_curve_ids() {
         let mut edges = vec![line(0, [0, 0], [64, 0]), line(1, [16, 0], [80, 0])];
+        let mut slices = slices(&edges);
         let mut planarizer = CurvePlanarizer::new();
 
-        planarizer.planarize(&mut edges);
+        planarizer.planarize(&mut edges, &mut slices);
 
         assert_eq!(edges.len(), 4);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);

@@ -13,18 +13,23 @@ impl<I: IntNumber> DecomposeIntoMonotone for CubicSegment<I> {
     type Output = StackVec<CubicSegment<I>, 5>;
 
     fn decompose_into_monotone(&self) -> Self::Output {
-        let x_roots = self.monotone_roots_by_direction(MonotoneDecompositionDirection::X);
-        let y_roots = self.monotone_roots_by_direction(MonotoneDecompositionDirection::Y);
-
-        let mut roots = StackVec::<_, 4>::new();
-        roots.extend_from_slice(x_roots.as_slice());
-        roots.extend_from_slice(y_roots.as_slice());
-
-        roots_to_segments(self, roots)
+        roots_to_segments(self, self.monotone_roots())
     }
 }
 
 impl<I: IntNumber> CubicSegment<I> {
+    pub(crate) fn monotone_roots(&self) -> StackVec<SegmentParam<I>, 4> {
+        let x_roots = self.monotone_roots_by_direction(MonotoneDecompositionDirection::X);
+        let y_roots = self.monotone_roots_by_direction(MonotoneDecompositionDirection::Y);
+
+        let mut roots = StackVec::new();
+        roots.extend_from_slice(x_roots.as_slice());
+        roots.extend_from_slice(y_roots.as_slice());
+        roots.as_mut_slice().sort_unstable_by_key(|root| root.value());
+        roots.dedup();
+        roots
+    }
+
     fn monotone_roots_by_direction(
         &self,
         direction: MonotoneDecompositionDirection,

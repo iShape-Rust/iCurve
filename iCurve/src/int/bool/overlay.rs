@@ -1,14 +1,20 @@
 use crate::int::bool::chord_refine::{ChordTopologyRefiner, RefineOutcome};
+use crate::int::bool::data::{CurveEdgeData, CurveEdgeDataStore};
 use crate::int::bool::edge::CurveEdge;
 use crate::int::bool::planarize::CurvePlanarizer;
-use crate::int::bool::slice::{CurveId, CurveSlice};
+use crate::int::bool::slice::{CurveId, CurveMark, CurveSlice};
 use crate::int::curve::shape::CurveShape;
-use crate::kernel::int::normalization::canonical::{PushCanonicalSimpleSegment, PushSimpleSegment};
+use crate::kernel::int::curve::chord::Chord;
+use crate::kernel::int::normalization::canonical::{PushCanonicalSimpleParametricSegment, PushSimpleSegment};
 use alloc::vec::Vec;
+use i_key_sort::sort::key::SortKey;
+use i_overlay::core::edge_overlay::{EdgeOverlay, InputEdge};
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::vector::edge::DataVectorShape;
+use i_tree::{Expiration, LayoutNumber};
 
 pub struct IntCurveOverlay<I: IntNumber> {
     pub(crate) curve_slices: Vec<CurveSlice<I>>,
@@ -30,18 +36,28 @@ impl<I: IntNumber> IntCurveOverlay<I> {
 
                 for simple_curve in simple_curves.drain(..) {
                     let curve_id = CurveId(self.curve_slices.len());
-                    self.curve_slices.push(CurveSlice {
-                        curve: simple_curve,
-                        shape_type,
-                    });
-
                     canonical_curves.clear();
-                    canonical_curves.push_canonical_simple(simple_curve);
-                    self.curve_edges.extend(
-                        canonical_curves
-                            .drain(..)
-                            .map(|curve| CurveEdge { curve, curve_id }),
-                    );
+                    canonical_curves.push_canonical_simple_parametric(simple_curve);
+
+                    let mut curve_slice = CurveSlice::new(simple_curve, shape_type);
+                    for canonical in &canonical_curves {
+                        let chord = canonical.curve.chord();
+                        curve_slice.add_mark(CurveMark {
+                            point: chord.a,
+                            param: canonical.start,
+                        });
+                        curve_slice.add_mark(CurveMark {
+                            point: chord.b,
+                            param: canonical.end,
+                        });
+                    }
+                    self.curve_slices.push(curve_slice);
+
+                    self.curve_edges
+                        .extend(canonical_curves.drain(..).map(|canonical| CurveEdge {
+                            curve: canonical.curve,
+                            curve_id,
+                        }));
                 }
 
                 current = end;
@@ -49,8 +65,7 @@ impl<I: IntNumber> IntCurveOverlay<I> {
         }
     }
 
-    #[inline]
-    pub fn overlay(&mut self, overlay_rule: OverlayRule, fill_rule: FillRule) -> Vec<CurveShape<I>> {
+    fn prepare(&mut self) {
         // we will have several steps
         // 1. prepare topology, split into segments and bake curve type in each segment
         // 2. use this topology find overlay using i_overlay::core::edge_overlay::EdgeOverlay
@@ -65,9 +80,9 @@ impl<I: IntNumber> IntCurveOverlay<I> {
         let mut chord_refiner = ChordTopologyRefiner::new();
 
         loop {
-            planarizer.planarize(&mut self.curve_edges);
+            planarizer.planarize(&mut self.curve_edges, &mut self.curve_slices);
 
-            match chord_refiner.refine(&mut self.curve_edges) {
+            match chord_refiner.refine(&mut self.curve_edges, &mut self.curve_slices) {
                 RefineOutcome::PlanarityPreserved => break,
                 RefineOutcome::Replanarize { escaped_marks } => {
                     #[cfg(all(debug_assertions, feature = "std"))]
@@ -80,8 +95,47 @@ impl<I: IntNumber> IntCurveOverlay<I> {
                 }
             }
         }
+    }
 
-        // 2. all prepared segments can now successfully use EdgeOverlay as a segment data we will use id/or index to shape id/index
+    fn build_vector_shapes(
+        &self,
+        overlay_rule: OverlayRule,
+        fill_rule: FillRule,
+    ) -> (Vec<DataVectorShape<I, CurveEdgeData>>, CurveEdgeDataStore)
+    where
+        I: Expiration + LayoutNumber + SortKey,
+    {
+        let mut edge_overlay = EdgeOverlay::new(self.curve_edges.len());
+
+        for edge in &self.curve_edges {
+            let chord = edge.curve.chord();
+            let curve_slice = &self.curve_slices[edge.curve_id.0];
+            edge_overlay.add_edge(
+                InputEdge {
+                    a: chord.a,
+                    b: chord.b,
+                    data: CurveEdgeData::Single(edge.curve_id),
+                },
+                curve_slice.shape_type,
+            );
+        }
+
+        let shapes = edge_overlay.build_vector_shapes(overlay_rule, fill_rule);
+        let data_store = edge_overlay.into_data_store();
+
+        (shapes, data_store)
+    }
+
+    #[inline]
+    pub fn overlay(&mut self, overlay_rule: OverlayRule, fill_rule: FillRule) -> Vec<CurveShape<I>>
+    where
+        I: Expiration + LayoutNumber + SortKey,
+    {
+        self.prepare();
+
+        // 2. prepared chords carry their CurveId through EdgeOverlay. Coincident chords merge
+        // their provenance into an interned CurveId set.
+        let (_vector_shapes, _data_store) = self.build_vector_shapes(overlay_rule, fill_rule);
 
         // 3. by EdgeOverlay result segments collect curve slices if neighbor segments has same id it's a part of the same curve slice we join it
 
@@ -197,6 +251,12 @@ mod tests {
                 .iter()
                 .all(|edge| matches!(edge.curve, Segment::Quad(_)))
         );
+        assert_eq!(overlay.curve_slices[0].marks.len(), 3);
+        for edge in quad_edges {
+            let chord = edge.curve.chord();
+            assert!(overlay.curve_slices[0].param_at(chord.a).is_some());
+            assert!(overlay.curve_slices[0].param_at(chord.b).is_some());
+        }
         assert_eq!(overlay.curve_edges.last().unwrap().curve_id, CurveId(1));
     }
 
@@ -298,6 +358,62 @@ mod tests {
         match cubic {
             Segment::Cubic(cubic) => assert_eq!(cubic.control_points, [p0, p1, p2, p3]),
             _ => panic!("expected cubic segment"),
+        }
+    }
+
+    #[test]
+    fn coincident_chords_merge_curve_ids_in_edge_overlay() {
+        fn square() -> CurveShape<i32> {
+            let p0 = IntPoint::new(0, 0);
+            CurveShape {
+                contours: vec![CurvePath {
+                    start: p0,
+                    segments: vec![
+                        CurveSegment::Line {
+                            to: IntPoint::new(10, 0),
+                        },
+                        CurveSegment::Line {
+                            to: IntPoint::new(10, 10),
+                        },
+                        CurveSegment::Line {
+                            to: IntPoint::new(0, 10),
+                        },
+                        CurveSegment::Line { to: p0 },
+                    ],
+                }],
+            }
+        }
+
+        let mut overlay = IntCurveOverlay {
+            curve_slices: Vec::new(),
+            curve_edges: Vec::new(),
+        };
+        overlay.add_shape(square(), ShapeType::Subject);
+        overlay.add_shape(square(), ShapeType::Clip);
+        overlay.prepare();
+
+        for edge in &overlay.curve_edges {
+            let chord = edge.curve.chord();
+            let slice = &overlay.curve_slices[edge.curve_id.0];
+            assert!(slice.param_at(chord.a).is_some());
+            assert!(slice.param_at(chord.b).is_some());
+        }
+
+        let (shapes, store) = overlay.build_vector_shapes(OverlayRule::Intersect, FillRule::NonZero);
+
+        assert_eq!(shapes.len(), 1);
+        assert_eq!(shapes[0].len(), 1);
+        assert_eq!(shapes[0][0].len(), 4);
+
+        let mut ids = Vec::new();
+        for edge in &shapes[0][0] {
+            store.curve_ids(edge.data, &mut ids);
+            assert_eq!(ids.len(), 2);
+            assert_ne!(ids[0], ids[1]);
+
+            let first_type = overlay.curve_slices[ids[0].0].shape_type;
+            let second_type = overlay.curve_slices[ids[1].0].shape_type;
+            assert_ne!(first_type, second_type);
         }
     }
 }

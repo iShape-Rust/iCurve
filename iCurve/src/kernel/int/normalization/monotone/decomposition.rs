@@ -53,7 +53,7 @@ where
 }
 
 #[inline]
-fn segment_range<I, S>(segment: &S, t0: SegmentParam<I>, t1: SegmentParam<I>) -> S
+pub(crate) fn segment_range<I, S>(segment: &S, t0: SegmentParam<I>, t1: SegmentParam<I>) -> S
 where
     I: IntNumber,
     S: SplitAt<I, Output = [S; 2]> + Copy,

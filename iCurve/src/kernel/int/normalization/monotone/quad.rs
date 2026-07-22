@@ -13,18 +13,20 @@ impl<I: IntNumber> DecomposeIntoMonotone for QuadSegment<I> {
     type Output = StackVec<QuadSegment<I>, 3>;
 
     fn decompose_into_monotone(&self) -> Self::Output {
-        let x_root = self.monotone_root_by_direction(MonotoneDecompositionDirection::X);
-        let y_root = self.monotone_root_by_direction(MonotoneDecompositionDirection::Y);
-
-        let mut roots = StackVec::<_, 2>::new();
-        roots.push_some(x_root);
-        roots.push_some(y_root);
-
-        roots_to_segments(self, roots)
+        roots_to_segments(self, self.monotone_roots())
     }
 }
 
 impl<I: IntNumber> QuadSegment<I> {
+    pub(crate) fn monotone_roots(&self) -> StackVec<SegmentParam<I>, 2> {
+        let mut roots = StackVec::new();
+        roots.push_some(self.monotone_root_by_direction(MonotoneDecompositionDirection::X));
+        roots.push_some(self.monotone_root_by_direction(MonotoneDecompositionDirection::Y));
+        roots.as_mut_slice().sort_unstable_by_key(|root| root.value());
+        roots.dedup();
+        roots
+    }
+
     fn monotone_root_by_direction(
         &self,
         direction: MonotoneDecompositionDirection,

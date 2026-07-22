@@ -1,4 +1,5 @@
 use crate::int::bool::edge::CurveEdge;
+use crate::int::bool::slice::CurveSlice;
 use crate::int::bool::split::{CurveEdgeSplitter, CurveSplitMark};
 use crate::kernel::int::curve::chord::{Chord, SegmentChord};
 use crate::kernel::int::curve::param::SegmentParam;
@@ -41,7 +42,11 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
         }
     }
 
-    pub(crate) fn refine(&mut self, edges: &mut Vec<CurveEdge<I>>) -> RefineOutcome {
+    pub(crate) fn refine(
+        &mut self,
+        edges: &mut Vec<CurveEdge<I>>,
+        slices: &mut [CurveSlice<I>],
+    ) -> RefineOutcome {
         if edges.len() < 2 {
             return RefineOutcome::PlanarityPreserved;
         }
@@ -49,7 +54,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
         self.build_bounds(edges);
         self.collect_split_marks(edges);
         let outcome = Self::outcome(edges, &self.split_marks);
-        self.splitter.split(edges, &self.split_marks);
+        self.splitter.split(edges, &self.split_marks, slices);
 
         outcome
     }
@@ -388,11 +393,12 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::int::bool::slice::CurveId;
+    use crate::int::bool::slice::{CurveId, CurveSlice};
     use crate::kernel::int::curve::cubic::CubicSegment;
     use crate::kernel::int::curve::line::LineSegment;
     use crate::kernel::int::curve::quad::QuadSegment;
     use alloc::vec;
+    use i_overlay::core::overlay::ShapeType;
 
     fn line(id: usize, a: [i32; 2], b: [i32; 2]) -> CurveEdge<i32> {
         CurveEdge {
@@ -412,16 +418,30 @@ mod tests {
         }
     }
 
+    fn slices(edges: &[CurveEdge<i32>]) -> Vec<CurveSlice<i32>> {
+        edges
+            .iter()
+            .map(|edge| CurveSlice::new(edge.curve, ShapeType::Subject))
+            .collect()
+    }
+
     #[test]
     fn splits_curve_when_other_chord_endpoint_is_inside_its_hull() {
         let mut edges = vec![quad(0, [[0, 0], [5, 10], [10, 0]]), line(1, [5, 8], [9, 8])];
+        let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        refiner.refine(&mut edges);
+        refiner.refine(&mut edges, &mut slices);
 
         assert_eq!(edges.len(), 3);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(1)).count(), 1);
+        assert_eq!(slices[0].marks.len(), 3);
+        for edge in edges.iter().filter(|edge| edge.curve_id == CurveId(0)) {
+            let chord = edge.curve.chord();
+            assert!(slices[0].param_at(chord.a).is_some());
+            assert!(slices[0].param_at(chord.b).is_some());
+        }
     }
 
     #[test]
@@ -430,9 +450,10 @@ mod tests {
             quad(0, [[0, 0], [5, 10], [10, 0]]),
             quad(1, [[0, 0], [5, 5], [10, 0]]),
         ];
+        let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        refiner.refine(&mut edges);
+        refiner.refine(&mut edges, &mut slices);
 
         assert_eq!(edges.len(), 3);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
@@ -445,9 +466,10 @@ mod tests {
             quad(0, [[0, 0], [5, -5], [10, 0]]),
             quad(1, [[0, 0], [5, -10], [10, 0]]),
         ];
+        let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        refiner.refine(&mut edges);
+        refiner.refine(&mut edges, &mut slices);
 
         assert_eq!(edges.len(), 3);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 1);
@@ -464,9 +486,10 @@ mod tests {
                 curve_id: CurveId(1),
             },
         ];
+        let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        refiner.refine(&mut edges);
+        refiner.refine(&mut edges, &mut slices);
 
         assert_eq!(edges.len(), 2);
     }
@@ -477,9 +500,10 @@ mod tests {
             quad(0, [[0, 0], [5, 10], [10, 0]]),
             quad(1, [[10, 0], [5, 10], [0, 0]]),
         ];
+        let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        refiner.refine(&mut edges);
+        refiner.refine(&mut edges, &mut slices);
 
         assert_eq!(edges.len(), 2);
     }
@@ -512,9 +536,10 @@ mod tests {
                 curve_id: CurveId(1),
             },
         ];
+        let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        refiner.refine(&mut edges);
+        refiner.refine(&mut edges, &mut slices);
 
         assert_eq!(edges.len(), 4);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);

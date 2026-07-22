@@ -140,19 +140,26 @@ impl<I: IntNumber> CubicSegment<I> {
 
     #[inline]
     pub(crate) fn normalize_monotone_without_s_shape(self) -> CubicSShapeNormalization<I> {
+        match self.s_shape_split_param() {
+            Some(t) => CubicSShapeNormalization::Pieces(self.split_at(t)),
+            None => CubicSShapeNormalization::NoS(self),
+        }
+    }
+
+    pub(crate) fn s_shape_split_param(&self) -> Option<SegmentParam<I>> {
         let mut roots = self.s_shape_roots();
         roots.as_mut_slice().sort_unstable_by_key(|root| root.value());
         roots.dedup();
 
         match roots.as_slice() {
-            [] => CubicSShapeNormalization::NoS(self),
-            [t] => CubicSShapeNormalization::Pieces(self.split_at(*t)),
+            [] => None,
+            [t] => Some(*t),
             [_, _] => {
                 debug_assert!(
                     false,
                     "monotone non-self-intersecting cubic is expected to have at most one S-shape split"
                 );
-                CubicSShapeNormalization::NoS(self)
+                None
             }
             _ => unreachable!(),
         }
