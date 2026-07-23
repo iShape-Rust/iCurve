@@ -40,7 +40,14 @@ impl<I: IntNumber> Segment<I> {
 
                 h0 && h1
             }
-            Segment::Arc(arc) => arc.not_implemented("linearity test"),
+            Segment::Arc(arc) => {
+                let [p0, p1, p2] = arc.control_points;
+                let chord = p0 - p2;
+                let h0 = chord.is_nearly_collinear_with(p0 - p1, sin_angle_neg_pow2);
+                let h1 = chord.is_nearly_collinear_with(p2 - p1, sin_angle_neg_pow2);
+
+                h0 && h1
+            }
         }
     }
 
@@ -65,8 +72,28 @@ impl<I: IntNumber> Segment<I> {
 #[cfg(test)]
 mod tests {
     use super::Segment;
+    use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcSegment, ArcVector, EllipseFrame};
     use crate::kernel::int::curve::cubic::CubicSegment;
     use crate::kernel::int::curve::quad::QuadSegment;
+    use i_overlay::i_float::int::number::fixed_scale::FixedScale;
+    use i_overlay::i_shape::int::IntPoint;
+
+    fn arc_with_controls(control_points: [IntPoint<i32>; 3]) -> Segment<i32> {
+        let one = FixedScale::<i32>::DENOMINATOR as i32;
+
+        Segment::Arc(ArcSegment {
+            ellipse: EllipseFrame {
+                center: IntPoint::new(0, 0),
+                axis_x: ArcVector { x: 100, y: 0 },
+                axis_y: ArcVector { x: 0, y: 100 },
+            },
+            control_points,
+            weights: [one, 759_250_125, one],
+            start_phase: ArcPhase { cos: one, sin: 0 },
+            end_phase: ArcPhase { cos: 0, sin: one },
+            direction: ArcDirection::CounterClockwise,
+        })
+    }
 
     #[test]
     fn detects_nearly_linear_segment() {
@@ -81,6 +108,20 @@ mod tests {
         let segment = Segment::Quad(QuadSegment {
             control_points: [[0, 0].into(), [4, 8].into(), [8, 0].into()],
         });
+        assert!(!segment.is_nearly_linear(3));
+    }
+
+    #[test]
+    fn detects_nearly_linear_arc_from_control_triangle() {
+        let segment = arc_with_controls([IntPoint::new(0, 0), IntPoint::new(16, 1), IntPoint::new(32, 0)]);
+
+        assert!(segment.is_nearly_linear(3));
+    }
+
+    #[test]
+    fn rejects_curved_arc_control_triangle() {
+        let segment = arc_with_controls([IntPoint::new(0, 0), IntPoint::new(16, 16), IntPoint::new(32, 0)]);
+
         assert!(!segment.is_nearly_linear(3));
     }
 }

@@ -358,12 +358,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
 
     #[inline]
     fn point_at(curve: Segment<I>, param: SegmentParam<I>) -> IntPoint<I> {
-        match curve {
-            Segment::Line(line) => line.control_points.point_at(param),
-            Segment::Quad(quad) => quad.control_points.point_at(param),
-            Segment::Cubic(cubic) => cubic.control_points.point_at(param),
-            Segment::Arc(arc) => arc.not_implemented("point lookup"),
-        }
+        curve.point_at(param)
     }
 
     fn initial_tangent_end(curve: Segment<I>, start: IntPoint<I>) -> IntPoint<I> {
@@ -371,7 +366,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
             Segment::Line(line) => Self::initial_tangent_end_in(&line.control_points, start),
             Segment::Quad(quad) => Self::initial_tangent_end_in(&quad.control_points, start),
             Segment::Cubic(cubic) => Self::initial_tangent_end_in(&cubic.control_points, start),
-            Segment::Arc(arc) => arc.not_implemented("initial tangent lookup"),
+            Segment::Arc(arc) => Self::initial_tangent_end_in(&arc.control_points, start),
         }
     }
 
@@ -449,11 +444,13 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
 mod tests {
     use super::*;
     use crate::int::bool::slice::{CurveId, CurveSlice};
+    use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcSegment, ArcVector, EllipseFrame};
     use crate::kernel::int::curve::cubic::CubicSegment;
     use crate::kernel::int::curve::line::LineSegment;
     use crate::kernel::int::curve::quad::QuadSegment;
     use alloc::vec;
     use i_overlay::core::overlay::ShapeType;
+    use i_overlay::i_float::int::number::fixed_scale::FixedScale;
 
     fn line(id: usize, a: [i32; 2], b: [i32; 2]) -> CurveEdge<i32> {
         CurveEdge {
@@ -573,6 +570,42 @@ mod tests {
         });
 
         assert!(ChordTopologyRefiner::has_same_geometry(line, cubic));
+    }
+
+    #[test]
+    fn arc_initial_tangent_uses_first_distinct_control() {
+        let one = FixedScale::<i32>::DENOMINATOR as i32;
+        let mut arc = ArcSegment {
+            ellipse: EllipseFrame {
+                center: IntPoint::new(0, 0),
+                axis_x: ArcVector { x: 100, y: 0 },
+                axis_y: ArcVector { x: 0, y: 100 },
+            },
+            control_points: [
+                IntPoint::new(100, 0),
+                IntPoint::new(100, 100),
+                IntPoint::new(0, 100),
+            ],
+            weights: [one, 759_250_125, one],
+            start_phase: ArcPhase { cos: one, sin: 0 },
+            end_phase: ArcPhase { cos: 0, sin: one },
+            direction: ArcDirection::CounterClockwise,
+        };
+
+        assert_eq!(
+            ChordTopologyRefiner::initial_tangent_end(Segment::Arc(arc), arc.control_points[0]),
+            arc.control_points[1]
+        );
+        assert_eq!(
+            ChordTopologyRefiner::initial_tangent_end(Segment::Arc(arc), arc.control_points[2]),
+            arc.control_points[1]
+        );
+
+        arc.control_points[1] = arc.control_points[0];
+        assert_eq!(
+            ChordTopologyRefiner::initial_tangent_end(Segment::Arc(arc), arc.control_points[0]),
+            arc.control_points[2]
+        );
     }
 
     #[test]

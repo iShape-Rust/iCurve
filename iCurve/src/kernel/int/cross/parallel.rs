@@ -234,12 +234,7 @@ impl<I: IntNumber> SegmentChord<I> {
 }
 
 fn segment_point_at<I: IntNumber>(segment: Segment<I>, param: SegmentParam<I>) -> IntPoint<I> {
-    match segment {
-        Segment::Line(line) => line.control_points.point_at(param),
-        Segment::Quad(quad) => quad.control_points.point_at(param),
-        Segment::Cubic(cubic) => cubic.control_points.point_at(param),
-        Segment::Arc(arc) => arc.not_implemented("parallel point lookup"),
-    }
+    segment.point_at(param)
 }
 
 fn edge_param<I: IntNumber>(edge: PolylineEdge<I>, point: IntPoint<I>) -> SegmentParam<I> {
@@ -326,9 +321,11 @@ fn push_contact<I: IntNumber>(output: &mut Vec<ContactPoint<I>>, contact: Contac
 mod tests {
     use super::{ParallelPointIter, ProjectionAxis};
     use crate::kernel::int::cross::intersector::{ContactType, SegmentIntersector, SplitOptions};
+    use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcSegment, ArcVector, EllipseFrame};
     use crate::kernel::int::curve::line::LineSegment;
     use crate::kernel::int::curve::segment::Segment;
     use alloc::vec::Vec;
+    use i_overlay::i_float::int::number::fixed_scale::FixedScale;
     use i_overlay::i_shape::int::IntPoint;
 
     #[test]
@@ -340,6 +337,40 @@ mod tests {
             .map(|sample| sample.point.x)
             .collect();
         assert_eq!(points, [0, 8, 16, 24, 32]);
+    }
+
+    #[test]
+    fn point_iter_samples_arc_without_special_case() {
+        let one = FixedScale::<i32>::DENOMINATOR as i32;
+        let segment = Segment::Arc(ArcSegment {
+            ellipse: EllipseFrame {
+                center: IntPoint::new(0, 0),
+                axis_x: ArcVector { x: 100, y: 0 },
+                axis_y: ArcVector { x: 0, y: 100 },
+            },
+            control_points: [
+                IntPoint::new(100, 0),
+                IntPoint::new(100, 100),
+                IntPoint::new(0, 100),
+            ],
+            weights: [one, 759_250_125, one],
+            start_phase: ArcPhase { cos: one, sin: 0 },
+            end_phase: ArcPhase { cos: 0, sin: one },
+            direction: ArcDirection::CounterClockwise,
+        });
+
+        let points: Vec<_> = ParallelPointIter::new(segment, ProjectionAxis::X, 2)
+            .map(|sample| sample.point)
+            .collect();
+
+        assert_eq!(
+            points,
+            [
+                IntPoint::new(0, 100),
+                IntPoint::new(71, 71),
+                IntPoint::new(100, 0),
+            ]
+        );
     }
 
     #[test]
