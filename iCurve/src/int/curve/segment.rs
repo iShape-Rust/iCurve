@@ -1,3 +1,4 @@
+use crate::kernel::int::curve::arc::ArcSegment;
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::quad::QuadSegment;
@@ -19,6 +20,9 @@ pub enum CurveSegment<I: IntNumber> {
         ctrl1: IntPoint<I>,
         to: IntPoint<I>,
     },
+    Arc {
+        arc: ArcSegment<I>,
+    },
 }
 
 impl<I: IntNumber> CurveSegment<I> {
@@ -36,6 +40,7 @@ impl<I: IntNumber> CurveSegment<I> {
                 ctrl1: cubic.control_points[2],
                 to: cubic.control_points[3],
             },
+            Segment::Arc(arc) => Self::Arc { arc },
         }
     }
 
@@ -59,6 +64,51 @@ impl<I: IntNumber> CurveSegment<I> {
                 }),
                 to,
             ),
+            Self::Arc { arc } => {
+                debug_assert!(
+                    arc.control_points[0] == start,
+                    "arc start must match its containing contour"
+                );
+                let end = arc.control_points[2];
+                (Segment::Arc(arc), end)
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcVector, EllipseFrame};
+    use i_overlay::i_float::int::number::fixed_scale::FixedScale;
+
+    #[test]
+    fn arc_round_trips_through_kernel_segment() {
+        let one = FixedScale::<i32>::DENOMINATOR as i32;
+        let arc = ArcSegment {
+            ellipse: EllipseFrame {
+                center: IntPoint::new(0, 0),
+                axis_x: ArcVector { x: 100, y: 0 },
+                axis_y: ArcVector { x: 0, y: 100 },
+            },
+            control_points: [
+                IntPoint::new(100, 0),
+                IntPoint::new(100, 100),
+                IntPoint::new(0, 100),
+            ],
+            weights: [one, 759_250_125, one],
+            start_phase: ArcPhase { cos: one, sin: 0 },
+            end_phase: ArcPhase { cos: 0, sin: one },
+            direction: ArcDirection::CounterClockwise,
+        };
+
+        let public = CurveSegment::from_kernel_segment(Segment::Arc(arc));
+        let (kernel, end) = public.into_kernel_segment(arc.control_points[0]);
+
+        assert_eq!(end, arc.control_points[2]);
+        match kernel {
+            Segment::Arc(round_trip) => assert_eq!(round_trip, arc),
+            _ => panic!("expected arc segment"),
         }
     }
 }

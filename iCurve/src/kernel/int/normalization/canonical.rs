@@ -63,6 +63,7 @@ impl<I: IntNumber> PushSimpleSegment<I> for Vec<Segment<I>> {
                     self.push_simple_without_self_intersection(segment);
                 }
             }
+            Segment::Arc(arc) => arc.not_implemented("simplification"),
         }
     }
 }
@@ -89,6 +90,7 @@ impl<I: IntNumber> PushSimpleWithoutSelfIntersection<I> for Vec<Segment<I>> {
                     }
                 }
             }
+            Segment::Arc(arc) => arc.not_implemented("simple normalization"),
         }
     }
 }
@@ -115,6 +117,7 @@ impl<I: IntNumber> PushCanonicalSimpleSegment<I> for Vec<Segment<I>> {
                     }
                 }
             }
+            Segment::Arc(arc) => arc.not_implemented("monotone decomposition"),
         }
     }
 }
@@ -192,6 +195,7 @@ impl<I: IntNumber> PushCanonicalSimpleParametricSegment<I> for Vec<ParametricSeg
                     start_point = end_point;
                 }
             }
+            Segment::Arc(arc) => arc.not_implemented("parametric canonicalization"),
         }
     }
 }

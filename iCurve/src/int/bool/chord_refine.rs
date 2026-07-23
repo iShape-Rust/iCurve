@@ -362,6 +362,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
             Segment::Line(line) => line.control_points.point_at(param),
             Segment::Quad(quad) => quad.control_points.point_at(param),
             Segment::Cubic(cubic) => cubic.control_points.point_at(param),
+            Segment::Arc(arc) => arc.not_implemented("point lookup"),
         }
     }
 
@@ -370,6 +371,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
             Segment::Line(line) => Self::initial_tangent_end_in(&line.control_points, start),
             Segment::Quad(quad) => Self::initial_tangent_end_in(&quad.control_points, start),
             Segment::Cubic(cubic) => Self::initial_tangent_end_in(&cubic.control_points, start),
+            Segment::Arc(arc) => arc.not_implemented("initial tangent lookup"),
         }
     }
 
@@ -433,6 +435,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
                 ]
             }
             Segment::Cubic(cubic) => cubic.control_points.map(|point| scale(point, three)),
+            Segment::Arc(arc) => arc.not_implemented("geometry comparison"),
         };
 
         if reverse {

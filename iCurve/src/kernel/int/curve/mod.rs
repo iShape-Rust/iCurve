@@ -1,3 +1,4 @@
+pub mod arc;
 pub(crate) mod bisect;
 pub(crate) mod chord;
 pub mod cubic;

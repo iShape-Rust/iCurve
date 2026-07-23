@@ -238,6 +238,7 @@ fn segment_point_at<I: IntNumber>(segment: Segment<I>, param: SegmentParam<I>) -
         Segment::Line(line) => line.control_points.point_at(param),
         Segment::Quad(quad) => quad.control_points.point_at(param),
         Segment::Cubic(cubic) => cubic.control_points.point_at(param),
+        Segment::Arc(arc) => arc.not_implemented("parallel point lookup"),
     }
 }
 

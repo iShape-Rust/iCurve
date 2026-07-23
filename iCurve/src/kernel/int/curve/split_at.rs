@@ -1,3 +1,4 @@
+use crate::kernel::int::curve::arc::ArcSegment;
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::param::SegmentParam;
@@ -73,6 +74,14 @@ impl<I: IntNumber> SetSegmentEndpoints<I> for CubicSegment<I> {
     fn set_endpoints(&mut self, start: IntPoint<I>, end: IntPoint<I>) {
         self.control_points[0] = start;
         self.control_points[3] = end;
+    }
+}
+
+impl<I: IntNumber> SetSegmentEndpoints<I> for ArcSegment<I> {
+    #[inline]
+    fn set_endpoints(&mut self, start: IntPoint<I>, end: IntPoint<I>) {
+        self.control_points[0] = start;
+        self.control_points[2] = end;
     }
 }
 
@@ -212,6 +221,25 @@ impl<I: IntNumber> SplitAt<I> for CubicSegment<I> {
     }
 }
 
+impl<I: IntNumber> SplitAt<I> for ArcSegment<I> {
+    type Output = [Self; 2];
+
+    #[inline]
+    fn split_at(&self, t: SegmentParam<I>) -> Self::Output {
+        self.rational_split(t)
+    }
+
+    #[inline]
+    fn split_at_left(&self, t: SegmentParam<I>) -> Self {
+        self.rational_split(t)[0]
+    }
+
+    #[inline]
+    fn split_at_right(&self, t: SegmentParam<I>) -> Self {
+        self.rational_split(t)[1]
+    }
+}
+
 impl<I: IntNumber> Segment<I> {
     pub(crate) fn split_at_point(&self, t: SegmentParam<I>, point: IntPoint<I>) -> [Self; 2] {
         match self {
@@ -232,6 +260,12 @@ impl<I: IntNumber> Segment<I> {
                 left.control_points[3] = point;
                 right.control_points[0] = point;
                 [Segment::Cubic(left), Segment::Cubic(right)]
+            }
+            Segment::Arc(arc) => {
+                let [mut left, mut right] = arc.split_at(t);
+                left.control_points[2] = point;
+                right.control_points[0] = point;
+                [Segment::Arc(left), Segment::Arc(right)]
             }
         }
     }
@@ -278,6 +312,13 @@ impl<I: IntNumber> Segment<I> {
                 range_end_param,
                 range_end_point,
             )),
+            Segment::Arc(arc) => Segment::Arc(segment_range(
+                arc,
+                range_start_param,
+                range_start_point,
+                range_end_param,
+                range_end_point,
+            )),
         };
 
         if reverse {
@@ -285,6 +326,7 @@ impl<I: IntNumber> Segment<I> {
                 Segment::Line(line) => line.control_points.reverse(),
                 Segment::Quad(quad) => quad.control_points.reverse(),
                 Segment::Cubic(cubic) => cubic.control_points.reverse(),
+                Segment::Arc(arc) => arc.reverse(),
             }
         }
 
@@ -295,6 +337,29 @@ impl<I: IntNumber> Segment<I> {
 #[cfg(test)]
 mod segment_tests {
     use super::*;
+    use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcSegment, ArcVector, EllipseFrame};
+    use i_overlay::i_float::int::number::fixed_scale::FixedScale;
+
+    fn quarter_circle() -> ArcSegment<i32> {
+        let one = FixedScale::<i32>::DENOMINATOR as i32;
+
+        ArcSegment {
+            ellipse: EllipseFrame {
+                center: IntPoint::new(0, 0),
+                axis_x: ArcVector { x: 100, y: 0 },
+                axis_y: ArcVector { x: 0, y: 100 },
+            },
+            control_points: [
+                IntPoint::new(100, 0),
+                IntPoint::new(100, 100),
+                IntPoint::new(0, 100),
+            ],
+            weights: [one, 759_250_125, one],
+            start_phase: ArcPhase { cos: one, sin: 0 },
+            end_phase: ArcPhase { cos: 0, sin: one },
+            direction: ArcDirection::CounterClockwise,
+        }
+    }
 
     #[test]
     fn segment_range_uses_requested_endpoints() {
@@ -332,6 +397,47 @@ mod segment_tests {
             }
             _ => panic!("expected quadratic segments"),
         }
+    }
+
+    #[test]
+    fn arc_split_at_point_uses_requested_shared_point() {
+        let segment = Segment::Arc(quarter_circle());
+        let point = IntPoint::new(70, 72);
+
+        let [left, right] = segment.split_at_point(SegmentParam::half(), point);
+
+        let (Segment::Arc(left), Segment::Arc(right)) = (left, right) else {
+            panic!("expected arc segments");
+        };
+        assert_eq!(left.control_points[2], point);
+        assert_eq!(right.control_points[0], point);
+        assert_eq!(left.end_phase, right.start_phase);
+    }
+
+    #[test]
+    fn extracts_and_reverses_arc_subsegment() {
+        let arc = quarter_circle();
+        let segment = Segment::Arc(arc);
+        let middle = arc.point_at(SegmentParam::half());
+
+        let reverse = segment
+            .subsegment(
+                SegmentParam::half(),
+                middle,
+                SegmentParam::new(0),
+                arc.control_points[0],
+            )
+            .unwrap();
+
+        let Segment::Arc(reverse) = reverse else {
+            panic!("expected arc segment");
+        };
+        assert_eq!(reverse.control_points[0], middle);
+        assert_eq!(reverse.control_points[2], arc.control_points[0]);
+        assert_eq!(reverse.direction, ArcDirection::Clockwise);
+        assert_eq!(reverse.start_phase.cos, 759_250_125);
+        assert_eq!(reverse.start_phase.sin, 759_250_125);
+        assert_eq!(reverse.end_phase, arc.start_phase);
     }
 
     #[test]

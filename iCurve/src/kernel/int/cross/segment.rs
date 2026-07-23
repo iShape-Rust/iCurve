@@ -40,6 +40,7 @@ impl<I: IntNumber> Segment<I> {
 
                 h0 && h1
             }
+            Segment::Arc(arc) => arc.not_implemented("linearity test"),
         }
     }
 

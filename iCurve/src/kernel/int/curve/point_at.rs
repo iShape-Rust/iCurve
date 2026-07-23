@@ -1,9 +1,17 @@
+use crate::kernel::int::curve::arc::ArcSegment;
 use crate::kernel::int::curve::param::SegmentParam;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 pub trait PointAt<I: IntNumber> {
     fn point_at(&self, param: SegmentParam<I>) -> IntPoint<I>;
+}
+
+impl<I: IntNumber> PointAt<I> for ArcSegment<I> {
+    #[inline(always)]
+    fn point_at(&self, param: SegmentParam<I>) -> IntPoint<I> {
+        ArcSegment::point_at(self, param)
+    }
 }
 
 impl<I: IntNumber> PointAt<I> for [IntPoint<I>; 2] {

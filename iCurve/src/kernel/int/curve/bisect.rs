@@ -69,6 +69,17 @@ impl<I: IntNumber> Segment<I> {
 
                 [n0, n1]
             }
+            Segment::Arc(arc) => {
+                let [mut left, mut right] = arc.rational_split(t);
+                left.control_points[0] = a;
+                right.control_points[2] = b;
+
+                let split = left.control_points[2];
+                let n0 = (a != split).then_some(Segment::Arc(left));
+                let n1 = (split != b).then_some(Segment::Arc(right));
+
+                [n0, n1]
+            }
         }
     }
 }
@@ -76,7 +87,10 @@ impl<I: IntNumber> Segment<I> {
 #[cfg(test)]
 mod tests {
     use super::Bisect;
+    use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcSegment, ArcVector, EllipseFrame};
     use crate::kernel::int::curve::param::SegmentParam;
+    use crate::kernel::int::curve::segment::Segment;
+    use i_overlay::i_float::int::number::fixed_scale::FixedScale;
     use i_overlay::i_shape::int::IntPoint;
 
     #[test]
@@ -105,5 +119,38 @@ mod tests {
 
         assert_eq!(s0, [p0, IntPoint::new(2, 6), IntPoint::new(4, 8), m]);
         assert_eq!(s1, [m, IntPoint::new(7, 8), IntPoint::new(8, 6), p1]);
+    }
+
+    #[test]
+    fn arc_bisection_uses_requested_outer_endpoints() {
+        let one = FixedScale::<i32>::DENOMINATOR as i32;
+        let segment = Segment::Arc(ArcSegment {
+            ellipse: EllipseFrame {
+                center: IntPoint::new(0, 0),
+                axis_x: ArcVector { x: 100, y: 0 },
+                axis_y: ArcVector { x: 0, y: 100 },
+            },
+            control_points: [
+                IntPoint::new(100, 0),
+                IntPoint::new(100, 100),
+                IntPoint::new(0, 100),
+            ],
+            weights: [one, 759_250_125, one],
+            start_phase: ArcPhase { cos: one, sin: 0 },
+            end_phase: ArcPhase { cos: 0, sin: one },
+            direction: ArcDirection::CounterClockwise,
+        });
+        let requested_start = IntPoint::new(99, 0);
+        let requested_end = IntPoint::new(0, 99);
+
+        let [Some(Segment::Arc(left)), Some(Segment::Arc(right))] =
+            segment.bisect(requested_start, requested_end, SegmentParam::half())
+        else {
+            panic!("expected two arc segments");
+        };
+
+        assert_eq!(left.control_points[0], requested_start);
+        assert_eq!(right.control_points[2], requested_end);
+        assert_eq!(left.control_points[2], right.control_points[0]);
     }
 }

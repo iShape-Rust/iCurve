@@ -97,33 +97,41 @@ mod tests {
 
     #[test]
     fn test_02() {
-        let subject = vec![
-            CurveShape {
-                contours: vec![
-                    CurvePath {
-                        start: IntPoint::new(-210, 10),
-                        segments: vec![
-                            CurveSegment::Cubic { ctrl0: IntPoint::new(-130, -175), ctrl1: IntPoint::new(100, -145), to: IntPoint::new(170, 5) },
-                            CurveSegment::Cubic { ctrl0: IntPoint::new(120, 160), ctrl1: IntPoint::new(-135, 165), to: IntPoint::new(-210, 10) },
-                        ],
+        let subject = vec![CurveShape {
+            contours: vec![CurvePath {
+                start: IntPoint::new(-210, 10),
+                segments: vec![
+                    CurveSegment::Cubic {
+                        ctrl0: IntPoint::new(-130, -175),
+                        ctrl1: IntPoint::new(100, -145),
+                        to: IntPoint::new(170, 5),
+                    },
+                    CurveSegment::Cubic {
+                        ctrl0: IntPoint::new(120, 160),
+                        ctrl1: IntPoint::new(-135, 165),
+                        to: IntPoint::new(-210, 10),
                     },
                 ],
-            },
-        ];
+            }],
+        }];
 
-        let clip = vec![
-            CurveShape {
-                contours: vec![
-                    CurvePath {
-                        start: IntPoint::new(-145, -40),
-                        segments: vec![
-                            CurveSegment::Cubic { ctrl0: IntPoint::new(-15, -205), ctrl1: IntPoint::new(195, -100), to: IntPoint::new(170, 65) },
-                            CurveSegment::Cubic { ctrl0: IntPoint::new(-192, 115), ctrl1: IntPoint::new(-197, 128), to: IntPoint::new(-145, -40) },
-                        ],
+        let clip = vec![CurveShape {
+            contours: vec![CurvePath {
+                start: IntPoint::new(-145, -40),
+                segments: vec![
+                    CurveSegment::Cubic {
+                        ctrl0: IntPoint::new(-15, -205),
+                        ctrl1: IntPoint::new(195, -100),
+                        to: IntPoint::new(170, 65),
+                    },
+                    CurveSegment::Cubic {
+                        ctrl0: IntPoint::new(-192, 115),
+                        ctrl1: IntPoint::new(-197, 128),
+                        to: IntPoint::new(-145, -40),
                     },
                 ],
-            },
-        ];
+            }],
+        }];
 
         let mut overlay = IntCurveOverlay::new(4);
         for shape in subject {
