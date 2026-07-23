@@ -203,7 +203,13 @@ fn convert_arc_piece<P: FloatPointCompatible, I: IntNumber>(
         cos: (start.cos + end.cos) / denominator,
         sin: (start.sin + end.sin) / denominator,
     };
-    let control_point = adapter.float_to_int(&float_frame.point_at(control_phase));
+    let mut control_point = adapter.float_to_int(&float_frame.point_at(control_phase));
+    control_point.x = control_point
+        .x
+        .clamp(start_point.x.min(end_point.x), start_point.x.max(end_point.x));
+    control_point.y = control_point
+        .y
+        .clamp(start_point.y.min(end_point.y), start_point.y.max(end_point.y));
     let fixed_start = start.to_fixed::<I>();
     let fixed_end = end.to_fixed::<I>();
     let fixed_weight = fixed_weight::<P::Scalar, I>(weight);
@@ -221,6 +227,10 @@ fn convert_arc_piece<P: FloatPointCompatible, I: IntNumber>(
         end_phase: fixed_end,
         direction,
     };
+    debug_assert!(
+        arc.is_xy_monotone(),
+        "converted arc control polygon must be XY-monotone"
+    );
     arc.debug_assert_invariants();
 
     Some(IntCurveSegment::Arc { arc })
@@ -438,6 +448,16 @@ mod tests {
     use i_overlay::i_float::adapter::FloatPointAdapterScaleError;
     use i_overlay::i_float::int::number::fixed_scale::FixedScale;
     use i_overlay::i_shape::int::IntPoint;
+
+    fn assert_arc_control_polygons_are_monotone<I: IntNumber>(shape: &IntCurveShape<I>) {
+        for contour in &shape.contours {
+            for segment in &contour.segments {
+                if let IntCurveSegment::Arc { arc } = segment {
+                    assert!(arc.is_xy_monotone());
+                }
+            }
+        }
+    }
 
     fn float_shape() -> Result<FloatCurveShape<[f64; 2]>, CurveError> {
         CurveBuilder::new()
@@ -745,6 +765,7 @@ mod tests {
                                     arc_shape(radius_x, radius_y, rotation, start, direction * sweep)?;
                                 let converter = CurveConverter::<_, i32>::new(shape);
                                 assert!(!converter.shape().contours[0].segments.is_empty());
+                                assert_arc_control_polygons_are_monotone(converter.shape());
                             }
                         }
                     }
@@ -793,6 +814,9 @@ mod tests {
         assert!(!i16_shape.shape().contours[0].segments.is_empty());
         assert!(!i32_shape.shape().contours[0].segments.is_empty());
         assert!(!i64_shape.shape().contours[0].segments.is_empty());
+        assert_arc_control_polygons_are_monotone(i16_shape.shape());
+        assert_arc_control_polygons_are_monotone(i32_shape.shape());
+        assert_arc_control_polygons_are_monotone(i64_shape.shape());
         Ok(())
     }
 }

@@ -1,13 +1,17 @@
-use i_curve::int::curve::{path::CurvePath, segment::CurveSegment, shape::CurveShape};
-use i_overlay::i_shape::int::IntPoint;
+use i_curve::float::curve::{
+    arc::{Ellipse, EllipticArc},
+    builder::CurveBuilder,
+    shape::CurveShape,
+};
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
-pub type CurvePoint = IntPoint<i32>;
+pub type CurvePoint = [f32; 2];
 
 #[derive(Clone)]
 pub struct BoolExample {
     pub name: &'static str,
-    pub subject: Vec<CurveShape<i32>>,
-    pub clip: Vec<CurveShape<i32>>,
+    pub subject: Vec<CurveShape<CurvePoint>>,
+    pub clip: Vec<CurveShape<CurvePoint>>,
 }
 
 pub fn load_examples() -> Vec<BoolExample> {
@@ -17,6 +21,8 @@ pub fn load_examples() -> Vec<BoolExample> {
         quad_x_quad(),
         cubic_blobs(),
         two_subjects(),
+        arc_x_arc(),
+        arc_capsule(),
     ]
 }
 
@@ -24,60 +30,57 @@ fn rect_x_rect() -> BoolExample {
     BoolExample {
         name: "rect x rect",
         subject: vec![polygon(&[
-            point(-210, -130),
-            point(70, -130),
-            point(70, 130),
-            point(-210, 130),
+            [-210.0, -130.0],
+            [70.0, -130.0],
+            [70.0, 130.0],
+            [-210.0, 130.0],
         ])],
         clip: vec![polygon(&[
-            point(-70, -170),
-            point(210, -170),
-            point(210, 90),
-            point(-70, 90),
+            [-70.0, -170.0],
+            [210.0, -170.0],
+            [210.0, 90.0],
+            [-70.0, 90.0],
         ])],
     }
 }
 
 fn ellipse_x_rect() -> BoolExample {
     BoolExample {
-        name: "cubic ellipse x rect",
-        subject: vec![ellipse(point(-55, 0), 155, 125)],
+        name: "arc ellipse x rect",
+        subject: vec![ellipse([-55.0, 0.0], 155.0, 125.0, 0.0)],
         clip: vec![polygon(&[
-            point(-20, -160),
-            point(205, -80),
-            point(145, 150),
-            point(-85, 120),
+            [-20.0, -160.0],
+            [205.0, -80.0],
+            [145.0, 150.0],
+            [-85.0, 120.0],
         ])],
     }
 }
 
 fn quad_x_quad() -> BoolExample {
+    let subject = CurveBuilder::new()
+        .move_to([-200.0, 0.0])
+        .unwrap()
+        .line_to([200.0, 0.0])
+        .unwrap()
+        .quad_to([0.0, 240.0], [-200.0, 0.0])
+        .unwrap()
+        .build()
+        .unwrap();
+    let clip = CurveBuilder::new()
+        .move_to([-110.0, 55.0])
+        .unwrap()
+        .line_to([110.0, 55.0])
+        .unwrap()
+        .quad_to([0.0, -245.0], [-110.0, 55.0])
+        .unwrap()
+        .build()
+        .unwrap();
+
     BoolExample {
         name: "quad x quad",
-        subject: vec![CurveShape {
-            contours: vec![CurvePath {
-                start: point(-200, 0),
-                segments: vec![
-                    CurveSegment::Line { to: point(200, 0) },
-                    CurveSegment::Quad {
-                        ctrl: point(0, 240),
-                        to: point(-200, 0),
-                    },
-                ],
-            }],
-        }],
-        clip: vec![CurveShape {
-            contours: vec![CurvePath {
-                start: point(-110, 55),
-                segments: vec![
-                    CurveSegment::Line { to: point(110, 55) },
-                    CurveSegment::Quad {
-                        ctrl: point(0, -245),
-                        to: point(-110, 55),
-                    },
-                ],
-            }],
-        }],
+        subject: vec![subject],
+        clip: vec![clip],
     }
 }
 
@@ -85,94 +88,91 @@ fn cubic_blobs() -> BoolExample {
     BoolExample {
         name: "cubic blobs",
         subject: vec![blob(
-            point(-210, 10),
-            point(-130, -175),
-            point(100, -145),
-            point(170, 5),
-            point(120, 160),
-            point(-135, 165),
+            [-210.0, 10.0],
+            [-130.0, -175.0],
+            [100.0, -145.0],
+            [170.0, 5.0],
+            [120.0, 160.0],
+            [-135.0, 165.0],
         )],
         clip: vec![blob(
-            point(-145, -40),
-            point(-15, -205),
-            point(195, -100),
-            point(170, 65),
-            point(20, 205),
-            point(-205, 95),
+            [-145.0, -40.0],
+            [-15.0, -205.0],
+            [195.0, -100.0],
+            [170.0, 65.0],
+            [20.0, 205.0],
+            [-205.0, 95.0],
         )],
     }
 }
 
 fn two_subjects() -> BoolExample {
     BoolExample {
-        name: "two subjects",
+        name: "two arc subjects",
         subject: vec![
-            ellipse(point(-130, -35), 105, 105),
-            ellipse(point(45, 35), 105, 105),
+            ellipse([-130.0, -35.0], 105.0, 105.0, 0.0),
+            ellipse([45.0, 35.0], 105.0, 105.0, 0.0),
         ],
         clip: vec![polygon(&[
-            point(-85, -160),
-            point(225, -110),
-            point(160, 150),
-            point(-160, 135),
+            [-85.0, -160.0],
+            [225.0, -110.0],
+            [160.0, 150.0],
+            [-160.0, 135.0],
         ])],
     }
 }
 
-fn polygon(points: &[CurvePoint]) -> CurveShape<i32> {
-    assert!(points.len() >= 3, "polygon needs at least three points");
-
-    let mut segments = points[1..]
-        .iter()
-        .copied()
-        .map(|to| CurveSegment::Line { to })
-        .collect::<Vec<_>>();
-    segments.push(CurveSegment::Line { to: points[0] });
-
-    CurveShape {
-        contours: vec![CurvePath {
-            start: points[0],
-            segments,
-        }],
+fn arc_x_arc() -> BoolExample {
+    BoolExample {
+        name: "rotated arc ellipses",
+        subject: vec![ellipse([-65.0, 0.0], 175.0, 95.0, 0.38)],
+        clip: vec![ellipse([75.0, 5.0], 145.0, 105.0, -0.47)],
     }
 }
 
-fn ellipse(center: CurvePoint, radius_x: i32, radius_y: i32) -> CurveShape<i32> {
-    // Cubic approximation of a quarter circle: 4 * (sqrt(2) - 1) / 3.
-    let control_x = (radius_x as f64 * 0.552_284_749_8).round() as i32;
-    let control_y = (radius_y as f64 * 0.552_284_749_8).round() as i32;
-    let left = center.x - radius_x;
-    let right = center.x + radius_x;
-    let bottom = center.y - radius_y;
-    let top = center.y + radius_y;
-
-    CurveShape {
-        contours: vec![CurvePath {
-            start: point(right, center.y),
-            segments: vec![
-                CurveSegment::Cubic {
-                    ctrl0: point(right, center.y + control_y),
-                    ctrl1: point(center.x + control_x, top),
-                    to: point(center.x, top),
-                },
-                CurveSegment::Cubic {
-                    ctrl0: point(center.x - control_x, top),
-                    ctrl1: point(left, center.y + control_y),
-                    to: point(left, center.y),
-                },
-                CurveSegment::Cubic {
-                    ctrl0: point(left, center.y - control_y),
-                    ctrl1: point(center.x - control_x, bottom),
-                    to: point(center.x, bottom),
-                },
-                CurveSegment::Cubic {
-                    ctrl0: point(center.x + control_x, bottom),
-                    ctrl1: point(right, center.y - control_y),
-                    to: point(right, center.y),
-                },
-            ],
-        }],
+fn arc_capsule() -> BoolExample {
+    BoolExample {
+        name: "arc capsule x ellipse",
+        subject: vec![capsule([-175.0, -55.0], [125.0, 55.0], 72.0)],
+        clip: vec![ellipse([35.0, 0.0], 135.0, 135.0, 0.0)],
     }
+}
+
+fn polygon(points: &[CurvePoint]) -> CurveShape<CurvePoint> {
+    assert!(points.len() >= 3, "polygon needs at least three points");
+
+    let mut builder = CurveBuilder::new().move_to(points[0]).unwrap();
+    for point in &points[1..] {
+        builder = builder.line_to(*point).unwrap();
+    }
+
+    builder.close_contour().unwrap().build().unwrap()
+}
+
+fn ellipse(
+    center: CurvePoint,
+    radius_x: f32,
+    radius_y: f32,
+    rotation: f32,
+) -> CurveShape<CurvePoint> {
+    let arc = EllipticArc {
+        ellipse: Ellipse {
+            center,
+            radius_x,
+            radius_y,
+            rotation,
+        },
+        start_angle: 0.0,
+        sweep_angle: TAU,
+    };
+
+    CurveBuilder::new()
+        .move_to(arc.start_point())
+        .unwrap()
+        .arc_to(arc)
+        .unwrap()
+        .build()
+        .unwrap()
 }
 
 fn blob(
@@ -182,26 +182,55 @@ fn blob(
     p3: CurvePoint,
     p4: CurvePoint,
     p5: CurvePoint,
-) -> CurveShape<i32> {
-    CurveShape {
-        contours: vec![CurvePath {
-            start: p0,
-            segments: vec![
-                CurveSegment::Cubic {
-                    ctrl0: p1,
-                    ctrl1: p2,
-                    to: p3,
-                },
-                CurveSegment::Cubic {
-                    ctrl0: p4,
-                    ctrl1: p5,
-                    to: p0,
-                },
-            ],
-        }],
-    }
+) -> CurveShape<CurvePoint> {
+    CurveBuilder::new()
+        .move_to(p0)
+        .unwrap()
+        .cubic_to(p1, p2, p3)
+        .unwrap()
+        .cubic_to(p4, p5, p0)
+        .unwrap()
+        .build()
+        .unwrap()
 }
 
-fn point(x: i32, y: i32) -> CurvePoint {
-    IntPoint::new(x, y)
+fn capsule(
+    left_center: CurvePoint,
+    right_center: CurvePoint,
+    radius: f32,
+) -> CurveShape<CurvePoint> {
+    let right_arc = EllipticArc {
+        ellipse: Ellipse {
+            center: right_center,
+            radius_x: radius,
+            radius_y: radius,
+            rotation: 0.0,
+        },
+        start_angle: -FRAC_PI_2,
+        sweep_angle: PI,
+    };
+    let left_arc = EllipticArc {
+        ellipse: Ellipse {
+            center: left_center,
+            radius_x: radius,
+            radius_y: radius,
+            rotation: 0.0,
+        },
+        start_angle: FRAC_PI_2,
+        sweep_angle: PI,
+    };
+
+    CurveBuilder::new()
+        .move_to(right_arc.start_point())
+        .unwrap()
+        .arc_to(right_arc)
+        .unwrap()
+        .line_to(left_arc.start_point())
+        .unwrap()
+        .arc_to(left_arc)
+        .unwrap()
+        .close_contour()
+        .unwrap()
+        .build()
+        .unwrap()
 }

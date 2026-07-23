@@ -148,9 +148,59 @@ mod tests {
     use super::*;
     use crate::int::curve::path::CurvePath;
     use crate::int::curve::segment::CurveSegment;
+    use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcSegment, ArcVector, EllipseFrame};
     use crate::kernel::int::curve::segment::Segment;
     use alloc::vec;
+    use i_overlay::i_float::int::number::fixed_scale::FixedScale;
     use i_overlay::i_shape::int::IntPoint;
+
+    fn circle(center: IntPoint<i32>) -> CurveShape<i32> {
+        let one = FixedScale::<i32>::DENOMINATOR as i32;
+        let ellipse = EllipseFrame {
+            center,
+            axis_x: ArcVector { x: 100, y: 0 },
+            axis_y: ArcVector { x: 0, y: 100 },
+        };
+        let phases = [
+            ArcPhase { cos: one, sin: 0 },
+            ArcPhase { cos: 0, sin: one },
+            ArcPhase { cos: -one, sin: 0 },
+            ArcPhase { cos: 0, sin: -one },
+            ArcPhase { cos: one, sin: 0 },
+        ];
+        let points = [
+            IntPoint::new(center.x + 100, center.y),
+            IntPoint::new(center.x, center.y + 100),
+            IntPoint::new(center.x - 100, center.y),
+            IntPoint::new(center.x, center.y - 100),
+            IntPoint::new(center.x + 100, center.y),
+        ];
+        let controls = [
+            IntPoint::new(center.x + 100, center.y + 100),
+            IntPoint::new(center.x - 100, center.y + 100),
+            IntPoint::new(center.x - 100, center.y - 100),
+            IntPoint::new(center.x + 100, center.y - 100),
+        ];
+        let segments = (0..4)
+            .map(|index| CurveSegment::Arc {
+                arc: ArcSegment {
+                    ellipse,
+                    control_points: [points[index], controls[index], points[index + 1]],
+                    weights: [one, 759_250_125, one],
+                    start_phase: phases[index],
+                    end_phase: phases[index + 1],
+                    direction: ArcDirection::CounterClockwise,
+                },
+            })
+            .collect();
+
+        CurveShape {
+            contours: vec![CurvePath {
+                start: points[0],
+                segments,
+            }],
+        }
+    }
 
     #[test]
     fn add_shape_builds_curve_edges_from_contour_start() {
@@ -424,5 +474,43 @@ mod tests {
         let public_result = overlay.overlay(OverlayRule::Intersect, FillRule::NonZero);
         assert_eq!(public_result.len(), 1);
         assert_eq!(public_result[0].contours[0].segments.len(), 4);
+    }
+
+    #[test]
+    fn identical_circles_survive_boolean_intersection_as_arcs() {
+        let mut overlay = IntCurveOverlay::new(8);
+        overlay.add_shape(circle(IntPoint::new(0, 0)), ShapeType::Subject);
+        overlay.add_shape(circle(IntPoint::new(0, 0)), ShapeType::Clip);
+
+        let result = overlay.overlay(OverlayRule::Intersect, FillRule::NonZero);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].contours.len(), 1);
+        assert_eq!(result[0].contours[0].segments.len(), 4);
+        assert!(
+            result[0].contours[0]
+                .segments
+                .iter()
+                .all(|segment| matches!(segment, CurveSegment::Arc { .. }))
+        );
+    }
+
+    #[test]
+    fn overlapping_circles_recompose_split_boundaries_as_arcs() {
+        let mut overlay = IntCurveOverlay::new(8);
+        overlay.add_shape(circle(IntPoint::new(0, 0)), ShapeType::Subject);
+        overlay.add_shape(circle(IntPoint::new(100, 0)), ShapeType::Clip);
+
+        let result = overlay.overlay(OverlayRule::Intersect, FillRule::NonZero);
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].contours.len(), 1);
+        assert_eq!(result[0].contours[0].segments.len(), 4);
+        assert!(
+            result[0].contours[0]
+                .segments
+                .iter()
+                .all(|segment| matches!(segment, CurveSegment::Arc { .. }))
+        );
     }
 }

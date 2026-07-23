@@ -63,7 +63,11 @@ impl<I: IntNumber> PushSimpleSegment<I> for Vec<Segment<I>> {
                     self.push_simple_without_self_intersection(segment);
                 }
             }
-            Segment::Arc(arc) => arc.not_implemented("simplification"),
+            Segment::Arc(arc) => {
+                if let Some(segment) = arc.try_segment() {
+                    self.push(segment);
+                }
+            }
         }
     }
 }
@@ -90,7 +94,11 @@ impl<I: IntNumber> PushSimpleWithoutSelfIntersection<I> for Vec<Segment<I>> {
                     }
                 }
             }
-            Segment::Arc(arc) => arc.not_implemented("simple normalization"),
+            Segment::Arc(arc) => {
+                if let Some(segment) = arc.try_segment() {
+                    self.push(segment);
+                }
+            }
         }
     }
 }
@@ -117,7 +125,17 @@ impl<I: IntNumber> PushCanonicalSimpleSegment<I> for Vec<Segment<I>> {
                     }
                 }
             }
-            Segment::Arc(arc) => arc.not_implemented("monotone decomposition"),
+            Segment::Arc(arc) => {
+                // Arc construction splits at float ellipse extrema and clamps
+                // the integer control point into the endpoint range. Rational
+                // splits preserve that ordering, so no integer root search is
+                // needed here.
+                debug_assert!(
+                    arc.is_xy_monotone(),
+                    "canonical arc must already be split at every world-space extremum"
+                );
+                self.push(Segment::Arc(arc));
+            }
         }
     }
 }
@@ -195,7 +213,19 @@ impl<I: IntNumber> PushCanonicalSimpleParametricSegment<I> for Vec<ParametricSeg
                     start_point = end_point;
                 }
             }
-            Segment::Arc(arc) => arc.not_implemented("parametric canonicalization"),
+            Segment::Arc(arc) => {
+                debug_assert!(
+                    arc.is_xy_monotone(),
+                    "canonical arc must already be split at every world-space extremum"
+                );
+                if !Segment::Arc(arc).chord().is_zero_length() {
+                    self.push(ParametricSegment {
+                        curve: Segment::Arc(arc),
+                        start: zero,
+                        end: one,
+                    });
+                }
+            }
         }
     }
 }
@@ -203,9 +233,32 @@ impl<I: IntNumber> PushCanonicalSimpleParametricSegment<I> for Vec<ParametricSeg
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcSegment, ArcVector, EllipseFrame};
     use crate::kernel::int::curve::cubic::CubicSegment;
     use crate::kernel::int::curve::quad::QuadSegment;
+    use i_overlay::i_float::int::number::fixed_scale::FixedScale;
     use i_overlay::i_shape::int::IntPoint;
+
+    fn quarter_circle() -> ArcSegment<i32> {
+        let one = FixedScale::<i32>::DENOMINATOR as i32;
+
+        ArcSegment {
+            ellipse: EllipseFrame {
+                center: IntPoint::new(0, 0),
+                axis_x: ArcVector { x: 100, y: 0 },
+                axis_y: ArcVector { x: 0, y: 100 },
+            },
+            control_points: [
+                IntPoint::new(100, 0),
+                IntPoint::new(100, 100),
+                IntPoint::new(0, 100),
+            ],
+            weights: [one, 759_250_125, one],
+            start_phase: ArcPhase { cos: one, sin: 0 },
+            end_phase: ArcPhase { cos: 0, sin: one },
+            direction: ArcDirection::CounterClockwise,
+        }
+    }
 
     #[test]
     fn parametric_quad_pieces_share_monotone_root_point() {
@@ -251,5 +304,32 @@ mod tests {
             pieces.iter().all(|piece| !piece.curve.chord().is_zero_length()),
             "canonicalization must not emit zero-length curve pieces"
         );
+    }
+
+    #[test]
+    fn canonical_arc_keeps_full_source_parameter_range() {
+        let arc = quarter_circle();
+        let mut pieces = Vec::new();
+
+        pieces.push_canonical_simple_parametric(Segment::Arc(arc));
+
+        assert_eq!(pieces.len(), 1);
+        assert_eq!(pieces[0].start.value(), 0);
+        assert_eq!(pieces[0].end.value(), SegmentParam::<i32>::DENOMINATOR);
+        match pieces[0].curve {
+            Segment::Arc(result) => assert_eq!(result, arc),
+            _ => panic!("expected arc segment"),
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "canonical arc must already be split")]
+    fn canonical_arc_rejects_non_monotone_control_polygon_in_debug() {
+        let mut arc = quarter_circle();
+        arc.control_points = [IntPoint::new(0, 0), IntPoint::new(10, 20), IntPoint::new(20, 0)];
+        let mut pieces = Vec::new();
+
+        pieces.push_canonical_simple_parametric(Segment::Arc(arc));
     }
 }

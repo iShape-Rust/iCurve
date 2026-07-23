@@ -146,12 +146,15 @@ fn intersect_sorted(lhs: &[CurveId], rhs: &[CurveId]) -> Vec<CurveId> {
 mod tests {
     use super::*;
     use crate::int::bool::slice::CurveMark;
+    use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcSegment, ArcVector, EllipseFrame};
     use crate::kernel::int::curve::cubic::CubicSegment;
     use crate::kernel::int::curve::line::LineSegment;
     use crate::kernel::int::curve::param::SegmentParam;
     use crate::kernel::int::curve::segment::Segment;
+    use crate::kernel::int::curve::split_at::SplitAt;
     use alloc::vec;
     use i_overlay::core::overlay::ShapeType;
+    use i_overlay::i_float::int::number::fixed_scale::FixedScale;
 
     fn edge(a: IntPoint<i32>, b: IntPoint<i32>, id: usize) -> DataVectorEdge<i32, CurveEdgeData> {
         DataVectorEdge {
@@ -178,6 +181,34 @@ mod tests {
             param: SegmentParam::half(),
         });
         (slice, middle)
+    }
+
+    fn arc_slice() -> (CurveSlice<i32>, ArcSegment<i32>, IntPoint<i32>) {
+        let one = FixedScale::<i32>::DENOMINATOR as i32;
+        let arc = ArcSegment {
+            ellipse: EllipseFrame {
+                center: IntPoint::new(0, 0),
+                axis_x: ArcVector { x: 100, y: 0 },
+                axis_y: ArcVector { x: 0, y: 100 },
+            },
+            control_points: [
+                IntPoint::new(100, 0),
+                IntPoint::new(100, 100),
+                IntPoint::new(0, 100),
+            ],
+            weights: [one, 759_250_125, one],
+            start_phase: ArcPhase { cos: one, sin: 0 },
+            end_phase: ArcPhase { cos: 0, sin: one },
+            direction: ArcDirection::CounterClockwise,
+        };
+        let middle = arc.point_at(SegmentParam::half());
+        let mut slice = CurveSlice::new(Segment::Arc(arc), ShapeType::Subject);
+        slice.add_mark(CurveMark {
+            point: middle,
+            param: SegmentParam::half(),
+        });
+
+        (slice, arc, middle)
     }
 
     #[test]
@@ -235,6 +266,55 @@ mod tests {
                 assert_eq!(to, p0);
             }
             _ => panic!("expected cubic segment"),
+        }
+    }
+
+    #[test]
+    fn merges_adjacent_edges_back_into_complete_arc_slice() {
+        let (arc_slice, arc, middle) = arc_slice();
+        let p0 = arc.control_points[0];
+        let p2 = arc.control_points[2];
+        let closing = CurveSlice::new(
+            Segment::Line(LineSegment {
+                control_points: [p2, p0],
+            }),
+            ShapeType::Subject,
+        );
+        let shapes = vec![vec![vec![
+            edge(p0, middle, 0),
+            edge(middle, p2, 0),
+            edge(p2, p0, 1),
+        ]]];
+        let mut recomposer = CurveRecomposer::new();
+
+        let result = recomposer.recompose(shapes, &CurveEdgeDataStore::default(), &[arc_slice, closing]);
+
+        assert_eq!(result[0].contours[0].segments.len(), 2);
+        match result[0].contours[0].segments[0] {
+            CurveSegment::Arc { arc: restored } => assert_eq!(restored, arc),
+            _ => panic!("expected arc segment"),
+        }
+    }
+
+    #[test]
+    fn restores_partial_arc_slice_in_reverse_direction() {
+        let (arc_slice, arc, middle) = arc_slice();
+        let p0 = arc.control_points[0];
+        let closing = CurveSlice::new(
+            Segment::Line(LineSegment {
+                control_points: [p0, middle],
+            }),
+            ShapeType::Subject,
+        );
+        let shapes = vec![vec![vec![edge(middle, p0, 0), edge(p0, middle, 1)]]];
+        let mut recomposer = CurveRecomposer::new();
+        let expected = arc.split_at_left(SegmentParam::half()).reversed();
+
+        let result = recomposer.recompose(shapes, &CurveEdgeDataStore::default(), &[arc_slice, closing]);
+
+        match result[0].contours[0].segments[0] {
+            CurveSegment::Arc { arc: restored } => assert_eq!(restored, expected),
+            _ => panic!("expected arc segment"),
         }
     }
 }

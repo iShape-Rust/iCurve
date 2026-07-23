@@ -1,3 +1,4 @@
+mod arc;
 pub(crate) mod canonical;
 pub mod cubic;
 pub mod line;

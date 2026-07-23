@@ -215,6 +215,17 @@ impl<I: IntNumber> EllipseFrame<I> {
 }
 
 impl<I: IntNumber> ArcSegment<I> {
+    /// Returns whether the rational control polygon is weakly monotone on
+    /// both world axes.
+    ///
+    /// Positive rational weights make this a sufficient condition for the
+    /// represented curve to be XY-monotone.
+    #[inline]
+    pub(crate) fn is_xy_monotone(&self) -> bool {
+        let [p0, p1, p2] = self.control_points;
+        is_ordered(p0.x, p1.x, p2.x) && is_ordered(p0.y, p1.y, p2.y)
+    }
+
     /// Evaluates the rational quadratic with fixed-point de Casteljau.
     #[inline]
     pub fn point_at(&self, t: SegmentParam<I>) -> IntPoint<I> {
@@ -334,13 +345,11 @@ impl<I: IntNumber> ArcSegment<I> {
             }
         }
     }
+}
 
-    #[cold]
-    #[track_caller]
-    pub(crate) fn not_implemented(&self, operation: &str) -> ! {
-        self.debug_assert_invariants();
-        panic!("arc {operation} is not implemented")
-    }
+#[inline]
+fn is_ordered<I: IntNumber>(a: I, b: I, c: I) -> bool {
+    a <= b && b <= c || a >= b && b >= c
 }
 
 #[derive(Clone, Copy)]

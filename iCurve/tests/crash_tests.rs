@@ -1,5 +1,8 @@
 #[cfg(test)]
 mod tests {
+    use i_curve::float::curve::arc::{Ellipse, EllipticArc};
+    use i_curve::float::curve::builder::CurveBuilder;
+    use i_curve::float::curve::converter::CurveConverter;
     use i_curve::int::bool::overlay::IntCurveOverlay;
     use i_curve::int::curve::path::CurvePath;
     use i_curve::int::curve::segment::CurveSegment;
@@ -139,6 +142,67 @@ mod tests {
         }
         for shape in clip {
             overlay.add_shape(shape, ShapeType::Clip);
+        }
+        let result = overlay.overlay(OverlayRule::Union, FillRule::NonZero);
+        dbg!(result);
+    }
+
+    #[test]
+    fn test_03() {
+        const SCALE: f32 = 1.0;
+        const SUBJECT_CONTOURS: usize = 1;
+
+        let input = CurveBuilder::new()
+            .move_to([47.376312, 69.676125])
+            .unwrap()
+            .arc_to(EllipticArc {
+                ellipse: Ellipse {
+                    center: [-115.14, 4.76504],
+                    radius_x: 175.0,
+                    radius_y: 95.0,
+                    rotation: 0.38,
+                },
+                start_angle: 0.0,
+                sweep_angle: 6.2831855,
+            })
+            .unwrap()
+            .move_to([204.2774, -60.66851])
+            .unwrap()
+            .arc_to(EllipticArc {
+                ellipse: Ellipse {
+                    center: [75.0, 5.0],
+                    radius_x: 145.0,
+                    radius_y: 105.0,
+                    rotation: -0.47,
+                },
+                start_angle: 0.0,
+                sweep_angle: 6.2831855,
+            })
+            .unwrap()
+            .build()
+            .unwrap();
+
+        let converter = CurveConverter::<_, i32>::try_with_scale(input, SCALE).unwrap();
+        let int_shape = converter.into_shape();
+        assert_eq!(int_shape.contours.len(), 2);
+        let capacity = int_shape
+            .contours
+            .iter()
+            .map(|contour| contour.segments.len())
+            .sum();
+        let mut overlay = IntCurveOverlay::new(capacity);
+        for (index, contour) in int_shape.contours.into_iter().enumerate() {
+            let shape_type = if index < SUBJECT_CONTOURS {
+                ShapeType::Subject
+            } else {
+                ShapeType::Clip
+            };
+            overlay.add_shape(
+                CurveShape {
+                    contours: vec![contour],
+                },
+                shape_type,
+            );
         }
         let result = overlay.overlay(OverlayRule::Union, FillRule::NonZero);
         dbg!(result);

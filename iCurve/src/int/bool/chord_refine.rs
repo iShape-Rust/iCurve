@@ -2,6 +2,7 @@ use crate::int::bool::edge::CurveEdge;
 use crate::int::bool::slice::CurveSlice;
 use crate::int::bool::split::{CurveEdgeSplitter, CurveSplitMark};
 use crate::kernel::int::cross::ChordCross;
+use crate::kernel::int::curve::arc::ArcSegment;
 use crate::kernel::int::curve::chord::{Chord, SegmentChord};
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::point_at::PointAt;
@@ -392,13 +393,45 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
         let first_chord = first.chord();
         let second_chord = second.chord();
         let reverse_second = first_chord.a == second_chord.b && first_chord.b == second_chord.a;
-        let first_controls = Self::scaled_cubic_controls(first, false);
-        let second_controls = Self::scaled_cubic_controls(second, reverse_second);
+
+        if let (Segment::Arc(first), Segment::Arc(second)) = (first, second) {
+            return Self::has_same_arc_geometry(first, second, reverse_second);
+        }
+
+        let Some(first_controls) = Self::scaled_cubic_controls(first, false) else {
+            return false;
+        };
+        let Some(second_controls) = Self::scaled_cubic_controls(second, reverse_second) else {
+            return false;
+        };
 
         first_controls == second_controls
     }
 
-    fn scaled_cubic_controls(curve: Segment<I>, reverse: bool) -> [(I::Wide, I::Wide); 4] {
+    fn has_same_arc_geometry(first: ArcSegment<I>, second: ArcSegment<I>, reverse_second: bool) -> bool {
+        let mut second_controls = second.control_points;
+        let mut second_weights = second.weights;
+        if reverse_second {
+            second_controls.reverse();
+            second_weights.reverse();
+        }
+
+        if first.control_points != second_controls {
+            return false;
+        }
+
+        // Rational control nets are homogeneous: multiplying all weights by
+        // one common positive factor does not change the represented curve.
+        let first_anchor = first.weights[0].to_wide();
+        let second_anchor = second_weights[0].to_wide();
+        first
+            .weights
+            .into_iter()
+            .zip(second_weights)
+            .all(|(a, b)| a.to_wide() * second_anchor == b.to_wide() * first_anchor)
+    }
+
+    fn scaled_cubic_controls(curve: Segment<I>, reverse: bool) -> Option<[(I::Wide, I::Wide); 4]> {
         let two = I::Wide::TWO;
         let three = I::Wide::from_u32(3);
         let scale =
@@ -430,13 +463,26 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
                 ]
             }
             Segment::Cubic(cubic) => cubic.control_points.map(|point| scale(point, three)),
-            Segment::Arc(arc) => arc.not_implemented("geometry comparison"),
+            Segment::Arc(arc) => {
+                let [w0, w1, w2] = arc.weights;
+                if w0 != w1 || w1 != w2 {
+                    return None;
+                }
+
+                let [p0, p1, p2] = arc.control_points;
+                [
+                    scale(p0, three),
+                    combine(p0, I::Wide::ONE, p1, two),
+                    combine(p1, two, p2, I::Wide::ONE),
+                    scale(p2, three),
+                ]
+            }
         };
 
         if reverse {
             controls.reverse();
         }
-        controls
+        Some(controls)
     }
 }
 
@@ -467,6 +513,27 @@ mod tests {
                 control_points: points.map(Into::into),
             }),
             curve_id: CurveId(id),
+        }
+    }
+
+    fn quarter_arc() -> ArcSegment<i32> {
+        let one = FixedScale::<i32>::DENOMINATOR as i32;
+
+        ArcSegment {
+            ellipse: EllipseFrame {
+                center: IntPoint::new(0, 0),
+                axis_x: ArcVector { x: 100, y: 0 },
+                axis_y: ArcVector { x: 0, y: 100 },
+            },
+            control_points: [
+                IntPoint::new(100, 0),
+                IntPoint::new(100, 100),
+                IntPoint::new(0, 100),
+            ],
+            weights: [one, 759_250_125, one],
+            start_phase: ArcPhase { cos: one, sin: 0 },
+            end_phase: ArcPhase { cos: 0, sin: one },
+            direction: ArcDirection::CounterClockwise,
         }
     }
 
@@ -574,23 +641,7 @@ mod tests {
 
     #[test]
     fn arc_initial_tangent_uses_first_distinct_control() {
-        let one = FixedScale::<i32>::DENOMINATOR as i32;
-        let mut arc = ArcSegment {
-            ellipse: EllipseFrame {
-                center: IntPoint::new(0, 0),
-                axis_x: ArcVector { x: 100, y: 0 },
-                axis_y: ArcVector { x: 0, y: 100 },
-            },
-            control_points: [
-                IntPoint::new(100, 0),
-                IntPoint::new(100, 100),
-                IntPoint::new(0, 100),
-            ],
-            weights: [one, 759_250_125, one],
-            start_phase: ArcPhase { cos: one, sin: 0 },
-            end_phase: ArcPhase { cos: 0, sin: one },
-            direction: ArcDirection::CounterClockwise,
-        };
+        let mut arc = quarter_arc();
 
         assert_eq!(
             ChordTopologyRefiner::initial_tangent_end(Segment::Arc(arc), arc.control_points[0]),
@@ -606,6 +657,50 @@ mod tests {
             ChordTopologyRefiner::initial_tangent_end(Segment::Arc(arc), arc.control_points[0]),
             arc.control_points[2]
         );
+    }
+
+    #[test]
+    fn recognizes_identical_and_reversed_arc_geometry() {
+        let arc = quarter_arc();
+
+        assert!(ChordTopologyRefiner::has_same_geometry(
+            Segment::Arc(arc),
+            Segment::Arc(arc)
+        ));
+        assert!(ChordTopologyRefiner::has_same_geometry(
+            Segment::Arc(arc),
+            Segment::Arc(arc.reversed())
+        ));
+    }
+
+    #[test]
+    fn rational_arc_geometry_accepts_common_weight_scale_only() {
+        let mut first = quarter_arc();
+        first.weights = [100, 80, 100];
+        let mut proportional = first;
+        proportional.weights = [50, 40, 50];
+        let mut different = first;
+        different.weights = [100, 79, 100];
+
+        assert!(ChordTopologyRefiner::has_same_geometry(
+            Segment::Arc(first),
+            Segment::Arc(proportional)
+        ));
+        assert!(!ChordTopologyRefiner::has_same_geometry(
+            Segment::Arc(first),
+            Segment::Arc(different)
+        ));
+    }
+
+    #[test]
+    fn equal_weight_arc_can_match_polynomial_quad() {
+        let mut arc = quarter_arc();
+        arc.weights = [100, 100, 100];
+        let quad = Segment::Quad(QuadSegment {
+            control_points: arc.control_points,
+        });
+
+        assert!(ChordTopologyRefiner::has_same_geometry(Segment::Arc(arc), quad));
     }
 
     #[test]

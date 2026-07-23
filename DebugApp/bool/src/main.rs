@@ -9,15 +9,31 @@ use debug_ui::{
     },
     grid::{Grid, paint_camera_readout},
 };
-use i_curve::int::{
-    bool::overlay::IntCurveOverlay,
-    curve::{path::CurvePath, segment::CurveSegment, shape::CurveShape},
+use i_curve::{
+    float::curve::{
+        arc::EllipticArc,
+        builder::{CurveBuilder, CurveError},
+        converter::CurveConverter,
+        path::CurvePath as FloatCurvePath,
+        segment::CurveSegment as FloatCurveSegment,
+        shape::CurveShape as FloatCurveShape,
+    },
+    int::{
+        bool::overlay::IntCurveOverlay,
+        curve::{
+            path::CurvePath as IntCurvePath, segment::CurveSegment as IntCurveSegment,
+            shape::CurveShape as IntCurveShape,
+        },
+    },
+    kernel::int::curve::param::SegmentParam,
 };
-use i_overlay::core::{fill_rule::FillRule, overlay::ShapeType, overlay_rule::OverlayRule};
-use i_overlay::i_shape::int::IntPoint;
+use i_overlay::{
+    core::{fill_rule::FillRule, overlay::ShapeType, overlay_rule::OverlayRule},
+    i_float::adapter::FloatPointAdapter,
+};
 use std::fmt::Write;
 
-type DrawPoint = [f32; 2];
+const SCALE: f32 = 1.0;
 
 const OVERLAY_RULES: [OverlayRule; 5] = [
     OverlayRule::Intersect,
@@ -51,6 +67,11 @@ impl ShowMode {
     }
 }
 
+struct OverlayResult {
+    shapes: Vec<IntCurveShape<i32>>,
+    adapter: FloatPointAdapter<CurvePoint, i32>,
+}
+
 struct BoolApp {
     camera: Camera,
     grid: Grid,
@@ -59,7 +80,7 @@ struct BoolApp {
     overlay_rule: OverlayRule,
     fill_rule: FillRule,
     show_mode: ShowMode,
-    result: Result<Vec<CurveShape<i32>>, String>,
+    result: Result<OverlayResult, String>,
 }
 
 impl Default for BoolApp {
@@ -76,7 +97,7 @@ impl Default for BoolApp {
             overlay_rule: OverlayRule::Union,
             fill_rule: FillRule::NonZero,
             show_mode: ShowMode::Both,
-            result: Ok(Vec::new()),
+            result: Err("not calculated".to_owned()),
         };
         app.refresh_result();
         app.fit_active_example();
@@ -160,15 +181,17 @@ impl eframe::App for BoolApp {
                 ui.separator();
 
                 let active = self.active_example();
+                ui.label(format!("Scale: {SCALE}"));
                 ui.label(format!("Subject shapes: {}", active.subject.len()));
                 ui.label(format!("Clip shapes: {}", active.clip.len()));
                 match &self.result {
-                    Ok(shapes) => {
-                        let contour_count = shapes
+                    Ok(result) => {
+                        let contour_count = result
+                            .shapes
                             .iter()
                             .map(|shape| shape.contours.len())
                             .sum::<usize>();
-                        ui.label(format!("Result shapes: {}", shapes.len()));
+                        ui.label(format!("Result shapes: {}", result.shapes.len()));
                         ui.label(format!("Result contours: {contour_count}"));
                     }
                     Err(error) => {
@@ -198,7 +221,7 @@ impl eframe::App for BoolApp {
 
                 if matches!(self.show_mode, ShowMode::Inputs | ShowMode::Both) {
                     let active = self.active_example_mut();
-                    inputs_changed |= edit_shapes(
+                    inputs_changed |= edit_float_shapes(
                         ui,
                         &painter,
                         rect,
@@ -214,7 +237,7 @@ impl eframe::App for BoolApp {
                             controls: ControlStyle::input(),
                         },
                     );
-                    inputs_changed |= edit_shapes(
+                    inputs_changed |= edit_float_shapes(
                         ui,
                         &painter,
                         rect,
@@ -239,11 +262,12 @@ impl eframe::App for BoolApp {
                 if matches!(self.show_mode, ShowMode::Result | ShowMode::Both)
                     && let Ok(result) = &self.result
                 {
-                    paint_shapes(
+                    paint_int_shapes(
                         &painter,
                         rect,
                         &camera,
-                        result,
+                        &result.shapes,
+                        &result.adapter,
                         ShapeStyle {
                             fill: Color32::TRANSPARENT,
                             stroke: Stroke::new(3.0_f32, Color32::from_rgb(78, 180, 91)),
@@ -272,20 +296,12 @@ impl BoolApp {
         let fill_rule = self.fill_rule;
         print_overlay_input(&example, overlay_rule, fill_rule);
 
-        self.result = std::panic::catch_unwind(move || {
-            let capacity = segment_count(&example);
-            let mut overlay = IntCurveOverlay::new(capacity);
-
-            for shape in example.subject {
-                overlay.add_shape(shape, ShapeType::Subject);
-            }
-            for shape in example.clip {
-                overlay.add_shape(shape, ShapeType::Clip);
-            }
-
-            overlay.overlay(overlay_rule, fill_rule)
-        })
-        .map_err(panic_message);
+        self.result = match std::panic::catch_unwind(move || {
+            build_overlay_result(&example, overlay_rule, fill_rule)
+        }) {
+            Ok(result) => result,
+            Err(payload) => Err(panic_message(payload)),
+        };
     }
 
     fn fit_active_example(&mut self) {
@@ -300,6 +316,86 @@ impl BoolApp {
     }
 }
 
+fn build_overlay_result(
+    example: &BoolExample,
+    overlay_rule: OverlayRule,
+    fill_rule: FillRule,
+) -> Result<OverlayResult, String> {
+    let subject_contour_count = contour_count(&example.subject);
+    let total_contour_count = subject_contour_count + contour_count(&example.clip);
+    let source = combined_float_shape(example).map_err(|error| format!("Builder: {error:?}"))?;
+    let converter = CurveConverter::<_, i32>::try_with_scale(source, SCALE)
+        .map_err(|error| format!("Converter: {error:?}"))?;
+    let (adapter, int_shape) = converter.into_parts();
+
+    if int_shape.contours.len() != total_contour_count {
+        return Err(format!(
+            "Scale {SCALE} collapsed {} of {total_contour_count} contours",
+            total_contour_count - int_shape.contours.len()
+        ));
+    }
+
+    let capacity = int_shape
+        .contours
+        .iter()
+        .map(|contour| contour.segments.len())
+        .sum();
+    let mut overlay = IntCurveOverlay::new(capacity);
+
+    for (index, contour) in int_shape.contours.into_iter().enumerate() {
+        let shape_type = if index < subject_contour_count {
+            ShapeType::Subject
+        } else {
+            ShapeType::Clip
+        };
+        overlay.add_shape(
+            IntCurveShape {
+                contours: vec![contour],
+            },
+            shape_type,
+        );
+    }
+
+    Ok(OverlayResult {
+        shapes: overlay.overlay(overlay_rule, fill_rule),
+        adapter,
+    })
+}
+
+fn combined_float_shape(example: &BoolExample) -> Result<FloatCurveShape<CurvePoint>, CurveError> {
+    let mut builder = CurveBuilder::new();
+
+    for shape in example.subject.iter().chain(&example.clip) {
+        for contour in shape.contours() {
+            builder = append_float_contour(builder, contour)?;
+        }
+    }
+
+    builder.build()
+}
+
+fn append_float_contour(
+    mut builder: CurveBuilder<CurvePoint>,
+    contour: &FloatCurvePath<CurvePoint>,
+) -> Result<CurveBuilder<CurvePoint>, CurveError> {
+    builder = builder.move_to(contour.start())?;
+    for segment in contour.segments() {
+        builder = match segment {
+            FloatCurveSegment::Line { to } => builder.line_to(*to)?,
+            FloatCurveSegment::Quad { ctrl, to } => builder.quad_to(*ctrl, *to)?,
+            FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => {
+                builder.cubic_to(*ctrl0, *ctrl1, *to)?
+            }
+            FloatCurveSegment::Arc { arc } => builder.arc_to(*arc)?,
+        };
+    }
+    Ok(builder)
+}
+
+fn contour_count(shapes: &[FloatCurveShape<CurvePoint>]) -> usize {
+    shapes.iter().map(|shape| shape.contours().len()).sum()
+}
+
 fn print_overlay_input(example: &BoolExample, overlay_rule: OverlayRule, fill_rule: FillRule) {
     println!("{}", overlay_input_source(example, overlay_rule, fill_rule));
 }
@@ -310,40 +406,75 @@ fn overlay_input_source(
     fill_rule: FillRule,
 ) -> String {
     let mut source = String::new();
-    writeln!(source, "\n// IntCurveOverlay input: {}", example.name).unwrap();
+    let subject_contour_count = contour_count(&example.subject);
+    let total_contour_count = subject_contour_count + contour_count(&example.clip);
+
+    writeln!(source, "\n// IntCurveOverlay float input: {}", example.name).unwrap();
     writeln!(source, "#[test]").unwrap();
     writeln!(source, "fn reproduced_overlay_case() {{").unwrap();
     writeln!(
         source,
-        "    use i_curve::int::{{bool::overlay::IntCurveOverlay, curve::{{path::CurvePath, segment::CurveSegment, shape::CurveShape}}}};"
+        "    use i_curve::float::curve::{{arc::{{Ellipse, EllipticArc}}, builder::CurveBuilder, converter::CurveConverter}};"
     )
     .unwrap();
     writeln!(
         source,
-        "    use i_overlay::core::{{fill_rule::FillRule, overlay::ShapeType, overlay_rule::OverlayRule}};"
+        "    use i_curve::int::{{bool::overlay::IntCurveOverlay, curve::shape::CurveShape}};"
     )
     .unwrap();
-    writeln!(source, "    use i_overlay::i_shape::int::IntPoint;\n").unwrap();
+    writeln!(
+        source,
+        "    use i_overlay::core::{{fill_rule::FillRule, overlay::ShapeType, overlay_rule::OverlayRule}};\n"
+    )
+    .unwrap();
+    writeln!(source, "    const SCALE: f32 = {SCALE:?};").unwrap();
+    writeln!(
+        source,
+        "    const SUBJECT_CONTOURS: usize = {subject_contour_count};\n"
+    )
+    .unwrap();
 
-    write_shapes(&mut source, "subject", &example.subject);
-    writeln!(source).unwrap();
-    write_shapes(&mut source, "clip", &example.clip);
-    writeln!(source).unwrap();
+    writeln!(source, "    let input = CurveBuilder::new()").unwrap();
+    write_float_shape_steps(&mut source, &example.subject);
+    write_float_shape_steps(&mut source, &example.clip);
+    writeln!(source, "        .build().unwrap();\n").unwrap();
+
     writeln!(
         source,
-        "    let mut overlay = IntCurveOverlay::new({});",
-        segment_count(example)
+        "    let converter = CurveConverter::<_, i32>::try_with_scale(input, SCALE).unwrap();"
     )
     .unwrap();
-    writeln!(source, "    for shape in subject {{").unwrap();
+    writeln!(source, "    let int_shape = converter.into_shape();").unwrap();
     writeln!(
         source,
-        "        overlay.add_shape(shape, ShapeType::Subject);"
+        "    assert_eq!(int_shape.contours.len(), {total_contour_count});"
     )
     .unwrap();
-    writeln!(source, "    }}").unwrap();
-    writeln!(source, "    for shape in clip {{").unwrap();
-    writeln!(source, "        overlay.add_shape(shape, ShapeType::Clip);").unwrap();
+    writeln!(
+        source,
+        "    let capacity = int_shape.contours.iter().map(|contour| contour.segments.len()).sum();"
+    )
+    .unwrap();
+    writeln!(
+        source,
+        "    let mut overlay = IntCurveOverlay::new(capacity);"
+    )
+    .unwrap();
+    writeln!(
+        source,
+        "    for (index, contour) in int_shape.contours.into_iter().enumerate() {{"
+    )
+    .unwrap();
+    writeln!(
+        source,
+        "        let shape_type = if index < SUBJECT_CONTOURS {{ ShapeType::Subject }} else {{ ShapeType::Clip }};"
+    )
+    .unwrap();
+    writeln!(
+        source,
+        "        overlay.add_shape(CurveShape {{ contours: vec![contour] }}, shape_type);"
+    )
+    .unwrap();
     writeln!(source, "    }}").unwrap();
     writeln!(
         source,
@@ -356,69 +487,80 @@ fn overlay_input_source(
     source
 }
 
-fn write_shapes(source: &mut String, name: &str, shapes: &[CurveShape<i32>]) {
-    writeln!(source, "    let {name} = vec![").unwrap();
+fn write_float_shape_steps(source: &mut String, shapes: &[FloatCurveShape<CurvePoint>]) {
     for shape in shapes {
-        writeln!(source, "        CurveShape {{").unwrap();
-        writeln!(source, "            contours: vec![").unwrap();
-        for contour in &shape.contours {
-            writeln!(source, "                CurvePath {{").unwrap();
+        for contour in shape.contours() {
             writeln!(
                 source,
-                "                    start: IntPoint::new({}, {}),",
-                contour.start.x, contour.start.y
+                "        .move_to([{:?}, {:?}]).unwrap()",
+                contour.start()[0],
+                contour.start()[1]
             )
             .unwrap();
-            writeln!(source, "                    segments: vec![").unwrap();
-            for segment in &contour.segments {
-                write_segment(source, segment);
+            for segment in contour.segments() {
+                match segment {
+                    FloatCurveSegment::Line { to } => {
+                        writeln!(
+                            source,
+                            "        .line_to([{:?}, {:?}]).unwrap()",
+                            to[0], to[1]
+                        )
+                        .unwrap();
+                    }
+                    FloatCurveSegment::Quad { ctrl, to } => {
+                        writeln!(
+                            source,
+                            "        .quad_to([{:?}, {:?}], [{:?}, {:?}]).unwrap()",
+                            ctrl[0], ctrl[1], to[0], to[1]
+                        )
+                        .unwrap();
+                    }
+                    FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => {
+                        writeln!(
+                            source,
+                            "        .cubic_to([{:?}, {:?}], [{:?}, {:?}], [{:?}, {:?}]).unwrap()",
+                            ctrl0[0], ctrl0[1], ctrl1[0], ctrl1[1], to[0], to[1]
+                        )
+                        .unwrap();
+                    }
+                    FloatCurveSegment::Arc { arc } => {
+                        writeln!(source, "        .arc_to(EllipticArc {{").unwrap();
+                        writeln!(source, "            ellipse: Ellipse {{").unwrap();
+                        writeln!(
+                            source,
+                            "                center: [{:?}, {:?}],",
+                            arc.ellipse.center[0], arc.ellipse.center[1]
+                        )
+                        .unwrap();
+                        writeln!(
+                            source,
+                            "                radius_x: {:?},",
+                            arc.ellipse.radius_x
+                        )
+                        .unwrap();
+                        writeln!(
+                            source,
+                            "                radius_y: {:?},",
+                            arc.ellipse.radius_y
+                        )
+                        .unwrap();
+                        writeln!(
+                            source,
+                            "                rotation: {:?},",
+                            arc.ellipse.rotation
+                        )
+                        .unwrap();
+                        writeln!(source, "            }},").unwrap();
+                        writeln!(source, "            start_angle: {:?},", arc.start_angle)
+                            .unwrap();
+                        writeln!(source, "            sweep_angle: {:?},", arc.sweep_angle)
+                            .unwrap();
+                        writeln!(source, "        }}).unwrap()").unwrap();
+                    }
+                }
             }
-            writeln!(source, "                    ],").unwrap();
-            writeln!(source, "                }},").unwrap();
-        }
-        writeln!(source, "            ],").unwrap();
-        writeln!(source, "        }},").unwrap();
-    }
-    writeln!(source, "    ];").unwrap();
-}
-
-fn write_segment(source: &mut String, segment: &CurveSegment<i32>) {
-    match segment {
-        CurveSegment::Line { to } => {
-            writeln!(
-                source,
-                "                        CurveSegment::Line {{ to: IntPoint::new({}, {}) }},",
-                to.x, to.y
-            )
-            .unwrap();
-        }
-        CurveSegment::Quad { ctrl, to } => {
-            writeln!(
-                source,
-                "                        CurveSegment::Quad {{ ctrl: IntPoint::new({}, {}), to: IntPoint::new({}, {}) }},",
-                ctrl.x, ctrl.y, to.x, to.y
-            )
-            .unwrap();
-        }
-        CurveSegment::Cubic { ctrl0, ctrl1, to } => {
-            writeln!(
-                source,
-                "                        CurveSegment::Cubic {{ ctrl0: IntPoint::new({}, {}), ctrl1: IntPoint::new({}, {}), to: IntPoint::new({}, {}) }},",
-                ctrl0.x, ctrl0.y, ctrl1.x, ctrl1.y, to.x, to.y
-            )
-            .unwrap();
         }
     }
-}
-
-fn segment_count(example: &BoolExample) -> usize {
-    example
-        .subject
-        .iter()
-        .chain(&example.clip)
-        .flat_map(|shape| &shape.contours)
-        .map(|contour| contour.segments.len())
-        .sum()
 }
 
 fn panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
@@ -443,6 +585,7 @@ struct ControlStyle {
     arm_stroke: Stroke,
     anchor_fill: Color32,
     control_fill: Color32,
+    center_fill: Color32,
     point_stroke: Stroke,
 }
 
@@ -452,6 +595,7 @@ impl ControlStyle {
             arm_stroke: Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(196, 202, 214, 80)),
             anchor_fill: Color32::from_rgba_unmultiplied(255, 206, 102, 150),
             control_fill: Color32::from_rgba_unmultiplied(240, 118, 118, 150),
+            center_fill: Color32::from_rgba_unmultiplied(128, 212, 156, 150),
             point_stroke: Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(18, 20, 24, 180)),
         }
     }
@@ -461,137 +605,244 @@ impl ControlStyle {
             arm_stroke: Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(150, 156, 166, 65)),
             anchor_fill: Color32::from_rgba_unmultiplied(165, 171, 181, 105),
             control_fill: Color32::from_rgba_unmultiplied(135, 141, 151, 90),
+            center_fill: Color32::from_rgba_unmultiplied(150, 156, 166, 95),
             point_stroke: Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(18, 20, 24, 120)),
         }
     }
 }
 
-fn paint_shapes(
+fn paint_float_shapes(
     painter: &Painter,
     rect: Rect,
     camera: &Camera,
-    shapes: &[CurveShape<i32>],
+    shapes: &[FloatCurveShape<CurvePoint>],
+    style: ShapeStyle,
+) {
+    for shape in shapes {
+        for contour in shape.contours() {
+            paint_sampled_path(painter, rect, camera, sample_float_contour(contour), style);
+            paint_float_control_points(painter, rect, camera, contour, style.controls);
+        }
+    }
+}
+
+fn paint_int_shapes(
+    painter: &Painter,
+    rect: Rect,
+    camera: &Camera,
+    shapes: &[IntCurveShape<i32>],
+    adapter: &FloatPointAdapter<CurvePoint, i32>,
     style: ShapeStyle,
 ) {
     for shape in shapes {
         for contour in &shape.contours {
-            let world_points = sample_contour(contour);
-            if world_points.len() < 2 {
-                continue;
-            }
-
-            let screen_points = world_points
-                .iter()
-                .map(|point| camera.screen_from_world(rect, draw_point_to_pos(*point)))
-                .collect::<Vec<_>>();
-
-            if style.fill != Color32::TRANSPARENT && screen_points.len() >= 3 {
-                painter.add(PathShape::convex_polygon(
-                    screen_points.clone(),
-                    style.fill,
-                    Stroke::new(0.0_f32, Color32::TRANSPARENT),
-                ));
-            }
-
-            painter.add(Shape::closed_line(screen_points, style.stroke));
-            paint_control_points(painter, rect, camera, contour, style.controls);
+            paint_sampled_path(
+                painter,
+                rect,
+                camera,
+                sample_int_contour(contour, adapter),
+                style,
+            );
+            paint_int_control_points(painter, rect, camera, contour, adapter, style.controls);
         }
     }
 }
 
-fn edit_shapes(
+fn paint_sampled_path(
+    painter: &Painter,
+    rect: Rect,
+    camera: &Camera,
+    world_points: Vec<CurvePoint>,
+    style: ShapeStyle,
+) {
+    if world_points.len() < 2 {
+        return;
+    }
+
+    let screen_points = world_points
+        .iter()
+        .map(|point| camera.screen_from_world(rect, point_to_pos(*point)))
+        .collect::<Vec<_>>();
+
+    if style.fill != Color32::TRANSPARENT && screen_points.len() >= 3 {
+        painter.add(PathShape::convex_polygon(
+            screen_points.clone(),
+            style.fill,
+            Stroke::new(0.0_f32, Color32::TRANSPARENT),
+        ));
+    }
+
+    painter.add(Shape::closed_line(screen_points, style.stroke));
+}
+
+fn edit_float_shapes(
     ui: &mut Ui,
     painter: &Painter,
     rect: Rect,
     camera: &Camera,
     id_source: &'static str,
-    shapes: &mut [CurveShape<i32>],
+    shapes: &mut [FloatCurveShape<CurvePoint>],
     style: ShapeStyle,
 ) -> bool {
-    let changed = interact_shapes(ui, rect, camera, id_source, shapes);
-    paint_shapes(painter, rect, camera, shapes, style);
+    let changed = interact_float_shapes(ui, rect, camera, id_source, shapes);
+    paint_float_shapes(painter, rect, camera, shapes, style);
     changed
 }
 
-fn interact_shapes(
+fn interact_float_shapes(
     ui: &mut Ui,
     rect: Rect,
     camera: &Camera,
     id_source: &'static str,
-    shapes: &mut [CurveShape<i32>],
+    shapes: &mut [FloatCurveShape<CurvePoint>],
 ) -> bool {
     let mut changed = false;
+
     for (shape_index, shape) in shapes.iter_mut().enumerate() {
-        for (contour_index, contour) in shape.contours.iter_mut().enumerate() {
+        let mut edits = Vec::new();
+        for (contour_index, contour) in shape.contours().iter().enumerate() {
             let id = Id::new(id_source).with(shape_index).with(contour_index);
-            changed |= interact_contour(ui, rect, camera, id, contour);
+            collect_float_contour_edits(ui, rect, camera, id, contour, &mut edits);
+        }
+
+        for edit in edits {
+            *shape = rebuild_float_shape(shape, edit).expect("edited shape must stay valid");
+            changed = true;
         }
     }
+
     changed
 }
 
-fn interact_contour(
+#[derive(Clone, Copy)]
+enum ControlEdit {
+    MovePoint {
+        point: CurvePoint,
+        position: CurvePoint,
+    },
+    MoveArc {
+        center: CurvePoint,
+        start: CurvePoint,
+        end: CurvePoint,
+        delta: Vec2,
+    },
+}
+
+fn collect_float_contour_edits(
     ui: &mut Ui,
     rect: Rect,
     camera: &Camera,
     id: Id,
-    contour: &mut CurvePath<i32>,
-) -> bool {
-    let mut edits = Vec::new();
+    contour: &FloatCurvePath<CurvePoint>,
+    edits: &mut Vec<ControlEdit>,
+) {
+    let locks_anchors = contour
+        .segments()
+        .iter()
+        .any(|segment| matches!(segment, FloatCurveSegment::Arc { .. }));
+    let mut start = contour.start();
+    let mut handled_arc_centers = Vec::new();
 
-    if let Some(position) =
-        interact_point_position(ui, id.with("start"), rect, camera, contour.start, 3.5)
+    if !locks_anchors
+        && let Some(position) =
+            interact_point_position(ui, id.with("start"), rect, camera, start, 3.5)
     {
-        edits.push((contour.start, position));
+        edits.push(ControlEdit::MovePoint {
+            point: start,
+            position,
+        });
     }
 
-    for (segment_index, segment) in contour.segments.iter().enumerate() {
+    for (segment_index, segment) in contour.segments().iter().enumerate() {
         let segment_id = id.with(segment_index);
         match segment {
-            CurveSegment::Line { to } => {
-                if let Some(position) =
-                    interact_point_position(ui, segment_id.with("to"), rect, camera, *to, 3.5)
+            FloatCurveSegment::Line { to } => {
+                if !locks_anchors
+                    && let Some(position) =
+                        interact_point_position(ui, segment_id.with("to"), rect, camera, *to, 3.5)
                 {
-                    edits.push((*to, position));
+                    edits.push(ControlEdit::MovePoint {
+                        point: *to,
+                        position,
+                    });
                 }
+                start = *to;
             }
-            CurveSegment::Quad { ctrl, to } => {
+            FloatCurveSegment::Quad { ctrl, to } => {
                 if let Some(position) =
                     interact_point_position(ui, segment_id.with("ctrl"), rect, camera, *ctrl, 4.5)
                 {
-                    edits.push((*ctrl, position));
+                    edits.push(ControlEdit::MovePoint {
+                        point: *ctrl,
+                        position,
+                    });
                 }
-                if let Some(position) =
-                    interact_point_position(ui, segment_id.with("to"), rect, camera, *to, 3.5)
+                if !locks_anchors
+                    && let Some(position) =
+                        interact_point_position(ui, segment_id.with("to"), rect, camera, *to, 3.5)
                 {
-                    edits.push((*to, position));
+                    edits.push(ControlEdit::MovePoint {
+                        point: *to,
+                        position,
+                    });
                 }
+                start = *to;
             }
-            CurveSegment::Cubic { ctrl0, ctrl1, to } => {
+            FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => {
                 if let Some(position) =
                     interact_point_position(ui, segment_id.with("ctrl0"), rect, camera, *ctrl0, 4.5)
                 {
-                    edits.push((*ctrl0, position));
+                    edits.push(ControlEdit::MovePoint {
+                        point: *ctrl0,
+                        position,
+                    });
                 }
                 if let Some(position) =
                     interact_point_position(ui, segment_id.with("ctrl1"), rect, camera, *ctrl1, 4.5)
                 {
-                    edits.push((*ctrl1, position));
+                    edits.push(ControlEdit::MovePoint {
+                        point: *ctrl1,
+                        position,
+                    });
                 }
-                if let Some(position) =
-                    interact_point_position(ui, segment_id.with("to"), rect, camera, *to, 3.5)
+                if !locks_anchors
+                    && let Some(position) =
+                        interact_point_position(ui, segment_id.with("to"), rect, camera, *to, 3.5)
                 {
-                    edits.push((*to, position));
+                    edits.push(ControlEdit::MovePoint {
+                        point: *to,
+                        position,
+                    });
                 }
+                start = *to;
+            }
+            FloatCurveSegment::Arc { arc } => {
+                let center = arc.ellipse.center;
+                let end = arc.end_point();
+                if !handled_arc_centers
+                    .iter()
+                    .any(|handled| same_point(*handled, center))
+                    && let Some(position) = interact_point_position(
+                        ui,
+                        segment_id.with("center"),
+                        rect,
+                        camera,
+                        center,
+                        4.5,
+                    )
+                {
+                    edits.push(ControlEdit::MoveArc {
+                        center,
+                        start,
+                        end,
+                        delta: Vec2::new(position[0] - center[0], position[1] - center[1]),
+                    });
+                    handled_arc_centers.push(center);
+                }
+                start = end;
             }
         }
     }
-
-    let changed = !edits.is_empty();
-    for (point, position) in edits {
-        move_matching_points(contour, point, position);
-    }
-    changed
 }
 
 fn interact_point_position(
@@ -614,45 +865,117 @@ fn interact_point_position(
 
     let screen_position = ui.input(|input| input.pointer.interact_pos())?;
     let world = camera.world_from_screen(rect, screen_position);
-    Some(IntPoint::new(
-        world.x.round() as i32,
-        world.y.round() as i32,
-    ))
+    Some([world.x, world.y])
 }
 
-fn move_matching_points(contour: &mut CurvePath<i32>, point: CurvePoint, position: CurvePoint) {
-    move_if_matching(&mut contour.start, point, position);
+fn rebuild_float_shape(
+    shape: &FloatCurveShape<CurvePoint>,
+    edit: ControlEdit,
+) -> Result<FloatCurveShape<CurvePoint>, CurveError> {
+    let mut builder = CurveBuilder::new();
+    let endpoint_mappings = arc_endpoint_mappings(shape, edit);
 
-    for segment in &mut contour.segments {
-        match segment {
-            CurveSegment::Line { to } => move_if_matching(to, point, position),
-            CurveSegment::Quad { ctrl, to } => {
-                move_if_matching(ctrl, point, position);
-                move_if_matching(to, point, position);
-            }
-            CurveSegment::Cubic { ctrl0, ctrl1, to } => {
-                move_if_matching(ctrl0, point, position);
-                move_if_matching(ctrl1, point, position);
-                move_if_matching(to, point, position);
+    for contour in shape.contours() {
+        builder = builder.move_to(map_point(contour.start(), edit, &endpoint_mappings))?;
+        for segment in contour.segments() {
+            builder = match segment {
+                FloatCurveSegment::Line { to } => {
+                    builder.line_to(map_point(*to, edit, &endpoint_mappings))?
+                }
+                FloatCurveSegment::Quad { ctrl, to } => builder.quad_to(
+                    map_point(*ctrl, edit, &endpoint_mappings),
+                    map_point(*to, edit, &endpoint_mappings),
+                )?,
+                FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => builder.cubic_to(
+                    map_point(*ctrl0, edit, &endpoint_mappings),
+                    map_point(*ctrl1, edit, &endpoint_mappings),
+                    map_point(*to, edit, &endpoint_mappings),
+                )?,
+                FloatCurveSegment::Arc { arc } => builder.arc_to(map_arc(*arc, edit))?,
+            };
+        }
+    }
+
+    builder.build()
+}
+
+fn arc_endpoint_mappings(
+    shape: &FloatCurveShape<CurvePoint>,
+    edit: ControlEdit,
+) -> Vec<(CurvePoint, CurvePoint)> {
+    let mut mappings = Vec::new();
+
+    for contour in shape.contours() {
+        for segment in contour.segments() {
+            let FloatCurveSegment::Arc { arc } = segment else {
+                continue;
+            };
+            let mapped = map_arc(*arc, edit);
+            if mapped != *arc {
+                mappings.push((arc.start_point(), mapped.start_point()));
+                mappings.push((arc.end_point(), mapped.end_point()));
             }
         }
     }
+
+    mappings
 }
 
-fn move_if_matching(target: &mut CurvePoint, point: CurvePoint, position: CurvePoint) {
-    if *target == point {
-        *target = position;
+fn map_point(
+    point: CurvePoint,
+    edit: ControlEdit,
+    endpoint_mappings: &[(CurvePoint, CurvePoint)],
+) -> CurvePoint {
+    if let Some((_, mapped)) = endpoint_mappings
+        .iter()
+        .find(|(source, _)| same_point(point, *source))
+    {
+        return *mapped;
+    }
+
+    match edit {
+        ControlEdit::MovePoint {
+            point: target,
+            position,
+        } if same_point(point, target) => position,
+        ControlEdit::MoveArc {
+            center,
+            start,
+            end,
+            delta,
+        } if same_point(point, center) || same_point(point, start) || same_point(point, end) => {
+            [point[0] + delta.x, point[1] + delta.y]
+        }
+        _ => point,
     }
 }
 
-fn paint_control_points(
+fn map_arc(mut arc: EllipticArc<CurvePoint>, edit: ControlEdit) -> EllipticArc<CurvePoint> {
+    arc.ellipse.center = match edit {
+        ControlEdit::MovePoint { point, position } if same_point(arc.ellipse.center, point) => {
+            position
+        }
+        ControlEdit::MoveArc { center, delta, .. } if same_point(arc.ellipse.center, center) => [
+            arc.ellipse.center[0] + delta.x,
+            arc.ellipse.center[1] + delta.y,
+        ],
+        _ => arc.ellipse.center,
+    };
+    arc
+}
+
+fn same_point(a: CurvePoint, b: CurvePoint) -> bool {
+    (a[0] - b[0]).abs() < 0.001 && (a[1] - b[1]).abs() < 0.001
+}
+
+fn paint_float_control_points(
     painter: &Painter,
     rect: Rect,
     camera: &Camera,
-    contour: &CurvePath<i32>,
+    contour: &FloatCurvePath<CurvePoint>,
     style: ControlStyle,
 ) {
-    let mut start = contour.start;
+    let mut start = contour.start();
     paint_point(
         painter,
         rect,
@@ -663,9 +986,9 @@ fn paint_control_points(
         style.point_stroke,
     );
 
-    for segment in &contour.segments {
+    for segment in contour.segments() {
         match segment {
-            CurveSegment::Line { to } => {
+            FloatCurveSegment::Line { to } => {
                 paint_point(
                     painter,
                     rect,
@@ -677,7 +1000,7 @@ fn paint_control_points(
                 );
                 start = *to;
             }
-            CurveSegment::Quad { ctrl, to } => {
+            FloatCurveSegment::Quad { ctrl, to } => {
                 paint_polyline(
                     painter,
                     rect,
@@ -705,7 +1028,7 @@ fn paint_control_points(
                 );
                 start = *to;
             }
-            CurveSegment::Cubic { ctrl0, ctrl1, to } => {
+            FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => {
                 paint_polyline(
                     painter,
                     rect,
@@ -741,6 +1064,167 @@ fn paint_control_points(
                     style.point_stroke,
                 );
                 start = *to;
+            }
+            FloatCurveSegment::Arc { arc } => {
+                let end = arc.end_point();
+                paint_polyline(
+                    painter,
+                    rect,
+                    camera,
+                    &[arc.ellipse.center, start],
+                    style.arm_stroke,
+                );
+                paint_polyline(
+                    painter,
+                    rect,
+                    camera,
+                    &[arc.ellipse.center, end],
+                    style.arm_stroke,
+                );
+                paint_point(
+                    painter,
+                    rect,
+                    camera,
+                    arc.ellipse.center,
+                    4.5,
+                    style.center_fill,
+                    style.point_stroke,
+                );
+                paint_point(
+                    painter,
+                    rect,
+                    camera,
+                    end,
+                    3.5,
+                    style.anchor_fill,
+                    style.point_stroke,
+                );
+                start = end;
+            }
+        }
+    }
+}
+
+fn paint_int_control_points(
+    painter: &Painter,
+    rect: Rect,
+    camera: &Camera,
+    contour: &IntCurvePath<i32>,
+    adapter: &FloatPointAdapter<CurvePoint, i32>,
+    style: ControlStyle,
+) {
+    let mut start = adapter.int_to_float(&contour.start);
+    paint_point(
+        painter,
+        rect,
+        camera,
+        start,
+        3.5,
+        style.anchor_fill,
+        style.point_stroke,
+    );
+
+    for segment in &contour.segments {
+        match segment {
+            IntCurveSegment::Line { to } => {
+                let to = adapter.int_to_float(to);
+                paint_point(
+                    painter,
+                    rect,
+                    camera,
+                    to,
+                    3.5,
+                    style.anchor_fill,
+                    style.point_stroke,
+                );
+                start = to;
+            }
+            IntCurveSegment::Quad { ctrl, to } => {
+                let ctrl = adapter.int_to_float(ctrl);
+                let to = adapter.int_to_float(to);
+                paint_polyline(painter, rect, camera, &[start, ctrl, to], style.arm_stroke);
+                paint_point(
+                    painter,
+                    rect,
+                    camera,
+                    ctrl,
+                    4.5,
+                    style.control_fill,
+                    style.point_stroke,
+                );
+                paint_point(
+                    painter,
+                    rect,
+                    camera,
+                    to,
+                    3.5,
+                    style.anchor_fill,
+                    style.point_stroke,
+                );
+                start = to;
+            }
+            IntCurveSegment::Cubic { ctrl0, ctrl1, to } => {
+                let ctrl0 = adapter.int_to_float(ctrl0);
+                let ctrl1 = adapter.int_to_float(ctrl1);
+                let to = adapter.int_to_float(to);
+                paint_polyline(
+                    painter,
+                    rect,
+                    camera,
+                    &[start, ctrl0, ctrl1, to],
+                    style.arm_stroke,
+                );
+                paint_point(
+                    painter,
+                    rect,
+                    camera,
+                    ctrl0,
+                    4.5,
+                    style.control_fill,
+                    style.point_stroke,
+                );
+                paint_point(
+                    painter,
+                    rect,
+                    camera,
+                    ctrl1,
+                    4.5,
+                    style.control_fill,
+                    style.point_stroke,
+                );
+                paint_point(
+                    painter,
+                    rect,
+                    camera,
+                    to,
+                    3.5,
+                    style.anchor_fill,
+                    style.point_stroke,
+                );
+                start = to;
+            }
+            IntCurveSegment::Arc { arc } => {
+                let points = arc.control_points.map(|point| adapter.int_to_float(&point));
+                paint_polyline(painter, rect, camera, &points, style.arm_stroke);
+                paint_point(
+                    painter,
+                    rect,
+                    camera,
+                    points[1],
+                    4.5,
+                    style.control_fill,
+                    style.point_stroke,
+                );
+                paint_point(
+                    painter,
+                    rect,
+                    camera,
+                    points[2],
+                    3.5,
+                    style.anchor_fill,
+                    style.point_stroke,
+                );
+                start = points[2];
             }
         }
     }
@@ -790,8 +1274,8 @@ fn example_bounds(example: &BoolExample) -> Option<Bounds> {
     let mut bounds = None;
 
     for shape in example.subject.iter().chain(&example.clip) {
-        for contour in &shape.contours {
-            for point in sample_contour(contour) {
+        for contour in shape.contours() {
+            for point in sample_float_contour(contour) {
                 bounds = Some(match bounds {
                     Some(bounds) => add_point_to_bounds(bounds, point),
                     None => Bounds {
@@ -808,7 +1292,7 @@ fn example_bounds(example: &BoolExample) -> Option<Bounds> {
     bounds
 }
 
-fn add_point_to_bounds(bounds: Bounds, point: DrawPoint) -> Bounds {
+fn add_point_to_bounds(bounds: Bounds, point: CurvePoint) -> Bounds {
     Bounds {
         min_x: bounds.min_x.min(point[0]),
         max_x: bounds.max_x.max(point[0]),
@@ -817,31 +1301,73 @@ fn add_point_to_bounds(bounds: Bounds, point: DrawPoint) -> Bounds {
     }
 }
 
-fn sample_contour(contour: &CurvePath<i32>) -> Vec<DrawPoint> {
-    let mut points = vec![point_to_draw(contour.start)];
-    let mut start = point_to_draw(contour.start);
+fn sample_float_contour(contour: &FloatCurvePath<CurvePoint>) -> Vec<CurvePoint> {
+    let mut points = vec![contour.start()];
+    let mut start = contour.start();
+
+    for segment in contour.segments() {
+        match segment {
+            FloatCurveSegment::Line { to } => {
+                points.push(*to);
+                start = *to;
+            }
+            FloatCurveSegment::Quad { ctrl, to } => {
+                push_samples(&mut points, 24, |t| quad_point(start, *ctrl, *to, t));
+                start = *to;
+            }
+            FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => {
+                push_samples(&mut points, 32, |t| {
+                    cubic_point(start, *ctrl0, *ctrl1, *to, t)
+                });
+                start = *to;
+            }
+            FloatCurveSegment::Arc { arc } => {
+                push_samples(&mut points, 48, |t| {
+                    arc.ellipse.point_at(arc.start_angle + arc.sweep_angle * t)
+                });
+                start = arc.end_point();
+            }
+        }
+    }
+
+    points
+}
+
+fn sample_int_contour(
+    contour: &IntCurvePath<i32>,
+    adapter: &FloatPointAdapter<CurvePoint, i32>,
+) -> Vec<CurvePoint> {
+    let mut points = vec![adapter.int_to_float(&contour.start)];
+    let mut start = points[0];
 
     for segment in &contour.segments {
         match segment {
-            CurveSegment::Line { to } => {
-                let end = point_to_draw(*to);
+            IntCurveSegment::Line { to } => {
+                let end = adapter.int_to_float(to);
                 points.push(end);
                 start = end;
             }
-            CurveSegment::Quad { ctrl, to } => {
-                let control = point_to_draw(*ctrl);
-                let end = point_to_draw(*to);
-                push_samples(&mut points, 24, |t| quad_point(start, control, end, t));
+            IntCurveSegment::Quad { ctrl, to } => {
+                let ctrl = adapter.int_to_float(ctrl);
+                let end = adapter.int_to_float(to);
+                push_samples(&mut points, 24, |t| quad_point(start, ctrl, end, t));
                 start = end;
             }
-            CurveSegment::Cubic { ctrl0, ctrl1, to } => {
-                let control0 = point_to_draw(*ctrl0);
-                let control1 = point_to_draw(*ctrl1);
-                let end = point_to_draw(*to);
+            IntCurveSegment::Cubic { ctrl0, ctrl1, to } => {
+                let ctrl0 = adapter.int_to_float(ctrl0);
+                let ctrl1 = adapter.int_to_float(ctrl1);
+                let end = adapter.int_to_float(to);
                 push_samples(&mut points, 32, |t| {
-                    cubic_point(start, control0, control1, end, t)
+                    cubic_point(start, ctrl0, ctrl1, end, t)
                 });
                 start = end;
+            }
+            IntCurveSegment::Arc { arc } => {
+                for index in 1..=48 {
+                    let param = SegmentParam::from_int(index, 48);
+                    points.push(adapter.int_to_float(&arc.point_at(param)));
+                }
+                start = adapter.int_to_float(&arc.control_points[2]);
             }
         }
     }
@@ -850,9 +1376,9 @@ fn sample_contour(contour: &CurvePath<i32>) -> Vec<DrawPoint> {
 }
 
 fn push_samples(
-    points: &mut Vec<DrawPoint>,
+    points: &mut Vec<CurvePoint>,
     sample_count: usize,
-    sample: impl Fn(f32) -> DrawPoint,
+    sample: impl Fn(f32) -> CurvePoint,
 ) {
     for index in 1..=sample_count {
         let t = index as f32 / sample_count as f32;
@@ -861,28 +1387,26 @@ fn push_samples(
 }
 
 fn point_to_pos(point: CurvePoint) -> Pos2 {
-    Pos2::new(point.x as f32, point.y as f32)
-}
-
-fn point_to_draw(point: CurvePoint) -> DrawPoint {
-    [point.x as f32, point.y as f32]
-}
-
-fn draw_point_to_pos(point: DrawPoint) -> Pos2 {
     Pos2::new(point[0], point[1])
 }
 
-fn line_point(p0: DrawPoint, p1: DrawPoint, t: f32) -> DrawPoint {
+fn line_point(p0: CurvePoint, p1: CurvePoint, t: f32) -> CurvePoint {
     [p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t]
 }
 
-fn quad_point(p0: DrawPoint, p1: DrawPoint, p2: DrawPoint, t: f32) -> DrawPoint {
+fn quad_point(p0: CurvePoint, p1: CurvePoint, p2: CurvePoint, t: f32) -> CurvePoint {
     let a = line_point(p0, p1, t);
     let b = line_point(p1, p2, t);
     line_point(a, b, t)
 }
 
-fn cubic_point(p0: DrawPoint, p1: DrawPoint, p2: DrawPoint, p3: DrawPoint, t: f32) -> DrawPoint {
+fn cubic_point(
+    p0: CurvePoint,
+    p1: CurvePoint,
+    p2: CurvePoint,
+    p3: CurvePoint,
+    t: f32,
+) -> CurvePoint {
     let a = quad_point(p0, p1, p2, t);
     let b = quad_point(p1, p2, p3, t);
     line_point(a, b, t)
@@ -892,32 +1416,119 @@ fn cubic_point(p0: DrawPoint, p1: DrawPoint, p2: DrawPoint, p3: DrawPoint, t: f3
 mod tests {
     use super::*;
 
-    #[test]
-    fn console_input_is_a_reproducible_test_template() {
-        let example = &load_examples()[0];
-        let source = overlay_input_source(example, OverlayRule::Difference, FillRule::EvenOdd);
+    fn float_arc_count(example: &BoolExample) -> usize {
+        example
+            .subject
+            .iter()
+            .chain(&example.clip)
+            .flat_map(|shape| shape.contours())
+            .flat_map(|contour| contour.segments())
+            .filter(|segment| matches!(segment, FloatCurveSegment::Arc { .. }))
+            .count()
+    }
 
-        assert!(source.contains("fn reproduced_overlay_case()"));
-        assert!(source.contains("start: IntPoint::new(-210, -130)"));
-        assert!(source.contains("CurveSegment::Line { to: IntPoint::new(70, -130) }"));
+    #[test]
+    fn console_input_uses_float_builder_arcs_and_scale_one() {
+        let example = load_examples()
+            .into_iter()
+            .find(|example| float_arc_count(example) > 0)
+            .expect("arc example");
+        let source = overlay_input_source(&example, OverlayRule::Difference, FillRule::EvenOdd);
+
+        assert!(source.contains("CurveBuilder::new()"));
+        assert!(source.contains("EllipticArc"));
+        assert!(source.contains("const SCALE: f32 = 1.0"));
+        assert!(source.contains("CurveConverter::<_, i32>::try_with_scale(input, SCALE)"));
         assert!(source.contains("overlay.overlay(OverlayRule::Difference, FillRule::EvenOdd)"));
     }
 
     #[test]
-    fn basic_operations_use_integer_curve_overlay() {
-        let mut app = BoolApp::default();
+    fn arc_examples_convert_to_integer_arcs_with_scale_one() {
+        for example in load_examples()
+            .into_iter()
+            .filter(|example| float_arc_count(example) > 0)
+        {
+            let source = combined_float_shape(&example).unwrap();
+            let converter =
+                CurveConverter::<_, i32>::try_with_scale(source, SCALE).expect("scale one");
+            let int_arc_count = converter
+                .shape()
+                .contours
+                .iter()
+                .flat_map(|contour| &contour.segments)
+                .filter(|segment| matches!(segment, IntCurveSegment::Arc { .. }))
+                .count();
 
-        for example_index in 0..app.examples.len() {
-            app.active_example = example_index;
+            assert_eq!(converter.adapter().dir_scale(), SCALE);
+            assert!(int_arc_count > 0, "{}", example.name);
+        }
+    }
+
+    #[test]
+    fn moving_full_arc_center_preserves_exact_closure() {
+        let mut shape = load_examples()
+            .into_iter()
+            .find(|example| example.name == "rotated arc ellipses")
+            .expect("rotated arc example")
+            .subject
+            .into_iter()
+            .next()
+            .expect("subject shape");
+
+        for delta in [
+            Vec2::new(-50.14, 4.76504),
+            Vec2::new(0.137, -0.293),
+            Vec2::new(-0.019, 0.071),
+        ] {
+            let contour = &shape.contours()[0];
+            let arc = contour
+                .segments()
+                .iter()
+                .find_map(|segment| match segment {
+                    FloatCurveSegment::Arc { arc } => Some(*arc),
+                    _ => None,
+                })
+                .expect("full arc");
+
+            shape = rebuild_float_shape(
+                &shape,
+                ControlEdit::MoveArc {
+                    center: arc.ellipse.center,
+                    start: arc.start_point(),
+                    end: arc.end_point(),
+                    delta,
+                },
+            )
+            .expect("moving an arc center must preserve a valid contour");
+
+            let moved_contour = &shape.contours()[0];
+            let moved_arc = moved_contour
+                .segments()
+                .iter()
+                .find_map(|segment| match segment {
+                    FloatCurveSegment::Arc { arc } => Some(*arc),
+                    _ => None,
+                })
+                .expect("moved full arc");
+
+            assert_eq!(moved_contour.start(), moved_arc.start_point());
+            assert_eq!(moved_contour.end_point(), Some(moved_arc.end_point()));
+            assert!(moved_contour.is_closed());
+        }
+    }
+
+    #[test]
+    fn basic_operations_include_arc_examples() {
+        let examples = load_examples();
+        assert!(examples.iter().any(|example| float_arc_count(example) > 0));
+
+        for example in examples {
             for rule in OVERLAY_RULES {
-                app.overlay_rule = rule;
                 for fill_rule in FILL_RULES {
-                    app.fill_rule = fill_rule;
-                    app.refresh_result();
                     assert!(
-                        app.result.is_ok(),
+                        build_overlay_result(&example, rule, fill_rule).is_ok(),
                         "{} with {rule} and {fill_rule}",
-                        app.active_example().name
+                        example.name
                     );
                 }
             }
