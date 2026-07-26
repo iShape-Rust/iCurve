@@ -5,6 +5,7 @@ use i_curve::int::curve::shape::CurveShape;
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::core::overlay_rule::OverlayRule;
+use i_overlay::core::solver::{Precision, Solver};
 use i_overlay::i_shape::int::IntPoint;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
@@ -24,6 +25,8 @@ const DEFAULT_EQUIVALENCE_SEGMENT_LIMIT: usize = 256;
 /// equivalence checks on large overlay results.
 /// Use `ICURVE_STRESS_START_CASE` to resume from a specific case index.
 /// Set `ICURVE_STRESS_TRACE=1` to print every operation within a case.
+/// Set `ICURVE_STRESS_PRECISION` to `absolute`, `high`, `medium-high`,
+/// `medium`, `medium-low`, or `low` to override the default solver precision.
 #[test]
 #[ignore = "long-running randomized stress test"]
 fn randomized_boolean_invariants() {
@@ -37,7 +40,8 @@ fn randomized_boolean_invariants() {
     );
 
     eprintln!(
-        "iCurve stress test: cases={cases}, start_case={start_case}, seed={base_seed}, equivalence_limit={equivalence_limit}"
+        "iCurve stress test: cases={cases}, start_case={start_case}, seed={base_seed}, equivalence_limit={equivalence_limit}, precision={}",
+        std::env::var("ICURVE_STRESS_PRECISION").unwrap_or_else(|_| "default".into())
     );
 
     for case_index in start_case..start_case.saturating_add(cases) {
@@ -150,7 +154,7 @@ fn run_case(
 
 fn overlay(subject: &[CurveShape<i32>], clip: &[CurveShape<i32>], rule: OverlayRule) -> Vec<CurveShape<i32>> {
     let capacity = segment_count(subject) + segment_count(clip);
-    let mut overlay = IntCurveOverlay::new(capacity);
+    let mut overlay = IntCurveOverlay::with_solver(capacity, stress_solver());
 
     for shape in subject {
         overlay.add_shape(shape.clone(), ShapeType::Subject);
@@ -160,6 +164,22 @@ fn overlay(subject: &[CurveShape<i32>], clip: &[CurveShape<i32>], rule: OverlayR
     }
 
     overlay.overlay(rule, FillRule::NonZero)
+}
+
+fn stress_solver() -> Solver {
+    let Ok(value) = std::env::var("ICURVE_STRESS_PRECISION") else {
+        return Solver::default();
+    };
+    let precision = match value.as_str() {
+        "absolute" => Precision::ABSOLUTE,
+        "high" => Precision::HIGH,
+        "medium-high" => Precision::MEDIUM_HIGH,
+        "medium" => Precision::MEDIUM,
+        "medium-low" => Precision::MEDIUM_LOW,
+        "low" => Precision::LOW,
+        _ => panic!("unsupported ICURVE_STRESS_PRECISION={value}"),
+    };
+    Solver::with_precision(precision)
 }
 
 fn assert_equivalent(lhs: &[CurveShape<i32>], rhs: &[CurveShape<i32>], context: &str) {

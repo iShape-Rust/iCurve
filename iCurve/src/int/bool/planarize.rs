@@ -31,13 +31,18 @@ impl<I: IntNumber> CurvePlanarizer<I> {
         }
     }
 
-    pub(crate) fn planarize(&mut self, edges: &mut Vec<CurveEdge<I>>, slices: &mut [CurveSlice<I>]) {
+    pub(crate) fn planarize(
+        &mut self,
+        edges: &mut Vec<CurveEdge<I>>,
+        slices: &mut [CurveSlice<I>],
+        cross_radius: I::Wide,
+    ) {
         if edges.len() < 2 {
             return;
         }
 
         self.build_bounds(edges);
-        self.collect_split_marks(edges);
+        self.collect_split_marks(edges, cross_radius);
         self.splitter.split(edges, &self.split_marks, slices);
     }
 
@@ -71,7 +76,7 @@ impl<I: IntNumber> CurvePlanarizer<I> {
             .sort_unstable_by_key(|item| (item.rect.min_x, item.rect.min_y));
     }
 
-    fn collect_split_marks(&mut self, edges: &[CurveEdge<I>]) {
+    fn collect_split_marks(&mut self, edges: &[CurveEdge<I>], cross_radius: I::Wide) {
         self.active.clear();
         self.split_marks.clear();
 
@@ -87,8 +92,11 @@ impl<I: IntNumber> CurvePlanarizer<I> {
 
                 let edge_0 = edges[other.edge_index];
                 let edge_1 = edges[current.edge_index];
-                let intersector =
-                    SegmentIntersector::new(edge_0.curve, edge_1.curve, SplitOptions::default());
+                let intersector = SegmentIntersector::new(
+                    edge_0.curve,
+                    edge_1.curve,
+                    SplitOptions::with_cross_radius(cross_radius),
+                );
                 let contacts = intersector.intersect_with_buffer(&mut self.intersection_buffer);
 
                 for &contact in contacts {
@@ -147,7 +155,7 @@ mod tests {
         let mut slices = slices(&edges);
         let mut planarizer = CurvePlanarizer::new();
 
-        planarizer.planarize(&mut edges, &mut slices);
+        planarizer.planarize(&mut edges, &mut slices, 2_i64);
 
         assert_eq!(edges.len(), 4);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
@@ -172,7 +180,7 @@ mod tests {
         let mut slices = slices(&edges);
         let mut planarizer = CurvePlanarizer::new();
 
-        planarizer.planarize(&mut edges, &mut slices);
+        planarizer.planarize(&mut edges, &mut slices, 2_i64);
 
         assert_eq!(edges.len(), 2);
     }
@@ -187,7 +195,7 @@ mod tests {
         let mut slices = slices(&edges);
         let mut planarizer = CurvePlanarizer::new();
 
-        planarizer.planarize(&mut edges, &mut slices);
+        planarizer.planarize(&mut edges, &mut slices, 2_i64);
 
         assert_eq!(edges.len(), 7);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 3);
@@ -209,7 +217,7 @@ mod tests {
         let mut slices = slices(&edges);
         let mut planarizer = CurvePlanarizer::new();
 
-        planarizer.planarize(&mut edges, &mut slices);
+        planarizer.planarize(&mut edges, &mut slices, 2_i64);
 
         assert_eq!(edges.len(), 4);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);

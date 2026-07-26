@@ -89,6 +89,27 @@ let result = overlay.overlay(OverlayRule::Intersect, FillRule::NonZero);
 assert!(!result.is_empty());
 ```
 
+For difficult inputs, the snapping radius used while splitting curves grows
+between topology-refinement rounds according to the selected `Precision`.
+The value is compared with squared endpoint distance, matching `iOverlay`.
+Use `with_solver` to select a different starting radius or progression:
+
+```rust
+use i_curve::int::bool::overlay::IntCurveOverlay;
+use i_overlay::core::solver::{Precision, Solver};
+
+let solver = Solver::with_precision(Precision::MEDIUM);
+let mut overlay = IntCurveOverlay::<i32>::with_solver(8, solver);
+```
+
+`Precision` also accepts custom `start` and `progression` exponents. `start`
+remains an absolute squared-radius exponent in the integer grid. Because the
+progression presets were originally tuned for an `i32` solver, iCurve scales
+every non-zero progression by the integer width: `i16` uses steps `1/1/2`,
+`i32` uses `1/2/3`, and `i64` uses `2/4/6` for high/medium/low precision. The
+complete solver is forwarded to the final polygon overlay.
+`IntCurveOverlay::new` uses `Solver::default()`.
+
 The result is a `Vec<CurveShape<I>>`. The first contour of each shape is its
 outer boundary; the remaining contours are holes. A contour is closed when the
 endpoint of its last segment equals its `start` point.

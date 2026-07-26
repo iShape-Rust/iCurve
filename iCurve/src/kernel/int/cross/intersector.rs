@@ -268,6 +268,16 @@ impl<I: IntNumber> Default for SplitOptions<I> {
     }
 }
 
+impl<I: IntNumber> SplitOptions<I> {
+    #[inline]
+    pub(crate) fn with_cross_radius(cross_radius: I::Wide) -> Self {
+        Self {
+            cross_radius,
+            ..Self::default()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::kernel::int::cross::intersector::{SegmentIntersector, SplitOptions};

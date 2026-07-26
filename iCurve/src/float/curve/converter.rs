@@ -2,6 +2,7 @@ use crate::float::curve::arc::{Ellipse, RationalArc};
 use crate::float::curve::path::CurvePath as FloatCurvePath;
 use crate::float::curve::segment::CurveSegment as FloatCurveSegment;
 use crate::float::curve::shape::CurveShape as FloatCurveShape;
+use crate::int::CURVE_COORDINATE_SAFETY_BITS;
 use crate::int::curve::path::CurvePath as IntCurvePath;
 use crate::int::curve::segment::CurveSegment as IntCurveSegment;
 use crate::int::curve::shape::CurveShape as IntCurveShape;
@@ -39,7 +40,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveConverter<P, I> {
     /// Six reserved bits cover the constant growth of cubic polynomial
     /// coefficients. Operations whose width grows with the polynomial degree
     /// use extended-width products separately.
-    const COORDINATE_BITS: u32 = I::BITS - 6;
+    const COORDINATE_BITS: u32 = I::BITS - CURVE_COORDINATE_SAFETY_BITS;
 
     /// Chooses the largest safe power-of-two scale for all source contours and
     /// converts them immediately.

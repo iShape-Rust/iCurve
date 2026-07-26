@@ -52,13 +52,14 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
         &mut self,
         edges: &mut Vec<CurveEdge<I>>,
         slices: &mut [CurveSlice<I>],
+        cross_radius: I::Wide,
     ) -> RefineOutcome {
         if edges.len() < 2 {
             return RefineOutcome::PlanarityPreserved;
         }
 
         self.build_bounds(edges);
-        let crossed_chords = self.collect_split_marks(edges);
+        let crossed_chords = self.collect_split_marks(edges, cross_radius);
         let outcome = Self::outcome(edges, &self.split_marks, crossed_chords);
         self.splitter.split(edges, &self.split_marks, slices);
 
@@ -104,7 +105,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
             .sort_unstable_by_key(|item| (item.rect.min_x, item.rect.min_y));
     }
 
-    fn collect_split_marks(&mut self, edges: &[CurveEdge<I>]) -> usize {
+    fn collect_split_marks(&mut self, edges: &[CurveEdge<I>], cross_radius: I::Wide) -> usize {
         self.active.clear();
         self.split_marks.clear();
         let mut crossed_chords = 0;
@@ -119,7 +120,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
                     continue;
                 }
 
-                crossed_chords += self.collect_pair_marks(edges, other, current);
+                crossed_chords += self.collect_pair_marks(edges, other, current, cross_radius);
             }
 
             self.active.push(current);
@@ -134,6 +135,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
         edges: &[CurveEdge<I>],
         first: CurveHullBounds<I>,
         second: CurveHullBounds<I>,
+        cross_radius: I::Wide,
     ) -> usize {
         let first_edge = edges[first.edge_index];
         let second_edge = edges[second.edge_index];
@@ -150,11 +152,25 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
             return 0;
         }
 
-        if let Some(ChordCross::Point(point)) = first_chord.cross(&second_chord, I::Wide::ZERO) {
-            let first_split =
-                self.collect_chord_cross_mark(first.edge_index, first_edge.curve, first_chord, point);
-            let second_split =
-                self.collect_chord_cross_mark(second.edge_index, second_edge.curve, second_chord, point);
+        if let Some(ChordCross::Point(point)) = first_chord.cross(&second_chord, cross_radius) {
+            let snap_to_endpoint = point == first_chord.a
+                || point == first_chord.b
+                || point == second_chord.a
+                || point == second_chord.b;
+            let first_split = self.collect_chord_cross_mark(
+                first.edge_index,
+                first_edge.curve,
+                first_chord,
+                point,
+                snap_to_endpoint,
+            );
+            let second_split = self.collect_chord_cross_mark(
+                second.edge_index,
+                second_edge.curve,
+                second_chord,
+                point,
+                snap_to_endpoint,
+            );
 
             if first_split || second_split {
                 return 1;
@@ -175,6 +191,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
         curve: Segment<I>,
         chord: SegmentChord<I>,
         cross_point: IntPoint<I>,
+        snap_to_endpoint: bool,
     ) -> bool {
         let denominator = SegmentParam::<I>::DENOMINATOR;
         let mut param = chord.param_for_point(cross_point);
@@ -182,8 +199,12 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
             return false;
         }
 
-        let mut point = Self::point_at(curve, param);
-        if point == chord.a || point == chord.b {
+        let mut point = if snap_to_endpoint {
+            cross_point
+        } else {
+            Self::point_at(curve, param)
+        };
+        if !snap_to_endpoint && (point == chord.a || point == chord.b) {
             param = SegmentParam::half();
             point = Self::point_at(curve, param);
             if point == chord.a || point == chord.b {
@@ -555,7 +576,7 @@ mod tests {
         let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        refiner.refine(&mut edges, &mut slices);
+        refiner.refine(&mut edges, &mut slices, 0_i64);
 
         assert_eq!(edges.len(), 3);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
@@ -577,7 +598,7 @@ mod tests {
         let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        refiner.refine(&mut edges, &mut slices);
+        refiner.refine(&mut edges, &mut slices, 0_i64);
 
         assert_eq!(edges.len(), 3);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
@@ -593,7 +614,7 @@ mod tests {
         let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        refiner.refine(&mut edges, &mut slices);
+        refiner.refine(&mut edges, &mut slices, 0_i64);
 
         assert_eq!(edges.len(), 3);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 1);
@@ -607,7 +628,7 @@ mod tests {
         let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        refiner.refine(&mut edges, &mut slices);
+        refiner.refine(&mut edges, &mut slices, 0_i64);
 
         assert_eq!(edges.len(), 2);
     }
@@ -621,7 +642,7 @@ mod tests {
         let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        refiner.refine(&mut edges, &mut slices);
+        refiner.refine(&mut edges, &mut slices, 0_i64);
 
         assert_eq!(edges.len(), 2);
     }
@@ -721,7 +742,7 @@ mod tests {
         let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        refiner.refine(&mut edges, &mut slices);
+        refiner.refine(&mut edges, &mut slices, 0_i64);
 
         assert_eq!(edges.len(), 4);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
@@ -737,7 +758,7 @@ mod tests {
         let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
-        let outcome = refiner.refine(&mut edges, &mut slices);
+        let outcome = refiner.refine(&mut edges, &mut slices, 0_i64);
 
         assert_eq!(
             outcome,
@@ -748,6 +769,35 @@ mod tests {
         );
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(1)).count(), 2);
+    }
+
+    #[test]
+    fn snaps_near_chord_crossing_to_endpoint_with_radius() {
+        let endpoint = IntPoint::new(0, 0);
+        let mut edges = vec![line(0, [0, 0], [10, 3]), line(1, [1, -10], [1, 10])];
+        let mut slices = slices(&edges);
+        let mut refiner = ChordTopologyRefiner::new();
+
+        let outcome = refiner.refine(&mut edges, &mut slices, 1_i64);
+
+        assert_eq!(
+            outcome,
+            RefineOutcome::Replanarize {
+                escaped_marks: 0,
+                crossed_chords: 1,
+            }
+        );
+        assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 1);
+        assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(1)).count(), 2);
+        assert!(
+            edges
+                .iter()
+                .filter(|edge| edge.curve_id == CurveId(1))
+                .all(|edge| {
+                    let chord = edge.curve.chord();
+                    chord.a == endpoint || chord.b == endpoint
+                })
+        );
     }
 
     #[test]

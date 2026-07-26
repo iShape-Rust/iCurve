@@ -4,6 +4,7 @@ use crate::int::bool::edge::CurveEdge;
 use crate::int::bool::planarize::CurvePlanarizer;
 use crate::int::bool::recompose::CurveRecomposer;
 use crate::int::bool::slice::{CurveId, CurveMark, CurveSlice};
+use crate::int::bool::snap_radius::SnapRadius;
 use crate::int::curve::shape::CurveShape;
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::normalization::canonical::{PushCanonicalSimpleParametricSegment, PushSimpleSegment};
@@ -13,11 +14,13 @@ use i_overlay::core::edge_overlay::{EdgeOverlay, InputEdge};
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::core::overlay_rule::OverlayRule;
+use i_overlay::core::solver::Solver;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::vector::edge::DataVectorShape;
 use i_tree::{Expiration, LayoutNumber};
 
 pub struct IntCurveOverlay<I: IntNumber> {
+    pub solver: Solver,
     pub(crate) curve_slices: Vec<CurveSlice<I>>,
     pub(crate) curve_edges: Vec<CurveEdge<I>>,
 }
@@ -25,6 +28,16 @@ pub struct IntCurveOverlay<I: IntNumber> {
 impl<I: IntNumber> IntCurveOverlay<I> {
     pub fn new(capacity: usize) -> Self {
         Self {
+            solver: Solver::default(),
+            curve_slices: Vec::with_capacity(capacity),
+            curve_edges: Vec::with_capacity(capacity),
+        }
+    }
+
+    /// Creates an overlay with custom solver strategy and precision settings.
+    pub fn with_solver(capacity: usize, solver: Solver) -> Self {
+        Self {
+            solver,
             curve_slices: Vec::with_capacity(capacity),
             curve_edges: Vec::with_capacity(capacity),
         }
@@ -76,11 +89,13 @@ impl<I: IntNumber> IntCurveOverlay<I> {
         // Split curves until their chords preserve the planar curve topology.
         let mut planarizer = CurvePlanarizer::new();
         let mut chord_refiner = ChordTopologyRefiner::new();
+        let mut snap_radius = SnapRadius::new::<I>(self.solver.precision);
 
         loop {
-            planarizer.planarize(&mut self.curve_edges, &mut self.curve_slices);
+            let cross_radius = snap_radius.radius::<I>();
+            planarizer.planarize(&mut self.curve_edges, &mut self.curve_slices, cross_radius);
 
-            match chord_refiner.refine(&mut self.curve_edges, &mut self.curve_slices) {
+            match chord_refiner.refine(&mut self.curve_edges, &mut self.curve_slices, cross_radius) {
                 RefineOutcome::PlanarityPreserved => break,
                 RefineOutcome::Replanarize {
                     escaped_marks,
@@ -88,11 +103,13 @@ impl<I: IntNumber> IntCurveOverlay<I> {
                 } => {
                     #[cfg(all(debug_assertions, feature = "std"))]
                     std::eprintln!(
-                        "ChordTopologyRefiner: {escaped_marks} marks escaped their source hull and {crossed_chords} chord crossings were refined; running CurvePlanarizer again"
+                        "ChordTopologyRefiner: {escaped_marks} marks escaped their source hull and {crossed_chords} chord crossings were refined at squared snap radius {cross_radius}; running CurvePlanarizer again"
                     );
 
                     #[cfg(not(all(debug_assertions, feature = "std")))]
                     let _ = (escaped_marks, crossed_chords);
+
+                    snap_radius.increment();
                 }
             }
         }
@@ -107,6 +124,7 @@ impl<I: IntNumber> IntCurveOverlay<I> {
         I: Expiration + LayoutNumber + SortKey,
     {
         let mut edge_overlay = EdgeOverlay::new(self.curve_edges.len());
+        edge_overlay.solver = self.solver;
 
         for edge in &self.curve_edges {
             let chord = edge.curve.chord();
@@ -212,6 +230,7 @@ mod tests {
             }],
         };
         let mut overlay = IntCurveOverlay {
+            solver: Solver::default(),
             curve_slices: Vec::new(),
             curve_edges: Vec::new(),
         };
@@ -251,6 +270,7 @@ mod tests {
             }],
         };
         let mut overlay = IntCurveOverlay {
+            solver: Solver::default(),
             curve_slices: Vec::new(),
             curve_edges: Vec::new(),
         };
@@ -282,6 +302,7 @@ mod tests {
             }],
         };
         let mut overlay = IntCurveOverlay {
+            solver: Solver::default(),
             curve_slices: Vec::new(),
             curve_edges: Vec::new(),
         };
@@ -327,6 +348,7 @@ mod tests {
             }],
         };
         let mut overlay = IntCurveOverlay {
+            solver: Solver::default(),
             curve_slices: Vec::new(),
             curve_edges: Vec::new(),
         };
@@ -365,6 +387,7 @@ mod tests {
             }],
         };
         let mut overlay = IntCurveOverlay {
+            solver: Solver::default(),
             curve_slices: Vec::new(),
             curve_edges: Vec::new(),
         };
@@ -434,6 +457,7 @@ mod tests {
         }
 
         let mut overlay = IntCurveOverlay {
+            solver: Solver::default(),
             curve_slices: Vec::new(),
             curve_edges: Vec::new(),
         };
@@ -511,5 +535,17 @@ mod tests {
                 .iter()
                 .all(|segment| matches!(segment, CurveSegment::Arc { .. }))
         );
+    }
+
+    #[test]
+    fn with_solver_preserves_precision_settings() {
+        use i_overlay::core::solver::Precision;
+
+        let solver = Solver::with_precision(Precision::LOW);
+        let overlay = IntCurveOverlay::<i32>::with_solver(16, solver);
+
+        assert_eq!(overlay.solver.precision, Precision::LOW);
+        assert_eq!(overlay.curve_edges.capacity(), 16);
+        assert_eq!(overlay.curve_slices.capacity(), 16);
     }
 }
