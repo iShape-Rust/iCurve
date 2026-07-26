@@ -1,4 +1,6 @@
-use crate::float::curve::arc::{EllipticArc, EllipticArcError, is_finite_point};
+use crate::float::curve::arc::{
+    EllipticArc, EllipticArcError, RationalArc, RationalArcError, is_finite_point,
+};
 use crate::float::curve::path::CurvePath;
 use crate::float::curve::segment::CurveSegment;
 use crate::float::curve::shape::CurveShape;
@@ -20,11 +22,18 @@ pub enum CurveError {
     NonFinitePoint,
     NonFiniteBounds,
     Arc(EllipticArcError),
+    RationalArc(RationalArcError),
 }
 
 impl From<EllipticArcError> for CurveError {
     fn from(error: EllipticArcError) -> Self {
         Self::Arc(error)
+    }
+}
+
+impl From<RationalArcError> for CurveError {
+    fn from(error: RationalArcError) -> Self {
+        Self::RationalArc(error)
     }
 }
 
@@ -74,6 +83,17 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
     }
 
     pub fn arc_to(mut self, arc: EllipticArc<P>) -> Result<Self, CurveError> {
+        for arc in arc.to_rational_arcs()? {
+            self.push_segment(CurveSegment::Arc { arc })?;
+        }
+        Ok(self)
+    }
+
+    /// Appends an already materialized rational arc.
+    ///
+    /// This is primarily useful for feeding a previous boolean result back
+    /// into another operation without reconstructing its supporting ellipse.
+    pub fn rational_arc_to(mut self, arc: RationalArc<P>) -> Result<Self, CurveError> {
         arc.validate()?;
         self.push_segment(CurveSegment::Arc { arc })?;
         Ok(self)
@@ -158,7 +178,7 @@ fn validate_point<P: FloatPointCompatible>(point: P) -> Result<(), CurveError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::float::curve::arc::{Ellipse, EllipticArcError};
+    use crate::float::curve::arc::{Ellipse, EllipticArcError, RationalArcError};
 
     type Point = [f64; 2];
 
@@ -262,7 +282,7 @@ mod tests {
     }
 
     #[test]
-    fn stores_valid_arc_in_float_form() -> Result<(), CurveError> {
+    fn stores_valid_arc_as_connected_rational_pieces() -> Result<(), CurveError> {
         let arc = EllipticArc {
             ellipse: Ellipse {
                 center: [0.0, 0.0],
@@ -280,10 +300,44 @@ mod tests {
             .build()?;
 
         assert_eq!(shape.contours().len(), 1);
-        assert_eq!(shape.contours()[0].segments().len(), 1);
+        let segments = shape.contours()[0].segments();
+        assert_eq!(segments.len(), 4);
+
+        let mut current = shape.contours()[0].start();
+        for segment in segments {
+            let CurveSegment::Arc { arc } = segment else {
+                panic!("expected rational arc");
+            };
+            assert_eq!(arc.start_point(), current);
+            assert!(arc.supporting_arc().ellipse == arc.ellipse);
+            current = arc.end_point();
+        }
+        assert_eq!(current, shape.contours()[0].start());
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_non_positive_rational_arc_weights() -> Result<(), CurveError> {
+        let arc = EllipticArc {
+            ellipse: Ellipse {
+                center: [0.0, 0.0],
+                radius_x: 2.0,
+                radius_y: 1.0,
+                rotation: 0.0,
+            },
+            start_angle: 0.0,
+            sweep_angle: core::f64::consts::FRAC_PI_2,
+        };
+        let mut rational = arc.to_rational_arcs()?.remove(0);
+        rational.weights[1] = 0.0;
+
+        let result = CurveBuilder::new()
+            .move_to(rational.start_point())?
+            .rational_arc_to(rational);
+
         assert!(matches!(
-            shape.contours()[0].segments()[0],
-            CurveSegment::Arc { .. }
+            result,
+            Err(CurveError::RationalArc(RationalArcError::NonPositiveWeight))
         ));
         Ok(())
     }

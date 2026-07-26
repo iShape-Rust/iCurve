@@ -11,7 +11,7 @@ use debug_ui::{
 };
 use i_curve::{
     float::curve::{
-        arc::EllipticArc,
+        arc::RationalArc,
         builder::{CurveBuilder, CurveError},
         converter::CurveConverter,
         path::CurvePath as FloatCurvePath,
@@ -386,7 +386,7 @@ fn append_float_contour(
             FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => {
                 builder.cubic_to(*ctrl0, *ctrl1, *to)?
             }
-            FloatCurveSegment::Arc { arc } => builder.arc_to(*arc)?,
+            FloatCurveSegment::Arc { arc } => builder.rational_arc_to(*arc)?,
         };
     }
     Ok(builder)
@@ -891,7 +891,7 @@ fn rebuild_float_shape(
                     map_point(*ctrl1, edit, &endpoint_mappings),
                     map_point(*to, edit, &endpoint_mappings),
                 )?,
-                FloatCurveSegment::Arc { arc } => builder.arc_to(map_arc(*arc, edit))?,
+                FloatCurveSegment::Arc { arc } => builder.rational_arc_to(map_arc(*arc, edit))?,
             };
         }
     }
@@ -950,17 +950,25 @@ fn map_point(
     }
 }
 
-fn map_arc(mut arc: EllipticArc<CurvePoint>, edit: ControlEdit) -> EllipticArc<CurvePoint> {
-    arc.ellipse.center = match edit {
+fn map_arc(mut arc: RationalArc<CurvePoint>, edit: ControlEdit) -> RationalArc<CurvePoint> {
+    let delta = match edit {
         ControlEdit::MovePoint { point, position } if same_point(arc.ellipse.center, point) => {
-            position
+            Vec2::new(
+                position[0] - arc.ellipse.center[0],
+                position[1] - arc.ellipse.center[1],
+            )
         }
-        ControlEdit::MoveArc { center, delta, .. } if same_point(arc.ellipse.center, center) => [
-            arc.ellipse.center[0] + delta.x,
-            arc.ellipse.center[1] + delta.y,
-        ],
-        _ => arc.ellipse.center,
+        ControlEdit::MoveArc { center, delta, .. } if same_point(arc.ellipse.center, center) => {
+            delta
+        }
+        _ => Vec2::ZERO,
     };
+    arc.ellipse.center[0] += delta.x;
+    arc.ellipse.center[1] += delta.y;
+    for point in &mut arc.control_points {
+        point[0] += delta.x;
+        point[1] += delta.y;
+    }
     arc
 }
 
@@ -1502,17 +1510,19 @@ mod tests {
             .expect("moving an arc center must preserve a valid contour");
 
             let moved_contour = &shape.contours()[0];
-            let moved_arc = moved_contour
+            let moved_arcs: Vec<_> = moved_contour
                 .segments()
                 .iter()
-                .find_map(|segment| match segment {
+                .filter_map(|segment| match segment {
                     FloatCurveSegment::Arc { arc } => Some(*arc),
                     _ => None,
                 })
-                .expect("moved full arc");
+                .collect();
+            let first = moved_arcs.first().expect("moved arc pieces");
+            let last = moved_arcs.last().expect("moved arc pieces");
 
-            assert_eq!(moved_contour.start(), moved_arc.start_point());
-            assert_eq!(moved_contour.end_point(), Some(moved_arc.end_point()));
+            assert_eq!(moved_contour.start(), first.start_point());
+            assert_eq!(moved_contour.end_point(), Some(last.end_point()));
             assert!(moved_contour.is_closed());
         }
     }

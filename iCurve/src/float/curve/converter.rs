@@ -1,4 +1,4 @@
-use crate::float::curve::arc::{Ellipse, EllipticArc};
+use crate::float::curve::arc::{Ellipse, RationalArc};
 use crate::float::curve::path::CurvePath as FloatCurvePath;
 use crate::float::curve::segment::CurveSegment as FloatCurveSegment;
 use crate::float::curve::shape::CurveShape as FloatCurveShape;
@@ -114,7 +114,7 @@ fn convert_path<P: FloatPointCompatible, I: IntNumber>(
                 current = to;
             }
             FloatCurveSegment::Arc { arc } => {
-                current = append_arc_segments(arc, current, adapter, &mut segments);
+                current = append_rational_arc(arc, current, adapter, &mut segments);
             }
         }
     }
@@ -126,9 +126,9 @@ fn convert_path<P: FloatPointCompatible, I: IntNumber>(
     }
 }
 
-fn append_arc_segments<P: FloatPointCompatible, I: IntNumber>(
-    arc: EllipticArc<P>,
-    mut current: IntPoint<I>,
+fn append_rational_arc<P: FloatPointCompatible, I: IntNumber>(
+    arc: RationalArc<P>,
+    current: IntPoint<I>,
     adapter: &FloatPointAdapter<P, I>,
     output: &mut Vec<IntCurveSegment<I>>,
 ) -> IntPoint<I> {
@@ -139,101 +139,40 @@ fn append_arc_segments<P: FloatPointCompatible, I: IntNumber>(
     } else {
         ArcDirection::Clockwise
     };
-    let cuts = collect_arc_cuts(&arc, &float_frame);
-    let frame_is_valid = ellipse_frame_is_valid(&ellipse);
+    let end = adapter.float_to_int(&arc.control_points[2]);
+    if current == end {
+        return end;
+    }
+    let mut control_point = adapter.float_to_int(&arc.control_points[1]);
+    control_point.x = control_point.x.clamp(current.x.min(end.x), current.x.max(end.x));
+    control_point.y = control_point.y.clamp(current.y.min(end.y), current.y.max(end.y));
+    let fixed_start = FloatArcPhase::from_angle(arc.start_angle).to_fixed::<I>();
+    let fixed_end = FloatArcPhase::from_angle(arc.start_angle + arc.sweep_angle).to_fixed::<I>();
+    let weights = arc.weights.map(fixed_weight::<P::Scalar, I>);
 
-    for index in 0..cuts.len() - 1 {
-        let start_cut = cuts[index];
-        let end_cut = cuts[index + 1];
-        let end = if index + 2 == cuts.len() {
-            adapter.float_to_int(&arc.end_point())
-        } else {
-            adapter.float_to_int(&float_frame.point_at(end_cut.phase))
-        };
-
-        if current == end {
-            current = end;
-            continue;
-        }
-
-        let segment = if frame_is_valid {
-            convert_arc_piece(
-                &float_frame,
-                ellipse,
-                start_cut.phase,
-                end_cut.phase,
-                direction,
-                current,
-                end,
-                adapter,
-            )
-        } else {
-            None
-        };
-
-        match segment {
-            Some(segment) => output.push(segment),
-            None => output.push(IntCurveSegment::Line { to: end }),
-        }
-        current = end;
+    if !ellipse_frame_is_valid(&ellipse)
+        || weights.iter().any(|weight| *weight <= I::ZERO)
+        || !fixed_direction_is_valid(fixed_start, fixed_end, direction)
+    {
+        output.push(IntCurveSegment::Line { to: end });
+        return end;
     }
 
-    current
-}
-
-#[allow(clippy::too_many_arguments)]
-fn convert_arc_piece<P: FloatPointCompatible, I: IntNumber>(
-    float_frame: &FloatEllipseFrame<P>,
-    ellipse: EllipseFrame<I>,
-    start: FloatArcPhase<P::Scalar>,
-    end: FloatArcPhase<P::Scalar>,
-    direction: ArcDirection,
-    start_point: IntPoint<I>,
-    end_point: IntPoint<I>,
-    adapter: &FloatPointAdapter<P, I>,
-) -> Option<IntCurveSegment<I>> {
-    let dot = start.dot(end).max(-P::Scalar::ONE).min(P::Scalar::ONE);
-    let denominator = P::Scalar::ONE + dot;
-    if denominator <= P::Scalar::ZERO {
-        return None;
-    }
-
-    let weight = (denominator / P::Scalar::TWO).sqrt();
-    let control_phase = FloatArcPhase {
-        cos: (start.cos + end.cos) / denominator,
-        sin: (start.sin + end.sin) / denominator,
-    };
-    let mut control_point = adapter.float_to_int(&float_frame.point_at(control_phase));
-    control_point.x = control_point
-        .x
-        .clamp(start_point.x.min(end_point.x), start_point.x.max(end_point.x));
-    control_point.y = control_point
-        .y
-        .clamp(start_point.y.min(end_point.y), start_point.y.max(end_point.y));
-    let fixed_start = start.to_fixed::<I>();
-    let fixed_end = end.to_fixed::<I>();
-    let fixed_weight = fixed_weight::<P::Scalar, I>(weight);
-
-    if fixed_weight <= I::ZERO || !fixed_direction_is_valid(fixed_start, fixed_end, direction) {
-        return None;
-    }
-
-    let one = I::from_wide(FixedScale::<I>::DENOMINATOR);
-    let arc = ArcSegment {
+    let int_arc = ArcSegment {
         ellipse,
-        control_points: [start_point, control_point, end_point],
-        weights: [one, fixed_weight, one],
+        control_points: [current, control_point, end],
+        weights,
         start_phase: fixed_start,
         end_phase: fixed_end,
         direction,
     };
     debug_assert!(
-        arc.is_xy_monotone(),
+        int_arc.is_xy_monotone(),
         "converted arc control polygon must be XY-monotone"
     );
-    arc.debug_assert_invariants();
-
-    Some(IntCurveSegment::Arc { arc })
+    int_arc.debug_assert_invariants();
+    output.push(IntCurveSegment::Arc { arc: int_arc });
+    end
 }
 
 fn fixed_weight<F: FloatNumber, I: IntNumber>(weight: F) -> I {
@@ -266,71 +205,6 @@ fn ellipse_frame_is_valid<I: IntNumber>(frame: &EllipseFrame<I>) -> bool {
 }
 
 #[derive(Clone, Copy)]
-struct ArcCut<F: FloatNumber> {
-    progress: f64,
-    phase: FloatArcPhase<F>,
-}
-
-fn collect_arc_cuts<P: FloatPointCompatible>(
-    arc: &EllipticArc<P>,
-    frame: &FloatEllipseFrame<P>,
-) -> Vec<ArcCut<P::Scalar>> {
-    let start = FloatArcPhase::from_angle(arc.start_angle);
-    let end = if arc.is_full_turn() {
-        start
-    } else {
-        FloatArcPhase::from_angle(arc.start_angle + arc.sweep_angle)
-    };
-    let counter_clockwise = arc.sweep_angle > P::Scalar::ZERO;
-    let sweep = arc.sweep_angle.to_f64().abs();
-    let tolerance = if P::Scalar::BITS <= 32 { 1.0e-5 } else { 1.0e-12 };
-    let mut cuts = Vec::with_capacity(6);
-    cuts.push(ArcCut {
-        progress: 0.0,
-        phase: start,
-    });
-
-    for phase in frame.extremum_phases() {
-        let progress = directed_progress(start, phase, counter_clockwise);
-        if progress > tolerance && progress < sweep - tolerance {
-            cuts.push(ArcCut { progress, phase });
-        }
-    }
-
-    cuts[1..].sort_by(|a, b| {
-        a.progress
-            .partial_cmp(&b.progress)
-            .unwrap_or(core::cmp::Ordering::Equal)
-    });
-    cuts.dedup_by(|a, b| (a.progress - b.progress).abs() <= tolerance);
-    cuts.push(ArcCut {
-        progress: sweep,
-        phase: end,
-    });
-    cuts
-}
-
-fn directed_progress<F: FloatNumber>(
-    start: FloatArcPhase<F>,
-    end: FloatArcPhase<F>,
-    counter_clockwise: bool,
-) -> f64 {
-    let dot = start.dot(end).max(-F::ONE).min(F::ONE);
-    let angle = dot.acos().to_f64();
-    let oriented_cross = if counter_clockwise {
-        start.cross(end)
-    } else {
-        -start.cross(end)
-    };
-
-    if oriented_cross < F::ZERO {
-        core::f64::consts::TAU - angle
-    } else {
-        angle
-    }
-}
-
-#[derive(Clone, Copy)]
 struct FloatArcPhase<F: FloatNumber> {
     cos: F,
     sin: F,
@@ -348,21 +222,6 @@ impl<F: FloatNumber> FloatArcPhase<F> {
             cos: cos / length,
             sin: sin / length,
         }
-    }
-
-    fn opposite(self) -> Self {
-        Self {
-            cos: -self.cos,
-            sin: -self.sin,
-        }
-    }
-
-    fn dot(self, other: Self) -> F {
-        self.cos * other.cos + self.sin * other.sin
-    }
-
-    fn cross(self, other: Self) -> F {
-        self.cos * other.sin - self.sin * other.cos
     }
 
     fn to_fixed<I: IntNumber>(self) -> ArcPhase<I> {
@@ -411,18 +270,6 @@ impl<P: FloatPointCompatible> FloatEllipseFrame<P> {
             axis_y_x: -ellipse.radius_y * rotation_sin,
             axis_y_y: ellipse.radius_y * rotation_cos,
         }
-    }
-
-    fn point_at(&self, phase: FloatArcPhase<P::Scalar>) -> P {
-        let x = self.center.x() + self.axis_x_x * phase.cos + self.axis_y_x * phase.sin;
-        let y = self.center.y() + self.axis_x_y * phase.cos + self.axis_y_y * phase.sin;
-        P::from_xy(x, y)
-    }
-
-    fn extremum_phases(&self) -> [FloatArcPhase<P::Scalar>; 4] {
-        let x = FloatArcPhase::normalized(self.axis_x_x, self.axis_y_x);
-        let y = FloatArcPhase::normalized(self.axis_x_y, self.axis_y_y);
-        [x, x.opposite(), y, y.opposite()]
     }
 
     fn to_int<I: IntNumber>(&self, adapter: &FloatPointAdapter<P, I>) -> EllipseFrame<I> {
@@ -817,6 +664,43 @@ mod tests {
         assert_arc_control_polygons_are_monotone(i16_shape.shape());
         assert_arc_control_polygons_are_monotone(i32_shape.shape());
         assert_arc_control_polygons_are_monotone(i64_shape.shape());
+        Ok(())
+    }
+
+    #[test]
+    fn preserves_general_rational_arc_weights() -> Result<(), CurveError> {
+        let source_arc = EllipticArc {
+            ellipse: Ellipse {
+                center: [0.0, 0.0],
+                radius_x: 10.0,
+                radius_y: 5.0,
+                rotation: 0.0,
+            },
+            start_angle: 0.0,
+            sweep_angle: core::f64::consts::FRAC_PI_2,
+        };
+        let mut rational = source_arc.to_rational_arcs()?.remove(0);
+        rational.weights = [0.75, 0.5, 0.875];
+        let start = rational.start_point();
+        let shape = CurveBuilder::new()
+            .move_to(start)?
+            .rational_arc_to(rational)?
+            .line_to(start)?
+            .build()?;
+
+        let converter = CurveConverter::<_, i32>::try_with_scale(shape, 100.0).expect("scale must fit");
+        let IntCurveSegment::Arc { arc } = &converter.shape().contours[0].segments[0] else {
+            panic!("expected rational arc");
+        };
+
+        assert_eq!(
+            arc.weights,
+            [
+                fixed_weight::<f64, i32>(0.75),
+                fixed_weight::<f64, i32>(0.5),
+                fixed_weight::<f64, i32>(0.875),
+            ]
+        );
         Ok(())
     }
 }
