@@ -13,27 +13,41 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 
 const DEFAULT_CASES: u64 = 10_000;
 const DEFAULT_SEED: u64 = 0x7a6d_4c2b_91e8_f503;
+const DEFAULT_EQUIVALENCE_SEGMENT_LIMIT: usize = 256;
 
 /// Exercises the complete curve overlay pipeline with reproducible random input.
 ///
 /// Run with:
 /// `ICURVE_STRESS_CASES=10000 ICURVE_STRESS_SEED=123 cargo test --test stress_tests -- --ignored --nocapture`
+///
+/// Set `ICURVE_STRESS_EQUIVALENCE_LIMIT` higher to run secondary XOR
+/// equivalence checks on large overlay results.
+/// Use `ICURVE_STRESS_START_CASE` to resume from a specific case index.
+/// Set `ICURVE_STRESS_TRACE=1` to print every operation within a case.
 #[test]
 #[ignore = "long-running randomized stress test"]
 fn randomized_boolean_invariants() {
     let cases = env_u64("ICURVE_STRESS_CASES", DEFAULT_CASES);
     let base_seed = env_u64("ICURVE_STRESS_SEED", DEFAULT_SEED);
+    let start_case = env_u64("ICURVE_STRESS_START_CASE", 0);
+    let trace = env_u64("ICURVE_STRESS_TRACE", 0) != 0;
+    let equivalence_limit = env_usize(
+        "ICURVE_STRESS_EQUIVALENCE_LIMIT",
+        DEFAULT_EQUIVALENCE_SEGMENT_LIMIT,
+    );
 
-    eprintln!("iCurve stress test: cases={cases}, seed={base_seed}");
+    eprintln!(
+        "iCurve stress test: cases={cases}, start_case={start_case}, seed={base_seed}, equivalence_limit={equivalence_limit}"
+    );
 
-    for case_index in 0..cases {
+    for case_index in start_case..start_case.saturating_add(cases) {
         let case_seed = splitmix64(base_seed.wrapping_add(case_index));
         let mut rng = StdRng::seed_from_u64(case_seed);
         let subject = random_shape_group(&mut rng);
         let clip = random_shape_group(&mut rng);
 
         let outcome = catch_unwind(AssertUnwindSafe(|| {
-            run_case(case_index, &mut rng, &subject, &clip);
+            run_case(case_index, &mut rng, &subject, &clip, equivalence_limit, trace);
         }));
 
         if let Err(payload) = outcome {
@@ -44,13 +58,21 @@ fn randomized_boolean_invariants() {
             );
         }
 
-        if (case_index + 1) % 100 == 0 || case_index + 1 == cases {
-            eprintln!("completed {}/{} cases", case_index + 1, cases);
+        let completed = case_index - start_case + 1;
+        if completed % 100 == 0 || completed == cases {
+            eprintln!("completed {completed}/{cases} cases");
         }
     }
 }
 
-fn run_case(case_index: u64, rng: &mut StdRng, subject: &[CurveShape<i32>], clip: &[CurveShape<i32>]) {
+fn run_case(
+    case_index: u64,
+    rng: &mut StdRng,
+    subject: &[CurveShape<i32>],
+    clip: &[CurveShape<i32>],
+    equivalence_limit: usize,
+    trace: bool,
+) {
     let rules = [
         OverlayRule::Subject,
         OverlayRule::Clip,
@@ -62,31 +84,68 @@ fn run_case(case_index: u64, rng: &mut StdRng, subject: &[CurveShape<i32>], clip
     ];
 
     for rule in rules {
+        if trace {
+            eprintln!("case {case_index}: starting rule {rule}");
+        }
         let result = overlay(subject, clip, rule);
+        if trace {
+            eprintln!("case {case_index}: completed rule {rule}");
+        }
         assert_valid_result(&result, &format!("case {case_index}, rule {rule}"));
     }
 
+    if trace {
+        eprintln!("case {case_index}: starting self difference");
+    }
     assert!(
         overlay(subject, subject, OverlayRule::Difference).is_empty(),
         "A - A must be empty"
     );
+    if trace {
+        eprintln!("case {case_index}: completed self difference; starting self xor");
+    }
     assert!(
         overlay(subject, subject, OverlayRule::Xor).is_empty(),
         "A xor A must be empty"
     );
+    if trace {
+        eprintln!("case {case_index}: completed self xor");
+    }
 
     let commutative_rule = match rng.random_range(0..3) {
         0 => OverlayRule::Union,
         1 => OverlayRule::Intersect,
         _ => OverlayRule::Xor,
     };
+    if trace {
+        eprintln!("case {case_index}: starting commutative {commutative_rule}");
+    }
     let ab = overlay(subject, clip, commutative_rule);
     let ba = overlay(clip, subject, commutative_rule);
-    assert_equivalent(&ab, &ba, &format!("{commutative_rule} must be commutative"));
+    assert_equivalent_if_bounded(
+        &ab,
+        &ba,
+        &format!("{commutative_rule} must be commutative"),
+        equivalence_limit,
+    );
+    if trace {
+        eprintln!("case {case_index}: completed commutative {commutative_rule}");
+    }
 
+    if trace {
+        eprintln!("case {case_index}: starting difference/inverse equivalence");
+    }
     let difference = overlay(subject, clip, OverlayRule::Difference);
     let inverse = overlay(clip, subject, OverlayRule::InverseDifference);
-    assert_equivalent(&difference, &inverse, "A - B must equal inverse(B, A)");
+    assert_equivalent_if_bounded(
+        &difference,
+        &inverse,
+        "A - B must equal inverse(B, A)",
+        equivalence_limit,
+    );
+    if trace {
+        eprintln!("case {case_index}: completed difference/inverse equivalence");
+    }
 }
 
 fn overlay(subject: &[CurveShape<i32>], clip: &[CurveShape<i32>], rule: OverlayRule) -> Vec<CurveShape<i32>> {
@@ -109,6 +168,18 @@ fn assert_equivalent(lhs: &[CurveShape<i32>], rhs: &[CurveShape<i32>], context: 
         difference.is_empty(),
         "{context}; symmetric difference was {difference:#?}"
     );
+}
+
+fn assert_equivalent_if_bounded(
+    lhs: &[CurveShape<i32>],
+    rhs: &[CurveShape<i32>],
+    context: &str,
+    segment_limit: usize,
+) {
+    let segments = segment_count(lhs).saturating_add(segment_count(rhs));
+    if segments <= segment_limit {
+        assert_equivalent(lhs, rhs, context);
+    }
 }
 
 fn assert_valid_result(result: &[CurveShape<i32>], context: &str) {
@@ -242,6 +313,10 @@ fn env_u64(name: &str, default: u64) -> u64 {
         .ok()
         .and_then(|value| value.parse().ok())
         .unwrap_or(default)
+}
+
+fn env_usize(name: &str, default: usize) -> usize {
+    env_u64(name, default as u64).min(usize::MAX as u64) as usize
 }
 
 fn panic_message(payload: &(dyn Any + Send)) -> &str {

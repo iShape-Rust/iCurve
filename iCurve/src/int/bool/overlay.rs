@@ -62,9 +62,8 @@ impl<I: IntNumber> IntCurveOverlay<I> {
                     self.curve_slices.push(curve_slice);
 
                     self.curve_edges
-                        .extend(canonical_curves.drain(..).map(|canonical| CurveEdge {
-                            curve: canonical.curve,
-                            curve_id,
+                        .extend(canonical_curves.drain(..).map(|canonical| {
+                            CurveEdge::new(canonical.curve, curve_id, canonical.start, canonical.end)
                         }));
                 }
 

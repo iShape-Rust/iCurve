@@ -91,16 +91,12 @@ impl<I: IntNumber> CurveEdgeSplitter<I> {
         slice: &mut CurveSlice<I>,
         output: &mut Vec<CurveEdge<I>>,
     ) {
-        let chord = edge.curve.chord();
-        let source_start = slice
-            .param_at(chord.a)
-            .expect("CurveEdge start must have a CurveSlice mark");
-        let source_end = slice
-            .param_at(chord.b)
-            .expect("CurveEdge end must have a CurveSlice mark");
+        let source_start = edge.start_param;
+        let source_end = edge.end_param;
 
         let mut remaining = edge.curve;
         let mut previous = I::Wide::ZERO;
+        let mut remaining_start = source_start;
 
         for mark in marks {
             let value = mark.param.value();
@@ -119,21 +115,21 @@ impl<I: IntNumber> CurveEdgeSplitter<I> {
             });
 
             if !left.chord().is_zero_length() {
-                output.push(CurveEdge {
-                    curve: left,
-                    curve_id: edge.curve_id,
-                });
+                output.push(CurveEdge::new(left, edge.curve_id, remaining_start, source_param));
             }
 
             remaining = right;
             previous = value;
+            remaining_start = source_param;
         }
 
         if !remaining.chord().is_zero_length() {
-            output.push(CurveEdge {
-                curve: remaining,
-                curve_id: edge.curve_id,
-            });
+            output.push(CurveEdge::new(
+                remaining,
+                edge.curve_id,
+                remaining_start,
+                source_end,
+            ));
         }
     }
 }
@@ -152,10 +148,7 @@ mod tests {
         let curve = Segment::Line(LineSegment {
             control_points: [IntPoint::new(0, 0), IntPoint::new(100, 0)],
         });
-        let mut edges = vec![CurveEdge {
-            curve,
-            curve_id: CurveId(0),
-        }];
+        let mut edges = vec![CurveEdge::full(curve, CurveId(0))];
         let mut slices = vec![CurveSlice::new(curve, ShapeType::Subject)];
         let mut splitter = CurveEdgeSplitter::new();
 
@@ -195,5 +188,45 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![0, 100, 50, 75]
         );
+    }
+
+    #[test]
+    fn uses_edge_source_range_when_point_mark_is_ambiguous() {
+        let source = Segment::Line(LineSegment {
+            control_points: [IntPoint::new(0, 0), IntPoint::new(100, 0)],
+        });
+        let edge_curve = Segment::Line(LineSegment {
+            control_points: [IntPoint::new(50, 0), IntPoint::new(100, 0)],
+        });
+        let mut slices = vec![CurveSlice::new(source, ShapeType::Subject)];
+        slices[0].add_mark(CurveMark {
+            point: IntPoint::new(50, 0),
+            param: SegmentParam::from_int(1, 4),
+        });
+        let mut edges = vec![CurveEdge::new(
+            edge_curve,
+            CurveId(0),
+            SegmentParam::half(),
+            SegmentParam::new(SegmentParam::<i32>::DENOMINATOR as i32),
+        )];
+        let mut splitter = CurveEdgeSplitter::new();
+
+        splitter.split(
+            &mut edges,
+            &[CurveSplitMark {
+                edge_index: 0,
+                point: IntPoint::new(75, 0),
+                param: SegmentParam::half(),
+            }],
+            &mut slices,
+        );
+
+        assert_eq!(
+            slices[0].param_at(IntPoint::new(75, 0)),
+            Some(SegmentParam::from_int(3, 4))
+        );
+        assert_eq!(edges[0].start_param, SegmentParam::half());
+        assert_eq!(edges[0].end_param, SegmentParam::from_int(3, 4));
+        assert_eq!(edges[1].start_param, SegmentParam::from_int(3, 4));
     }
 }

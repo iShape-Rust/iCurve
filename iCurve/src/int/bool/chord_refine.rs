@@ -11,6 +11,7 @@ use alloc::vec::Vec;
 use core::cmp::Ordering;
 use i_overlay::core::v_segment::VSegment;
 use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::i_float::int::number::uint::UIntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_float::int::rect::IntRect;
 use i_overlay::i_shape::int::IntPoint;
@@ -68,10 +69,14 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
         let escaped_marks = marks
             .iter()
             .filter(|mark| {
-                !edges[mark.edge_index]
-                    .curve
-                    .convex_hull()
-                    .contains_point_border_included(mark.point)
+                let curve = edges[mark.edge_index].curve;
+                let evaluated = Self::point_at(curve, mark.param);
+                let dx = (mark.point.x.to_wide() - evaluated.x.to_wide()).unsigned_abs();
+                let dy = (mark.point.y.to_wide() - evaluated.y.to_wide()).unsigned_abs();
+                // Fixed-point evaluation and endpoint snapping round separately.
+                // A one-unit mismatch is therefore not a topology escape.
+                (dx > I::WideUInt::ONE || dy > I::WideUInt::ONE)
+                    && !curve.convex_hull().contains_point_border_included(mark.point)
             })
             .count();
 
@@ -499,21 +504,21 @@ mod tests {
     use i_overlay::i_float::int::number::fixed_scale::FixedScale;
 
     fn line(id: usize, a: [i32; 2], b: [i32; 2]) -> CurveEdge<i32> {
-        CurveEdge {
-            curve: Segment::Line(LineSegment {
+        CurveEdge::full(
+            Segment::Line(LineSegment {
                 control_points: [a.into(), b.into()],
             }),
-            curve_id: CurveId(id),
-        }
+            CurveId(id),
+        )
     }
 
     fn quad(id: usize, points: [[i32; 2]; 3]) -> CurveEdge<i32> {
-        CurveEdge {
-            curve: Segment::Quad(QuadSegment {
+        CurveEdge::full(
+            Segment::Quad(QuadSegment {
                 control_points: points.map(Into::into),
             }),
-            curve_id: CurveId(id),
-        }
+            CurveId(id),
+        )
     }
 
     fn quarter_arc() -> ArcSegment<i32> {
@@ -598,13 +603,7 @@ mod tests {
     #[test]
     fn keeps_identical_curves_with_coincident_chords() {
         let curve = quad(0, [[0, 0], [5, 10], [10, 0]]);
-        let mut edges = vec![
-            curve,
-            CurveEdge {
-                curve: curve.curve,
-                curve_id: CurveId(1),
-            },
-        ];
+        let mut edges = vec![curve, CurveEdge::full(curve.curve, CurveId(1))];
         let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
 
@@ -706,18 +705,18 @@ mod tests {
     #[test]
     fn bisects_both_distinct_curves_when_initial_tangents_coincide() {
         let mut edges = vec![
-            CurveEdge {
-                curve: Segment::Cubic(CubicSegment {
+            CurveEdge::full(
+                Segment::Cubic(CubicSegment {
                     control_points: [[0, 0].into(), [2, 4].into(), [8, 4].into(), [10, 0].into()],
                 }),
-                curve_id: CurveId(0),
-            },
-            CurveEdge {
-                curve: Segment::Cubic(CubicSegment {
+                CurveId(0),
+            ),
+            CurveEdge::full(
+                Segment::Cubic(CubicSegment {
                     control_points: [[0, 0].into(), [4, 8].into(), [8, 2].into(), [10, 0].into()],
                 }),
-                curve_id: CurveId(1),
-            },
+                CurveId(1),
+            ),
         ];
         let mut slices = slices(&edges);
         let mut refiner = ChordTopologyRefiner::new();
@@ -766,6 +765,21 @@ mod tests {
                 escaped_marks: 1,
                 crossed_chords: 0,
             }
+        );
+    }
+
+    #[test]
+    fn accepts_one_unit_snap_outside_discrete_hull() {
+        let edges = vec![line(0, [0, 0], [2, 2])];
+        let marks = vec![CurveSplitMark {
+            edge_index: 0,
+            point: IntPoint::new(1, 2),
+            param: SegmentParam::half(),
+        }];
+
+        assert_eq!(
+            ChordTopologyRefiner::outcome(&edges, &marks, 0),
+            RefineOutcome::PlanarityPreserved
         );
     }
 

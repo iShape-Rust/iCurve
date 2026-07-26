@@ -21,6 +21,11 @@ impl<I: IntNumber> CurveRun<I> {
             debug_assert!(false, "adjacent overlay edges must share an endpoint");
             return false;
         }
+        // A closed run has equal endpoint marks and cannot be represented by
+        // Segment::subsegment. Keep at least two non-zero pieces around a cycle.
+        if self.start == next.end {
+            return false;
+        }
 
         let candidates = intersect_sorted(&self.candidates, &next.candidates);
         if candidates.is_empty() {
@@ -33,6 +38,7 @@ impl<I: IntNumber> CurveRun<I> {
     }
 
     fn into_curve_segment(self, slices: &[CurveSlice<I>]) -> CurveSegment<I> {
+        let first_candidate = self.candidates.first().copied();
         for curve_id in self.candidates {
             let slice = &slices[curve_id.0];
             let Some(start_param) = slice.param_at(self.start) else {
@@ -51,9 +57,19 @@ impl<I: IntNumber> CurveRun<I> {
             return CurveSegment::from_kernel_segment(segment);
         }
 
+        let first_candidate =
+            first_candidate.expect("overlay edge run must have at least one CurveId candidate");
+        let first_slice = &slices[first_candidate.0];
         debug_assert!(
             false,
-            "overlay edge endpoints must have marks for at least one CurveId candidate"
+            "overlay edge endpoints must have marks for at least one CurveId candidate: run=({}, {})->({}, {}), first_candidate={}, start_mark={}, end_mark={}",
+            self.start.x,
+            self.start.y,
+            self.end.x,
+            self.end.y,
+            first_candidate.0,
+            first_slice.param_at(self.start).is_some(),
+            first_slice.param_at(self.end).is_some()
         );
         CurveSegment::Line { to: self.end }
     }
@@ -102,6 +118,10 @@ impl<I: IntNumber> CurveRecomposer<I> {
     ) -> Option<CurvePath<I>> {
         let mut runs = Vec::with_capacity(contour.len());
         for edge in contour {
+            if edge.a == edge.b {
+                continue;
+            }
+
             let mut candidates = Vec::new();
             data_store.curve_ids(edge.data, &mut candidates);
             runs.push(CurveRun {
@@ -163,6 +183,39 @@ mod tests {
             fill: 0,
             data: CurveEdgeData::Single(CurveId(id)),
         }
+    }
+
+    #[test]
+    fn does_not_merge_a_curve_run_into_zero_length_cycle() {
+        let mut first = CurveRun {
+            start: IntPoint::new(0, 0),
+            end: IntPoint::new(1, 0),
+            candidates: vec![CurveId(0)],
+        };
+        let mut closing = CurveRun {
+            start: IntPoint::new(1, 0),
+            end: IntPoint::new(0, 0),
+            candidates: vec![CurveId(0)],
+        };
+
+        assert!(!first.try_merge(&mut closing));
+    }
+
+    #[test]
+    fn ignores_zero_length_vector_edges() {
+        let curve = Segment::Line(LineSegment {
+            control_points: [IntPoint::new(0, 0), IntPoint::new(1, 0)],
+        });
+        let slices = vec![CurveSlice::new(curve, ShapeType::Subject)];
+        let store = CurveEdgeDataStore::default();
+        let point = IntPoint::new(0, 0);
+        let contour = vec![edge(point, point, 0)];
+
+        assert!(
+            CurveRecomposer::new()
+                .recompose_contour(contour, &store, &slices)
+                .is_none()
+        );
     }
 
     fn cubic_slice() -> (CurveSlice<i32>, IntPoint<i32>) {

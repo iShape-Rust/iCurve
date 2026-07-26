@@ -126,12 +126,12 @@ mod tests {
     use i_overlay::i_shape::int::IntPoint;
 
     fn line(id: usize, a: [i32; 2], b: [i32; 2]) -> CurveEdge<i32> {
-        CurveEdge {
-            curve: Segment::Line(LineSegment {
+        CurveEdge::full(
+            Segment::Line(LineSegment {
                 control_points: [a.into(), b.into()],
             }),
-            curve_id: CurveId(id),
-        }
+            CurveId(id),
+        )
     }
 
     fn slices(edges: &[CurveEdge<i32>]) -> Vec<CurveSlice<i32>> {
