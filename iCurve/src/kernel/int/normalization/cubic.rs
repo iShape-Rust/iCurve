@@ -8,8 +8,12 @@ use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::curve::split_at::SplitAt;
 use crate::kernel::int::normalization::monotone::decomposition::roots_to_segments;
 use crate::kernel::int::normalization::unit_quadratic::solve_unit_quadratic;
+use core::cmp::Ordering;
 use i_overlay::i_float::int::number::fixed_scale::FixedScale;
 use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::i_float::int::number::product_uint::UIntProduct;
+use i_overlay::i_float::int::number::signed_product::SignedProduct;
+use i_overlay::i_float::int::number::uint::UIntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_float::int::vector::IntVector;
 use i_overlay::i_float::triangle::Triangle;
@@ -147,25 +151,6 @@ impl<I: IntNumber> CubicSegment<I> {
     }
 
     pub(crate) fn s_shape_split_param(&self) -> Option<SegmentParam<I>> {
-        let mut roots = self.s_shape_roots();
-        roots.as_mut_slice().sort_unstable_by_key(|root| root.value());
-        roots.dedup();
-
-        match roots.as_slice() {
-            [] => None,
-            [t] => Some(*t),
-            [_, _] => {
-                debug_assert!(
-                    false,
-                    "monotone non-self-intersecting cubic is expected to have at most one S-shape split"
-                );
-                None
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    fn s_shape_roots(&self) -> StackVec<SegmentParam<I>, 2> {
         let [p0, p1, p2, p3] = self.control_points;
 
         // For P'(t) = 3 * (u + 2s*t + r*t^2) and P''(t) = 6 * (s + r*t),
@@ -189,15 +174,30 @@ impl<I: IntNumber> CubicSegment<I> {
         let b = u.cross_product(r);
         let c = u.cross_product(s);
 
-        // A double root only touches zero curvature and does not remove an S shape.
-        if a != I::Wide::ZERO {
-            let d = b * b - I::Wide::FOUR * a * c;
-            if d <= I::Wide::ZERO {
-                return StackVec::new();
-            }
+        if a == I::Wide::ZERO {
+            return unit_signed_ratio::<I>(c.unsigned_abs(), c > I::Wide::ZERO, b);
         }
 
-        solve_unit_quadratic::<I>(a, b, c)
+        // An endpoint inflection is not a split, but the remaining linear
+        // factor may still have one internal root.
+        if c == I::Wide::ZERO {
+            return unit_signed_ratio::<I>(b.unsigned_abs(), b > I::Wide::ZERO, a);
+        }
+
+        let start_value = s_shape_value::<I>(a, b, c, I::Wide::ZERO)?;
+        let end_value = s_shape_value::<I>(a, b, c, SegmentParam::<I>::DENOMINATOR)?;
+        if end_value.sign() == Ordering::Equal {
+            return unit_signed_ratio::<I>(c.unsigned_abs(), c < I::Wide::ZERO, a);
+        }
+
+        // A monotone non-self-intersecting cubic has at most one simple
+        // internal inflection. Such a root changes the curvature sign, while
+        // a double root only touches zero and must not create an S-shape split.
+        if start_value.is_negative() == end_value.is_negative() {
+            return None;
+        }
+
+        find_s_shape_root::<I>(a, b, c, start_value, end_value)
     }
 
     fn resolve_self_intersection(&self) -> Option<CubicSelfIntersection<I>> {
@@ -371,7 +371,9 @@ impl<I: IntNumber> CubicSegment<I> {
             a.y * ss_scaled + b.y * s_scaled + c.y.to_scaled(),
         );
 
-        let p_scaled = FixedScale::<I>::div_round(a.dot_product(q_scaled), aa);
+        let Some(p_scaled) = unit_dot_ratio_scaled(a, q_scaled, aa) else {
+            return None;
+        };
 
         // 0 < p < 1
         if p_scaled <= I::Wide::ZERO || p_scaled >= I::ONE.to_scaled_wide() {
@@ -409,6 +411,133 @@ impl<I: IntNumber> CubicSegment<I> {
             Some(Segment::Cubic(self))
         }
     }
+}
+
+/// Finds the unique simple S-shape root on the fixed-point unit interval.
+///
+/// The caller guarantees opposite non-zero curvature signs at the interval
+/// ends. Binary search preserves that bracket until the two closest fixed-point
+/// parameters around the root remain.
+fn find_s_shape_root<I: IntNumber>(
+    a: I::Wide,
+    b: I::Wide,
+    c: I::Wide,
+    mut lo_value: SignedProduct<I::Wide>,
+    mut hi_value: SignedProduct<I::Wide>,
+) -> Option<SegmentParam<I>> {
+    let mut lo = I::Wide::ZERO;
+    let mut hi = SegmentParam::<I>::DENOMINATOR;
+
+    while hi - lo > I::Wide::ONE {
+        let mid = (lo + hi) >> 1;
+        let mid_value = s_shape_value::<I>(a, b, c, mid)?;
+
+        match mid_value.sign() {
+            Ordering::Equal => return Some(SegmentParam::new(I::from_wide(mid))),
+            _ if mid_value.is_negative() == lo_value.is_negative() => {
+                lo = mid;
+                lo_value = mid_value;
+            }
+            _ => {
+                hi = mid;
+                hi_value = mid_value;
+            }
+        }
+    }
+
+    let value = if lo_value.magnitude() <= hi_value.magnitude() {
+        lo
+    } else {
+        hi
+    };
+    if value <= I::Wide::ZERO || value >= SegmentParam::<I>::DENOMINATOR {
+        None
+    } else {
+        Some(SegmentParam::new(I::from_wide(value)))
+    }
+}
+
+/// Evaluates `F^2 * (a*t^2 + b*t + c)` for `t = scaled_t / F`.
+/// Every signed term remains in the double-width unsigned representation.
+fn s_shape_value<I: IntNumber>(
+    a: I::Wide,
+    b: I::Wide,
+    c: I::Wide,
+    scaled_t: I::Wide,
+) -> Option<SignedProduct<I::Wide>> {
+    debug_assert!(scaled_t >= I::Wide::ZERO);
+    debug_assert!(scaled_t <= SegmentParam::<I>::DENOMINATOR);
+
+    let scale = SegmentParam::<I>::DENOMINATOR;
+    let tt = scaled_t * scaled_t;
+    let tf = scaled_t * scale;
+    let ff = scale * scale;
+
+    let at = SignedProduct::multiply(a, tt);
+    let bt = SignedProduct::multiply(b, tf);
+    let ct = SignedProduct::multiply(c, ff);
+
+    at.checked_add(bt)?.checked_add(ct)
+}
+
+/// Returns a strictly internal fixed-point ratio from signed magnitude parts.
+fn unit_signed_ratio<I: IntNumber>(
+    numerator: I::WideUInt,
+    numerator_negative: bool,
+    denominator: I::Wide,
+) -> Option<SegmentParam<I>> {
+    if numerator == I::WideUInt::ZERO || denominator == I::Wide::ZERO {
+        return None;
+    }
+
+    let denominator_negative = denominator < I::Wide::ZERO;
+    let denominator = denominator.unsigned_abs();
+    if numerator_negative != denominator_negative
+        || numerator >= denominator
+        || denominator >= I::WideUInt::LAST_BIT
+    {
+        return None;
+    }
+
+    let product =
+        <I::WideUInt as UIntNumber>::Product::multiply(numerator, SegmentParam::<I>::DENOMINATOR.to_uint());
+    let value = I::Wide::from_uint(product.divide_with_rounding(denominator));
+
+    if value <= I::Wide::ZERO || value >= SegmentParam::<I>::DENOMINATOR {
+        None
+    } else {
+        Some(SegmentParam::new(I::from_wide(value)))
+    }
+}
+
+/// Returns `round(dot(lhs, rhs) / denominator)` when the result is inside
+/// the fixed-point unit interval. Products and their signed sum stay in the
+/// double-width unsigned representation until after division.
+fn unit_dot_ratio_scaled<I: IntNumber>(
+    lhs: IntVector<I>,
+    rhs: IntVector<I>,
+    denominator: I::Wide,
+) -> Option<I::Wide> {
+    debug_assert!(denominator > I::Wide::ZERO);
+
+    let dot = SignedProduct::multiply(lhs.x, rhs.x).checked_add(SignedProduct::multiply(lhs.y, rhs.y))?;
+    if dot.is_negative() {
+        return None;
+    }
+    let magnitude = dot.magnitude();
+
+    let unit_limit = <I::WideUInt as UIntNumber>::Product::multiply(
+        denominator.unsigned_abs(),
+        FixedScale::<I>::DENOMINATOR.to_uint(),
+    );
+    if magnitude >= unit_limit {
+        return None;
+    }
+
+    let quotient = magnitude.divide_with_rounding(denominator.unsigned_abs());
+    let value = I::Wide::from_uint(quotient);
+
+    (value > I::Wide::ZERO && value < FixedScale::<I>::DENOMINATOR).then_some(value)
 }
 
 fn local_segment_param<I: IntNumber>(t0: SegmentParam<I>, t1: SegmentParam<I>) -> SegmentParam<I> {
@@ -602,6 +731,23 @@ mod tests {
     }
 
     #[test]
+    fn finds_large_s_shape_root_without_discriminant_overflow() {
+        let scale = 2_000_000;
+        let cubic = CubicSegment::<i32> {
+            control_points: [
+                IntPoint::new(0, 0),
+                IntPoint::new(5 * scale, 3 * scale),
+                IntPoint::new(20 * scale, 22 * scale),
+                IntPoint::new(24 * scale, 24 * scale),
+            ],
+        };
+
+        let root = cubic.s_shape_split_param().unwrap();
+
+        assert!((root.value() - 542_465_139).abs() <= 1);
+    }
+
+    #[test]
     fn finds_cubic_self_intersection_with_scaled_divisions() {
         let intersection = CubicSegment::<i32> {
             control_points: [
@@ -617,6 +763,50 @@ mod tests {
         assert!((intersection.t0.value() - SegmentParam::<i32>::from_int(3, 7).value()).abs() <= 1);
         assert!((intersection.t1.value() - SegmentParam::<i32>::from_int(6, 7).value()).abs() <= 1);
         assert_eq!(intersection.point, IntPoint::new(-17, -14));
+    }
+
+    #[test]
+    fn unit_dot_ratio_uses_double_width_products() {
+        let lhs = IntVector::<i32>::new(1_000_000, -1_000_000);
+        let rhs = IntVector::<i32>::new(1_000_000_000_000_000, -1_000_000_000_000_000);
+
+        let result = unit_dot_ratio_scaled(lhs, rhs, 2_000_000_000_000);
+
+        assert_eq!(result, Some(1_000_000_000));
+    }
+
+    #[test]
+    fn unit_dot_ratio_handles_opposite_sign_terms() {
+        let lhs = IntVector::<i32>::new(1_000_000, 1_000_000);
+        let rhs = IntVector::<i32>::new(1_000_000_000_000_000, -999_000_000_000_000);
+
+        let result = unit_dot_ratio_scaled(lhs, rhs, 2_000_000_000_000);
+
+        assert_eq!(result, Some(500_000));
+    }
+
+    #[test]
+    fn unit_dot_ratio_rejects_values_outside_unit_interval() {
+        let lhs = IntVector::<i32>::new(1_000_000, -1_000_000);
+        let rhs = IntVector::<i32>::new(2_000_000_000_000_000, -2_000_000_000_000_000);
+        let negative_rhs = IntVector::<i32>::new(-2_000_000_000_000_000, 2_000_000_000_000_000);
+
+        assert_eq!(unit_dot_ratio_scaled(lhs, rhs, 2_000_000_000_000), None);
+        assert_eq!(unit_dot_ratio_scaled(lhs, negative_rhs, 2_000_000_000_000), None);
+    }
+
+    #[test]
+    fn normalizes_large_cubic_without_dot_product_overflow() {
+        let cubic = CubicSegment::<i32> {
+            control_points: [
+                IntPoint::new(54_819, 167_472),
+                IntPoint::new(6, -7),
+                IntPoint::new(-446_637, -116_744),
+                IntPoint::new(-8, -2),
+            ],
+        };
+
+        let _ = cubic.try_segment();
     }
 
     #[test]

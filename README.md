@@ -93,11 +93,29 @@ The result is a `Vec<CurveShape<I>>`. The first contour of each shape is its
 outer boundary; the remaining contours are holes. A contour is closed when the
 endpoint of its last segment equals its `start` point.
 
+### Safe integer coordinate range
+
+The integer curve kernel reserves six bits for growth of polynomial
+coefficients. Input points should stay inside the following inclusive ranges:
+
+| Integer type | Coordinate bits | Safe coordinate range |
+| --- | ---: | ---: |
+| `i16` | 10 | `[-2^10, 2^10]` = `[-1_024, 1_024]` |
+| `i32` | 26 | `[-2^26, 2^26]` = `[-67_108_864, 67_108_864]` |
+| `i64` | 58 | `[-2^58, 2^58]` = `[-288_230_376_151_711_744, 288_230_376_151_711_744]` |
+
+These limits apply to every endpoint and control point supplied directly to
+the integer API. The storage types can represent larger values, but such input
+is not guaranteed to keep intermediate curve coefficients inside their safe
+range. Translate and uniformly scale larger integer geometry before invoking
+the kernel.
+
 ## Float input
 
 `CurveBuilder` creates float paths without quantization. `CurveConverter` then
-chooses a safe integer scale for the complete source shape, or uses an explicit
-scale supplied by the caller.
+chooses a safe integer scale for the complete source shape using the table
+above, or validates an explicit scale supplied by the caller against the same
+range.
 
 It is important to convert all contours participating in one overlay with the
 same adapter. The example below builds the subject and clip as two contours,

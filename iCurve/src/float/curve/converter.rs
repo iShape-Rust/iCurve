@@ -34,10 +34,17 @@ impl From<FloatPointAdapterScaleError> for CurveConversionError {
 }
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveConverter<P, I> {
+    /// Coordinate magnitude bound used by the integer curve kernel.
+    ///
+    /// Six reserved bits cover the constant growth of cubic polynomial
+    /// coefficients. Operations whose width grows with the polynomial degree
+    /// use extended-width products separately.
+    const COORDINATE_BITS: u32 = I::BITS - 6;
+
     /// Chooses the largest safe power-of-two scale for all source contours and
     /// converts them immediately.
     pub fn new(source: FloatCurveShape<P>) -> Self {
-        let adapter = FloatPointAdapter::new(source.bounds());
+        let adapter = FloatPointAdapter::with_coordinate_bits(source.bounds(), Self::COORDINATE_BITS);
         let shape = convert_shape(source, &adapter);
         Self { adapter, shape }
     }
@@ -47,7 +54,11 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveConverter<P, I> {
         source: FloatCurveShape<P>,
         scale: P::Scalar,
     ) -> Result<Self, CurveConversionError> {
-        let adapter = FloatPointAdapter::try_with_scale(source.bounds(), scale)?;
+        let adapter = FloatPointAdapter::try_with_scale_and_coordinate_bits(
+            source.bounds(),
+            scale,
+            Self::COORDINATE_BITS,
+        )?;
         let shape = convert_shape(source, &adapter);
         Ok(Self { adapter, shape })
     }
@@ -354,6 +365,19 @@ mod tests {
     }
 
     #[test]
+    fn automatic_adapter_reserves_six_coordinate_bits() -> Result<(), CurveError> {
+        let source = float_shape()?;
+        let i16_converter = CurveConverter::<_, i16>::new(source.clone());
+        let i32_converter = CurveConverter::<_, i32>::new(source.clone());
+        let i64_converter = CurveConverter::<_, i64>::new(source);
+
+        assert_eq!(i16_converter.adapter().dir_scale(), 2_f64.powi(7));
+        assert_eq!(i32_converter.adapter().dir_scale(), 2_f64.powi(23));
+        assert_eq!(i64_converter.adapter().dir_scale(), 2_f64.powi(55));
+        Ok(())
+    }
+
+    #[test]
     fn requested_scale_is_used_for_conversion() -> Result<(), CurveError> {
         let converter =
             CurveConverter::<_, i32>::try_with_scale(float_shape()?, 10.0).expect("scale must fit");
@@ -368,6 +392,20 @@ mod tests {
             }
             _ => panic!("expected quadratic segment"),
         }
+        Ok(())
+    }
+
+    #[test]
+    fn requested_scale_respects_curve_coordinate_bits() -> Result<(), CurveError> {
+        let error = match CurveConverter::<_, i32>::try_with_scale(float_shape()?, 2_f64.powi(24)) {
+            Ok(_) => panic!("scale above the 26-bit curve range must fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(
+            error,
+            CurveConversionError::Adapter(FloatPointAdapterScaleError::ScaleTooLarge)
+        );
         Ok(())
     }
 
