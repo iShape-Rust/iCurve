@@ -63,7 +63,7 @@ fn randomized_boolean_invariants() {
         }
 
         let completed = case_index - start_case + 1;
-        if completed % 100 == 0 || completed == cases {
+        if completed.is_multiple_of(100) || completed == cases {
             eprintln!("completed {completed}/{cases} cases");
         }
     }

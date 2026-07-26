@@ -39,11 +39,13 @@ impl<I: IntNumber> StackVec<IntPoint<I>, 4> {
     }
 
     #[inline]
+    #[cfg(test)]
     pub(crate) fn is_overlapping_border_excluded(&self, other: &Self) -> bool {
         !self.has_separate_line::<true>(other.as_slice()) && !other.has_separate_line::<true>(self.as_slice())
     }
 
     #[inline]
+    #[cfg(test)]
     pub(crate) fn is_overlapping_border_included(&self, other: &Self) -> bool {
         !self.has_separate_line::<false>(other.as_slice())
             && !other.has_separate_line::<false>(self.as_slice())
@@ -55,6 +57,7 @@ impl<I: IntNumber> StackVec<IntPoint<I>, 4> {
             || other.has_separating_edge_at_least_pow2(self.as_slice(), min_separation_log2)
     }
 
+    #[cfg(test)]
     fn has_separate_line<const INCLUDE_BORDER: bool>(&self, points: &[IntPoint<I>]) -> bool {
         let inside_limit = if INCLUDE_BORDER {
             I::Wide::ZERO

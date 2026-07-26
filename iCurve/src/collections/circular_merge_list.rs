@@ -46,10 +46,8 @@ impl<T> CircularMergeList<T> {
 
         self.len = values.len() as u32;
         self.nodes.reserve(values.len());
-        let mut next = 1;
-        for value in values {
+        for (next, value) in (1..).zip(values) {
             self.nodes.push(Node { next, value });
-            next += 1;
         }
 
         let last_index = self.nodes.len() - 1;

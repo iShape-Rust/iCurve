@@ -267,22 +267,20 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
         let curve_order = first_tangent.cmp_by_angle(&second_tangent);
 
         if curve_order != Ordering::Equal {
-            if first_tangent.cmp_by_angle(&reference) == curve_order {
-                if let Some((param, point)) =
+            if first_tangent.cmp_by_angle(&reference) == curve_order
+                && let Some((param, point)) =
                     Self::find_ordered_split(first, start, reference, curve_order, true)
-                {
-                    CurveSplitMark::push_if_interior(&mut self.split_marks, first_index, point, param);
-                    return;
-                }
+            {
+                CurveSplitMark::push_if_interior(&mut self.split_marks, first_index, point, param);
+                return;
             }
 
-            if reference.cmp_by_angle(&second_tangent) == curve_order {
-                if let Some((param, point)) =
+            if reference.cmp_by_angle(&second_tangent) == curve_order
+                && let Some((param, point)) =
                     Self::find_ordered_split(second, start, reference, curve_order, false)
-                {
-                    CurveSplitMark::push_if_interior(&mut self.split_marks, second_index, point, param);
-                    return;
-                }
+            {
+                CurveSplitMark::push_if_interior(&mut self.split_marks, second_index, point, param);
+                return;
             }
         }
 

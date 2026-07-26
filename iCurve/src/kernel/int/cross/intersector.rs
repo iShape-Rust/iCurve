@@ -1,5 +1,6 @@
 use crate::collections::stack_vec::StackVec;
 use crate::kernel::int::cross::chord::ChordCross;
+use crate::kernel::int::cross::parallel::ParallelSegment;
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::segment::Segment;
@@ -65,6 +66,7 @@ impl<I: IntNumber> SegmentIntersector<I> {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn intersect(&self) -> Vec<ContactPoint<I>> {
         let mut buffer = SegmentIntersectionBuffer::default();
         self.intersect_with_buffer(&mut buffer);
@@ -138,7 +140,9 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 let v1 = pair.s1.chord().vector();
                 if v0.is_nearly_collinear_with(v1, self.options.sin_angle_neg_pow2) {
                     self.intersect_parallel(
-                        pair.s0, pair.t0, pair.step0, pair.s1, pair.t1, pair.step1, output,
+                        ParallelSegment::new(pair.s0, pair.t0, pair.step0),
+                        ParallelSegment::new(pair.s1, pair.t1, pair.step1),
+                        output,
                     );
                     continue;
                 }

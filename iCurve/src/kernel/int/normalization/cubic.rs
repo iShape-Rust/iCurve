@@ -371,9 +371,7 @@ impl<I: IntNumber> CubicSegment<I> {
             a.y * ss_scaled + b.y * s_scaled + c.y.to_scaled(),
         );
 
-        let Some(p_scaled) = unit_dot_ratio_scaled(a, q_scaled, aa) else {
-            return None;
-        };
+        let p_scaled = unit_dot_ratio_scaled(a, q_scaled, aa)?;
 
         // 0 < p < 1
         if p_scaled <= I::Wide::ZERO || p_scaled >= I::ONE.to_scaled_wide() {

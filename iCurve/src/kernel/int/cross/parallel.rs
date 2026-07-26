@@ -27,6 +27,18 @@ struct PolylineEdge<I: IntNumber> {
     b: Sample<I>,
 }
 
+#[derive(Clone, Copy)]
+pub(super) struct ParallelSegment<I: IntNumber> {
+    segment: Segment<I>,
+    transform: ParamTransform<I>,
+}
+
+#[derive(Clone, Copy)]
+struct ParamTransform<I: IntNumber> {
+    center: SegmentParam<I>,
+    step: SegmentParam<I>,
+}
+
 struct ParallelPointIter<I: IntNumber> {
     segment: Segment<I>,
     parts: usize,
@@ -44,24 +56,20 @@ struct ParallelEdgeIter<I: IntNumber> {
 impl<I: IntNumber> SegmentIntersector<I> {
     pub(super) fn intersect_parallel(
         &self,
-        s0: Segment<I>,
-        center0: SegmentParam<I>,
-        step0: SegmentParam<I>,
-        s1: Segment<I>,
-        center1: SegmentParam<I>,
-        step1: SegmentParam<I>,
+        first: ParallelSegment<I>,
+        second: ParallelSegment<I>,
         output: &mut Vec<ContactPoint<I>>,
     ) {
-        let chord0 = s0.chord();
-        let chord1 = s1.chord();
+        let chord0 = first.segment.chord();
+        let chord1 = second.segment.chord();
         let axis = ProjectionAxis::for_chords(chord0, chord1);
         let parts0 = chord0.parts_count(self.options.min_len_pow2, self.options.max_parts_count_log);
         let parts1 = chord1.parts_count(self.options.min_len_pow2, self.options.max_parts_count_log);
         let range0 = chord0.projection_range(axis);
         let range1 = chord1.projection_range(axis);
 
-        let mut edges0 = ParallelEdgeIter::new(s0, axis, parts0);
-        let mut edges1 = ParallelEdgeIter::new(s1, axis, parts1);
+        let mut edges0 = ParallelEdgeIter::new(first.segment, axis, parts0);
+        let mut edges1 = ParallelEdgeIter::new(second.segment, axis, parts1);
         let mut edge0 = edges0.next();
         let mut edge1 = edges1.next();
 
@@ -96,8 +104,8 @@ impl<I: IntNumber> SegmentIntersector<I> {
                         output,
                         ContactPoint {
                             point,
-                            t0: global_param(center0, step0, edge_param(a, point)),
-                            t1: global_param(center1, step1, edge_param(b, point)),
+                            t0: first.transform.apply(edge_param(a, point)),
+                            t1: second.transform.apply(edge_param(b, point)),
                             contact_type: ContactType::Cross,
                         },
                     );
@@ -105,7 +113,12 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 Some(ChordCross::Point(_)) => {}
                 Some(ChordCross::Overlay) => {
                     push_internal_overlap_ends(
-                        output, axis, a, b, range0, range1, center0, step0, center1, step1,
+                        output,
+                        axis,
+                        a,
+                        b,
+                        [range0, range1],
+                        [first.transform, second.transform],
                     );
                 }
                 None => {}
@@ -118,6 +131,21 @@ impl<I: IntNumber> SegmentIntersector<I> {
                 edge1 = edges1.next();
             }
         }
+    }
+}
+
+impl<I: IntNumber> ParallelSegment<I> {
+    pub(super) fn new(segment: Segment<I>, center: SegmentParam<I>, step: SegmentParam<I>) -> Self {
+        Self {
+            segment,
+            transform: ParamTransform { center, step },
+        }
+    }
+}
+
+impl<I: IntNumber> ParamTransform<I> {
+    fn apply(self, local: SegmentParam<I>) -> SegmentParam<I> {
+        global_param(self.center, self.step, local)
     }
 }
 
@@ -192,21 +220,21 @@ impl<I: IntNumber> Iterator for ParallelEdgeIter<I> {
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let sample = self.points.next()?;
-            if let Some(previous) = self.previous.replace(sample) {
-                if previous.point != sample.point {
-                    #[cfg(debug_assertions)]
-                    {
-                        debug_assert!(
-                            self.last_end.is_none_or(|end| end == previous.point),
-                            "consecutive ParallelEdgeIter edges must share an endpoint"
-                        );
-                        self.last_end = Some(sample.point);
-                    }
-                    return Some(PolylineEdge {
-                        a: previous,
-                        b: sample,
-                    });
+            if let Some(previous) = self.previous.replace(sample)
+                && previous.point != sample.point
+            {
+                #[cfg(debug_assertions)]
+                {
+                    debug_assert!(
+                        self.last_end.is_none_or(|end| end == previous.point),
+                        "consecutive ParallelEdgeIter edges must share an endpoint"
+                    );
+                    self.last_end = Some(sample.point);
                 }
+                return Some(PolylineEdge {
+                    a: previous,
+                    b: sample,
+                });
             }
         }
     }
@@ -261,23 +289,19 @@ fn push_internal_overlap_ends<I: IntNumber>(
     axis: ProjectionAxis,
     a: PolylineEdge<I>,
     b: PolylineEdge<I>,
-    range0: (I, I),
-    range1: (I, I),
-    center0: SegmentParam<I>,
-    step0: SegmentParam<I>,
-    center1: SegmentParam<I>,
-    step1: SegmentParam<I>,
+    ranges: [(I, I); 2],
+    transforms: [ParamTransform<I>; 2],
 ) {
     for sample in [a.a, a.b] {
         let value = axis.value(sample.point);
-        if is_unit_end(sample.param) && range1.0 < value && value < range1.1 {
-            push_tangent(output, sample.point, a, b, center0, step0, center1, step1);
+        if is_unit_end(sample.param) && ranges[1].0 < value && value < ranges[1].1 {
+            push_tangent(output, sample.point, a, b, transforms);
         }
     }
     for sample in [b.a, b.b] {
         let value = axis.value(sample.point);
-        if is_unit_end(sample.param) && range0.0 < value && value < range0.1 {
-            push_tangent(output, sample.point, a, b, center0, step0, center1, step1);
+        if is_unit_end(sample.param) && ranges[0].0 < value && value < ranges[0].1 {
+            push_tangent(output, sample.point, a, b, transforms);
         }
     }
 }
@@ -292,17 +316,14 @@ fn push_tangent<I: IntNumber>(
     point: IntPoint<I>,
     a: PolylineEdge<I>,
     b: PolylineEdge<I>,
-    center0: SegmentParam<I>,
-    step0: SegmentParam<I>,
-    center1: SegmentParam<I>,
-    step1: SegmentParam<I>,
+    transforms: [ParamTransform<I>; 2],
 ) {
     push_contact(
         output,
         ContactPoint {
             point,
-            t0: global_param(center0, step0, edge_param(a, point)),
-            t1: global_param(center1, step1, edge_param(b, point)),
+            t0: transforms[0].apply(edge_param(a, point)),
+            t1: transforms[1].apply(edge_param(b, point)),
             contact_type: ContactType::Tangent,
         },
     );

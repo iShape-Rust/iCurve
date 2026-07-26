@@ -319,10 +319,10 @@ mod tests {
         let mut rng = rand::rng();
         let mut points = [IntPoint::ZERO; 4];
         for _ in 0..1000 {
-            for i in 0..4 {
+            for point in &mut points {
                 let x = rng.random_range(range.clone());
                 let y = rng.random_range(range.clone());
-                points[i] = IntPoint::new(x, y);
+                *point = IntPoint::new(x, y);
             }
             let convex = StackVec::with_slice_as_convex(&points);
             assert!(convex.as_slice().is_convex());

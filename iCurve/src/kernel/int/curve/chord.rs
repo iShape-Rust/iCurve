@@ -34,7 +34,7 @@ impl<I: IntNumber> SegmentChord<I> {
     }
 
     #[inline]
-    pub(crate) fn to_rect(&self) -> IntRect<I> {
+    pub(crate) fn to_rect(self) -> IntRect<I> {
         IntRect::with_ab(self.a, self.b)
     }
 
