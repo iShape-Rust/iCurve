@@ -234,8 +234,9 @@ coordinate range; unsafe, non-positive, and non-finite scales return
 
 `FloatCurveOverlayOptions` expresses the minimum chord length in input
 coordinates. Leaving it as `None` preserves the scale-relative default. The
-fallible `try_with_options` rejects non-finite or out-of-range tolerances. Use
-`scale()` to inspect the effective float-to-integer conversion scale.
+fallible `try_with_options` rejects non-finite or out-of-range tolerances and
+subdivision depths above `CurveOverlayOptions::MAX_APPROXIMATION_DEPTH` (16).
+Use `scale()` to inspect the effective float-to-integer conversion scale.
 
 The direct `FloatCurveOverlay` API makes the integer engine explicit: use
 `FloatCurveOverlay::<_, i32>` for the standard engine or

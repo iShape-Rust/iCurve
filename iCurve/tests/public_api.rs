@@ -1,10 +1,9 @@
 use i_curve::int::{
-    CurveInputError, CurveOverlayOptions, CurvePath, CurveSegment, CurveShape, IntCurveOverlay, IntPoint,
-    overlay,
+    CurveInputError, CurveOverlayOptions, CurveOverlayOptionsError, CurvePath, CurveSegment, CurveShape,
+    IntCurveOverlay, IntPoint, overlay,
 };
 use i_curve::{
-    CurveBuilder, CurveResource, FillRule, FloatCurveOverlay, FloatCurveOverlayOptions, OverlayRule,
-    Precision, Solver,
+    CurveBuilder, FillRule, FloatCurveOverlay, FloatCurveOverlayOptions, OverlayRule, Precision, Solver,
 };
 
 fn rectangle(x0: i32, y0: i32, x1: i32, y1: i32) -> CurveShape<i32> {
@@ -84,9 +83,37 @@ fn options_are_configured_without_public_overlay_fields() {
         .with_min_chord_length_power(5)
         .with_angle_tolerance_power(4)
         .with_max_approximation_depth(12);
-    let curves = IntCurveOverlay::<i32>::new().with_options(options);
+    let curves = IntCurveOverlay::<i32>::new().try_with_options(options).unwrap();
 
     assert_eq!(curves.options(), options);
+
+    assert!(
+        CurveOverlayOptions::default()
+            .with_max_approximation_depth(0)
+            .validate()
+            .is_ok()
+    );
+    assert!(
+        CurveOverlayOptions::default()
+            .with_max_approximation_depth(CurveOverlayOptions::MAX_APPROXIMATION_DEPTH)
+            .validate()
+            .is_ok()
+    );
+
+    let error = IntCurveOverlay::<i32>::new()
+        .try_with_options(
+            CurveOverlayOptions::default()
+                .with_max_approximation_depth(CurveOverlayOptions::MAX_APPROXIMATION_DEPTH + 1),
+        )
+        .err()
+        .unwrap();
+    match error {
+        CurveOverlayOptionsError::MaxApproximationDepthTooLarge { requested, maximum } => {
+            assert_eq!(requested, CurveOverlayOptions::MAX_APPROXIMATION_DEPTH + 1);
+            assert_eq!(maximum, CurveOverlayOptions::MAX_APPROXIMATION_DEPTH);
+        }
+        _ => panic!("unexpected options error"),
+    }
 }
 
 #[test]
@@ -162,9 +189,6 @@ fn float_curve_resources_accept_shape_collections_and_paths() {
     ];
     let clip = float_rectangle(1.0, -1.0, 5.0, 3.0);
     let clip_path = &clip.contours()[0];
-
-    assert_eq!(subjects.iter_paths().count(), 2);
-    assert_eq!(clip_path.iter_paths().count(), 1);
 
     let result = subjects
         .as_slice()

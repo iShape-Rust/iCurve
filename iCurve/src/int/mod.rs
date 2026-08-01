@@ -8,7 +8,9 @@ pub mod arc {
     pub use crate::kernel::int::curve::param::SegmentParam as CurveParameter;
 }
 
-pub use bool::overlay::{CurveInputError, CurveOverlayOptions, IntCurveOverlay, overlay};
+pub use bool::overlay::{
+    CurveInputError, CurveOverlayOptions, CurveOverlayOptionsError, IntCurveOverlay, overlay,
+};
 pub use curve::path::CurvePath;
 pub use curve::segment::CurveSegment;
 pub use curve::shape::CurveShape;

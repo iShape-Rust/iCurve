@@ -3,7 +3,7 @@ use crate::float::curve::path::CurvePath;
 use crate::float::curve::shape::CurveShape;
 use crate::float::resource::CurveResource;
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
-use crate::int::{CurveInt, CurveOverlayOptions, IntCurveOverlay};
+use crate::int::{CurveInt, CurveOverlayOptions, CurveOverlayOptionsError, IntCurveOverlay};
 use crate::{CurveConversionError, FillRule, OverlayRule, Solver};
 use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
@@ -26,7 +26,8 @@ pub struct FloatCurveOverlayOptions<F: FloatNumber> {
     /// Maximum dimensionless sine deviation used to classify a curve segment
     /// as nearly linear. The value must be finite and in the range `(0, 1]`.
     pub angle_tolerance: F,
-    /// Hard safety limit for local approximation subdivision.
+    /// Hard safety limit for local approximation subdivision. The value must
+    /// not exceed [`CurveOverlayOptions::MAX_APPROXIMATION_DEPTH`].
     pub max_approximation_depth: u32,
 }
 
@@ -52,6 +53,14 @@ pub enum FloatCurveOverlayOptionsError {
     AngleToleranceNotFinite,
     /// The requested angle tolerance is outside `(0, 1]`.
     AngleToleranceOutOfRange,
+    /// Integer approximation limits rejected the converted configuration.
+    Approximation(CurveOverlayOptionsError),
+}
+
+impl From<CurveOverlayOptionsError> for FloatCurveOverlayOptionsError {
+    fn from(error: CurveOverlayOptionsError) -> Self {
+        Self::Approximation(error)
+    }
 }
 
 impl core::fmt::Display for FloatCurveOverlayOptionsError {
@@ -63,11 +72,19 @@ impl core::fmt::Display for FloatCurveOverlayOptionsError {
             Self::AngleToleranceOutOfRange => {
                 formatter.write_str("angle tolerance must be in the range (0, 1]")
             }
+            Self::Approximation(error) => error.fmt(formatter),
         }
     }
 }
 
-impl core::error::Error for FloatCurveOverlayOptionsError {}
+impl core::error::Error for FloatCurveOverlayOptionsError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::Approximation(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl<F: FloatNumber> FloatCurveOverlayOptions<F> {
     /// Sets the absolute minimum accepted chord length.
@@ -250,7 +267,7 @@ where
         mut self,
         options: FloatCurveOverlayOptions<P::Scalar>,
     ) -> Result<Self, FloatCurveOverlayOptionsError> {
-        self.overlay = self.overlay.with_options(options.to_int(&self.adapter)?);
+        self.overlay = self.overlay.try_with_options(options.to_int(&self.adapter)?)?;
         Ok(self)
     }
 
@@ -572,6 +589,24 @@ mod tests {
             error,
             Some(FloatCurveOverlayOptionsError::AngleToleranceOutOfRange)
         );
+
+        let error = FloatCurveOverlay::<_, i32>::new(&subject, &clip)
+            .try_with_options(
+                FloatCurveOverlayOptions::default()
+                    .with_max_approximation_depth(CurveOverlayOptions::MAX_APPROXIMATION_DEPTH + 1),
+            )
+            .err()
+            .unwrap();
+        assert_eq!(
+            error,
+            FloatCurveOverlayOptionsError::Approximation(
+                CurveOverlayOptionsError::MaxApproximationDepthTooLarge {
+                    requested: CurveOverlayOptions::MAX_APPROXIMATION_DEPTH + 1,
+                    maximum: CurveOverlayOptions::MAX_APPROXIMATION_DEPTH,
+                }
+            )
+        );
+        assert!(core::error::Error::source(&error).is_some());
     }
 
     #[test]

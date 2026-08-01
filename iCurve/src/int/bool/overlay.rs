@@ -53,6 +53,32 @@ impl core::fmt::Display for CurveInputError {
 
 impl core::error::Error for CurveInputError {}
 
+/// Invalid [`CurveOverlayOptions`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum CurveOverlayOptionsError {
+    /// The requested subdivision limit exceeds the library safety ceiling.
+    MaxApproximationDepthTooLarge {
+        /// Value supplied by the caller.
+        requested: u32,
+        /// Largest value accepted by this version of the library.
+        maximum: u32,
+    },
+}
+
+impl core::fmt::Display for CurveOverlayOptionsError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match *self {
+            Self::MaxApproximationDepthTooLarge { requested, maximum } => write!(
+                formatter,
+                "maximum approximation depth {requested} exceeds the safety limit {maximum}"
+            ),
+        }
+    }
+}
+
+impl core::error::Error for CurveOverlayOptionsError {}
+
 /// Controls the chord approximation used to determine boolean topology.
 ///
 /// These values are expressed in the integer coordinate system. The default
@@ -70,7 +96,8 @@ pub struct CurveOverlayOptions {
     /// A segment is accepted when its endpoint handles are collinear with its
     /// chord within a sine tolerance of approximately `2^-angle_tolerance_power`.
     pub angle_tolerance_power: u32,
-    /// Hard safety limit for local approximation subdivision.
+    /// Hard safety limit for local approximation subdivision. Values above
+    /// [`MAX_APPROXIMATION_DEPTH`](Self::MAX_APPROXIMATION_DEPTH) are rejected.
     pub max_approximation_depth: u32,
 }
 
@@ -79,12 +106,15 @@ impl Default for CurveOverlayOptions {
         Self {
             min_chord_length_power: 4,
             angle_tolerance_power: 3,
-            max_approximation_depth: 16,
+            max_approximation_depth: Self::MAX_APPROXIMATION_DEPTH,
         }
     }
 }
 
 impl CurveOverlayOptions {
+    /// Absolute safety ceiling for local approximation subdivision.
+    pub const MAX_APPROXIMATION_DEPTH: u32 = 16;
+
     /// Sets the minimum accepted chord length power.
     #[must_use]
     pub const fn with_min_chord_length_power(mut self, power: u32) -> Self {
@@ -104,6 +134,18 @@ impl CurveOverlayOptions {
     pub const fn with_max_approximation_depth(mut self, depth: u32) -> Self {
         self.max_approximation_depth = depth;
         self
+    }
+
+    /// Validates the computational safety limits of this configuration.
+    pub fn validate(&self) -> Result<(), CurveOverlayOptionsError> {
+        if self.max_approximation_depth > Self::MAX_APPROXIMATION_DEPTH {
+            return Err(CurveOverlayOptionsError::MaxApproximationDepthTooLarge {
+                requested: self.max_approximation_depth,
+                maximum: Self::MAX_APPROXIMATION_DEPTH,
+            });
+        }
+
+        Ok(())
     }
 }
 
@@ -137,11 +179,14 @@ impl<I: CurveInt> IntCurveOverlay<I> {
         self
     }
 
-    /// Sets the curve approximation options.
-    #[must_use]
-    pub fn with_options(mut self, options: CurveOverlayOptions) -> Self {
+    /// Validates and sets the curve approximation options.
+    pub fn try_with_options(
+        mut self,
+        options: CurveOverlayOptions,
+    ) -> Result<Self, CurveOverlayOptionsError> {
+        options.validate()?;
         self.options = options;
-        self
+        Ok(self)
     }
 
     /// Returns the polygon solver configuration.
@@ -726,14 +771,16 @@ mod tests {
     }
 
     #[test]
-    fn with_options_preserves_approximation_settings() {
+    fn try_with_options_preserves_approximation_settings() {
         let options = CurveOverlayOptions {
             min_chord_length_power: 6,
             angle_tolerance_power: 5,
             max_approximation_depth: 12,
         };
 
-        let overlay = IntCurveOverlay::<i32>::with_capacity(4).with_options(options);
+        let overlay = IntCurveOverlay::<i32>::with_capacity(4)
+            .try_with_options(options)
+            .unwrap();
 
         assert_eq!(overlay.options, options);
         assert_eq!(overlay.curve_edges.capacity(), 4);
