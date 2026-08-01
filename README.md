@@ -117,6 +117,26 @@ with another `move_to` after closing the current contour.
 All input points and arc values must be finite. Invalid or open paths are
 reported as `CurveBuildError` during construction.
 
+Commands mutate the builder and return `&mut Self`, so the same API also works
+without reassignment in dynamic loops. A successful `build()` takes the
+accumulated contours and resets the builder for reuse:
+
+```rust
+use i_curve::CurveBuilder;
+
+let points = [[0.0_f64, 0.0], [10.0, 0.0], [10.0, 10.0]];
+let mut builder = CurveBuilder::new();
+
+builder.move_to(points[0])?;
+for point in &points[1..] {
+    builder.line_to(*point)?;
+}
+
+let shape = builder.close_contour()?.build()?;
+assert_eq!(shape.contours().len(), 1);
+# Ok::<(), i_curve::CurveBuildError>(())
+```
+
 ## Boolean operations
 
 For the common two-shape case, import `SingleFloatCurveOverlay` and call:

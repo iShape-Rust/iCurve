@@ -8,6 +8,11 @@ use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 
+/// Mutable builder for closed float curve paths.
+///
+/// Path commands return this builder by mutable reference, so they can be
+/// chained or called repeatedly from loops. A successful [`build`](Self::build)
+/// resets the builder for reuse.
 pub struct CurveBuilder<P: FloatPointCompatible> {
     contours: Vec<CurvePath<P>>,
     current: Option<CurvePath<P>>,
@@ -61,6 +66,7 @@ impl<P: FloatPointCompatible> Default for CurveBuilder<P> {
 }
 
 impl<P: FloatPointCompatible> CurveBuilder<P> {
+    /// Creates an empty curve builder.
     pub fn new() -> Self {
         Self {
             contours: Vec::new(),
@@ -68,7 +74,8 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
         }
     }
 
-    pub fn move_to(mut self, point: P) -> Result<Self, CurveError> {
+    /// Starts a new contour after committing the preceding closed contour.
+    pub fn move_to(&mut self, point: P) -> Result<&mut Self, CurveError> {
         validate_point(point)?;
         self.flush_current()?;
         self.current = Some(CurvePath {
@@ -78,20 +85,23 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
         Ok(self)
     }
 
-    pub fn line_to(mut self, to: P) -> Result<Self, CurveError> {
+    /// Appends a line segment to the current contour.
+    pub fn line_to(&mut self, to: P) -> Result<&mut Self, CurveError> {
         validate_point(to)?;
         self.push_segment(CurveSegment::Line { to })?;
         Ok(self)
     }
 
-    pub fn quad_to(mut self, ctrl: P, to: P) -> Result<Self, CurveError> {
+    /// Appends a quadratic Bézier segment to the current contour.
+    pub fn quad_to(&mut self, ctrl: P, to: P) -> Result<&mut Self, CurveError> {
         validate_point(ctrl)?;
         validate_point(to)?;
         self.push_segment(CurveSegment::Quad { ctrl, to })?;
         Ok(self)
     }
 
-    pub fn cubic_to(mut self, ctrl0: P, ctrl1: P, to: P) -> Result<Self, CurveError> {
+    /// Appends a cubic Bézier segment to the current contour.
+    pub fn cubic_to(&mut self, ctrl0: P, ctrl1: P, to: P) -> Result<&mut Self, CurveError> {
         validate_point(ctrl0)?;
         validate_point(ctrl1)?;
         validate_point(to)?;
@@ -99,7 +109,8 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
         Ok(self)
     }
 
-    pub fn arc_to(mut self, arc: EllipticArc<P>) -> Result<Self, CurveError> {
+    /// Appends an elliptic arc as connected rational quadratic segments.
+    pub fn arc_to(&mut self, arc: EllipticArc<P>) -> Result<&mut Self, CurveError> {
         for arc in arc.to_rational_arcs()? {
             self.push_segment(CurveSegment::Arc { arc })?;
         }
@@ -110,7 +121,7 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
     ///
     /// This is primarily useful for feeding a previous boolean result back
     /// into another operation without reconstructing its supporting ellipse.
-    pub fn rational_arc_to(mut self, arc: RationalArc<P>) -> Result<Self, CurveError> {
+    pub fn rational_arc_to(&mut self, arc: RationalArc<P>) -> Result<&mut Self, CurveError> {
         arc.validate()?;
         self.push_segment(CurveSegment::Arc { arc })?;
         Ok(self)
@@ -118,7 +129,7 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
 
     /// Closes the current contour with a line when its endpoint differs from
     /// its start point, then commits it to the builder.
-    pub fn close_contour(mut self) -> Result<Self, CurveError> {
+    pub fn close_contour(&mut self) -> Result<&mut Self, CurveError> {
         let Some(path) = self.current.as_mut() else {
             return Err(CurveError::MissingMoveTo);
         };
@@ -134,14 +145,16 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
         Ok(self)
     }
 
-    pub fn build(mut self) -> Result<CurveShape<P>, CurveError> {
+    /// Builds a shape and resets this builder after success.
+    pub fn build(&mut self) -> Result<CurveShape<P>, CurveError> {
+        let had_current = self.current.is_some();
         self.flush_current()?;
         if self.contours.is_empty() {
             return Err(CurveError::NoContours);
         }
 
         let shape = CurveShape {
-            contours: self.contours,
+            contours: core::mem::take(&mut self.contours),
         };
         let bounds = shape.bounds();
         let finite_bounds = bounds.min_x.to_f64().is_finite()
@@ -154,6 +167,10 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
         if finite_bounds {
             Ok(shape)
         } else {
+            self.contours = shape.contours;
+            if had_current {
+                self.current = self.contours.pop();
+            }
             Err(CurveError::NonFiniteBounds)
         }
     }
@@ -169,7 +186,7 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
     }
 
     fn flush_current(&mut self) -> Result<(), CurveError> {
-        let Some(path) = self.current.take() else {
+        let Some(path) = self.current.as_ref() else {
             return Ok(());
         };
         if path.segments.is_empty() {
@@ -178,6 +195,7 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
         if !path.is_closed() {
             return Err(CurveError::UnclosedContour);
         }
+        let path = self.current.take().expect("current path was validated above");
         self.contours.push(path);
         Ok(())
     }
@@ -238,7 +256,8 @@ mod tests {
 
     #[test]
     fn rejects_structurally_invalid_paths() -> Result<(), CurveError> {
-        let missing_move = CurveBuilder::<Point>::new().line_to([1.0, 0.0]);
+        let mut builder = CurveBuilder::<Point>::new();
+        let missing_move = builder.line_to([1.0, 0.0]);
         assert!(matches!(missing_move, Err(CurveError::MissingMoveTo)));
 
         let empty = CurveBuilder::<Point>::new().move_to([0.0, 0.0])?.build();
@@ -254,7 +273,8 @@ mod tests {
 
     #[test]
     fn rejects_non_finite_points_and_arcs() -> Result<(), CurveError> {
-        let point = CurveBuilder::<Point>::new().move_to([f64::NAN, 0.0]);
+        let mut builder = CurveBuilder::<Point>::new();
+        let point = builder.move_to([f64::NAN, 0.0]);
         assert!(matches!(point, Err(CurveError::NonFinitePoint)));
 
         let bounds = CurveBuilder::<Point>::new()
@@ -274,7 +294,9 @@ mod tests {
             start_angle: 0.0,
             sweep_angle: 1.0,
         };
-        let arc = CurveBuilder::new().move_to([1.0, 0.0])?.arc_to(invalid_arc);
+        let mut builder = CurveBuilder::new();
+        builder.move_to([1.0, 0.0])?;
+        let arc = builder.arc_to(invalid_arc);
         assert!(matches!(
             arc,
             Err(CurveError::Arc(EllipticArcError::NonPositiveRadius))
@@ -290,7 +312,9 @@ mod tests {
             start_angle: 0.0,
             sweep_angle: core::f64::consts::TAU + 0.1,
         };
-        let arc = CurveBuilder::new().move_to([1.0, 0.0])?.arc_to(oversized_arc);
+        let mut builder = CurveBuilder::new();
+        builder.move_to([1.0, 0.0])?;
+        let arc = builder.arc_to(oversized_arc);
         assert!(matches!(
             arc,
             Err(CurveError::Arc(EllipticArcError::SweepTooLarge))
@@ -348,14 +372,60 @@ mod tests {
         let mut rational = arc.to_rational_arcs()?.remove(0);
         rational.weights[1] = 0.0;
 
-        let result = CurveBuilder::new()
-            .move_to(rational.start_point())?
-            .rational_arc_to(rational);
+        let mut builder = CurveBuilder::new();
+        builder.move_to(rational.start_point())?;
+        let result = builder.rational_arc_to(rational);
 
         assert!(matches!(
             result,
             Err(CurveError::RationalArc(RationalArcError::NonPositiveWeight))
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn supports_dynamic_loops_and_reuse() -> Result<(), CurveError> {
+        let mut builder = CurveBuilder::new();
+        let points = [[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]];
+
+        builder.move_to(points[0])?;
+        for point in &points[1..] {
+            builder.line_to(*point)?;
+        }
+        let first = builder.close_contour()?.build()?;
+
+        assert_eq!(first.contours().len(), 1);
+        assert!(matches!(builder.build(), Err(CurveError::NoContours)));
+
+        let second = builder
+            .move_to([10.0, 10.0])?
+            .line_to([11.0, 10.0])?
+            .close_contour()?
+            .build()?;
+
+        assert_eq!(second.contours().len(), 1);
+        assert_eq!(second.contours()[0].start(), [10.0, 10.0]);
+        Ok(())
+    }
+
+    #[test]
+    fn errors_preserve_mutable_builder_state() -> Result<(), CurveError> {
+        let mut builder = CurveBuilder::new();
+        builder.move_to([0.0, 0.0])?.line_to([1.0, 0.0])?;
+
+        assert!(matches!(
+            builder.move_to([10.0, 10.0]),
+            Err(CurveError::UnclosedContour)
+        ));
+        assert!(matches!(builder.build(), Err(CurveError::UnclosedContour)));
+        assert!(matches!(
+            builder.line_to([f64::NAN, 0.0]),
+            Err(CurveError::NonFinitePoint)
+        ));
+
+        let shape = builder.close_contour()?.build()?;
+        assert_eq!(shape.contours()[0].start(), [0.0, 0.0]);
+        assert_eq!(shape.contours()[0].segments().len(), 2);
         Ok(())
     }
 }

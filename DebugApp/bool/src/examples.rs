@@ -225,9 +225,10 @@ fn arc_capsule() -> BoolExample {
 fn polygon(points: &[CurvePoint]) -> CurveShape<CurvePoint> {
     assert!(points.len() >= 3, "polygon needs at least three points");
 
-    let mut builder = CurveBuilder::new().move_to(points[0]).unwrap();
+    let mut builder = CurveBuilder::new();
+    builder.move_to(points[0]).unwrap();
     for point in &points[1..] {
-        builder = builder.line_to(*point).unwrap();
+        builder.line_to(*point).unwrap();
     }
 
     builder.close_contour().unwrap().build().unwrap()

@@ -721,9 +721,9 @@ fn rebuild_float_shape(
     let endpoint_mappings = arc_endpoint_mappings(shape, edit);
 
     for contour in shape.contours() {
-        builder = builder.move_to(map_point(contour.start(), edit, &endpoint_mappings))?;
+        builder.move_to(map_point(contour.start(), edit, &endpoint_mappings))?;
         for segment in contour.segments() {
-            builder = match segment {
+            match segment {
                 FloatCurveSegment::Line { to } => {
                     builder.line_to(map_point(*to, edit, &endpoint_mappings))?
                 }
