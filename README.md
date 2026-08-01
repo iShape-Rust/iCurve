@@ -138,6 +138,26 @@ The return type is `Vec<FloatCurveShape<P>>`, where `P` is the same point type
 used by the input. A result can contain multiple shapes, each containing one or
 more closed contours.
 
+Both operands implement `CurveResource`, so the same API accepts a single
+`FloatCurvePath`, a `FloatCurveShape`, or a slice, array, or `Vec` of paths or
+shapes. Every path in one resource belongs to the same subject or clip operand:
+
+```rust
+use i_curve::{FillRule, OverlayRule, SingleFloatCurveOverlay};
+
+# fn example(
+#     subjects: &[i_curve::FloatCurveShape<[f64; 2]>],
+#     clip: &i_curve::FloatCurveShape<[f64; 2]>,
+# ) {
+let result = subjects.overlay(
+    clip,
+    OverlayRule::Intersect,
+    FillRule::NonZero,
+);
+# let _ = result;
+# }
+```
+
 Use `FloatCurveOverlay` when you need to configure the conversion scale or the
 topology solver:
 

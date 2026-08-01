@@ -2,6 +2,7 @@ use crate::float::curve::arc::{Ellipse, RationalArc};
 use crate::float::curve::path::CurvePath as FloatCurvePath;
 use crate::float::curve::segment::CurveSegment as FloatCurveSegment;
 use crate::float::curve::shape::CurveShape as FloatCurveShape;
+use crate::float::resource::CurveResource;
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
 use crate::int::{CurvePath as IntCurvePath, CurveSegment as IntCurveSegment, CurveShape as IntCurveShape};
 use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcSegment, ArcVector, EllipseFrame};
@@ -108,10 +109,18 @@ pub(crate) fn convert_shape<P: FloatPointCompatible, I: IntNumber>(
     source: FloatCurveShape<P>,
     adapter: &FloatPointAdapter<P, I>,
 ) -> IntCurveShape<I> {
+    convert_resource(&source, adapter)
+}
+
+pub(crate) fn convert_resource<P, I, R>(source: &R, adapter: &FloatPointAdapter<P, I>) -> IntCurveShape<I>
+where
+    P: FloatPointCompatible,
+    I: IntNumber,
+    R: CurveResource<P> + ?Sized,
+{
     let contours = source
-        .contours
-        .into_iter()
-        .filter_map(|path| convert_path(path, adapter))
+        .iter_paths()
+        .filter_map(|path| convert_path((*path).clone(), adapter))
         .collect();
     IntCurveShape { contours }
 }

@@ -1,7 +1,7 @@
 use i_curve::int::{CurvePath, CurveSegment, CurveShape};
 use i_curve::{
-    CurveBuilder, CurveInputError, CurveOverlayOptions, FillRule, IntCurveOverlay, IntPoint, OverlayRule,
-    SingleFloatCurveOverlay, overlay,
+    CurveBuilder, CurveInputError, CurveOverlayOptions, CurveResource, FillRule, FloatCurveOverlay,
+    IntCurveOverlay, IntPoint, OverlayRule, SingleFloatCurveOverlay, overlay,
 };
 
 fn rectangle(x0: i32, y0: i32, x1: i32, y1: i32) -> CurveShape<i32> {
@@ -135,4 +135,31 @@ fn top_level_float_overlay_hides_integer_conversion() {
             .flat_map(|shape| shape.contours())
             .all(|path| path.is_closed())
     );
+}
+
+#[test]
+fn float_curve_resources_accept_shape_collections_and_paths() {
+    let subjects = [
+        float_rectangle(0.0, 0.0, 2.0, 2.0),
+        float_rectangle(4.0, 0.0, 6.0, 2.0),
+    ];
+    let clip = float_rectangle(1.0, -1.0, 5.0, 3.0);
+    let clip_path = &clip.contours()[0];
+
+    assert_eq!(subjects.iter_paths().count(), 2);
+    assert_eq!(clip_path.iter_paths().count(), 1);
+
+    let result = subjects
+        .as_slice()
+        .overlay(clip_path, OverlayRule::Intersect, FillRule::NonZero);
+    assert_eq!(result.len(), 2);
+
+    let result = FloatCurveOverlay::with_subj_and_clip(&subjects, clip_path)
+        .overlay(OverlayRule::Intersect, FillRule::NonZero);
+    assert_eq!(result.len(), 2);
+
+    let empty: [i_curve::FloatCurveShape<[f64; 2]>; 0] = [];
+    let result =
+        FloatCurveOverlay::with_subj_and_clip(&empty, &clip).overlay(OverlayRule::Clip, FillRule::NonZero);
+    assert_eq!(result.len(), 1);
 }

@@ -1,11 +1,14 @@
-use crate::float::curve::converter::{convert_shape, convert_shapes_to_float};
+use crate::float::curve::converter::{convert_resource, convert_shapes_to_float};
+use crate::float::curve::path::CurvePath;
 use crate::float::curve::shape::CurveShape;
+use crate::float::resource::CurveResource;
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
 use crate::int::IntCurveOverlay;
 use crate::{CurveConversionError, FillRule, OverlayRule, Solver};
 use i_key_sort::sort::key::SortKey;
 use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
+use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_tree::{Expiration, LayoutNumber};
 
@@ -48,20 +51,28 @@ where
 {
     const COORDINATE_BITS: u32 = I::BITS - CURVE_COORDINATE_SAFETY_BITS;
 
-    /// Creates an overlay containing one subject and one clip shape.
+    /// Creates an overlay containing subject and clip curve resources.
     ///
     /// The adapter is selected from the combined bounds so both inputs use
     /// exactly the same internal grid.
-    pub fn from_subj_and_clip(subject: &CurveShape<P>, clip: &CurveShape<P>) -> Self {
-        let bounds = i_overlay::i_float::float::rect::FloatRect::with_rects(subject.bounds(), clip.bounds());
+    pub fn from_subj_and_clip<R0, R1>(subject: &R0, clip: &R1) -> Self
+    where
+        R0: CurveResource<P> + ?Sized,
+        R1: CurveResource<P> + ?Sized,
+    {
+        let bounds = combined_bounds(subject, clip);
         let adapter = FloatPointAdapter::with_coordinate_bits(bounds, Self::COORDINATE_BITS);
         Self::with_adapter(subject, Some(clip), adapter)
     }
 
-    /// Creates an overlay containing only a subject shape.
-    pub fn from_subj(subject: &CurveShape<P>) -> Self {
-        let adapter = FloatPointAdapter::with_coordinate_bits(subject.bounds(), Self::COORDINATE_BITS);
-        Self::with_adapter(subject, None, adapter)
+    /// Creates an overlay containing only a subject curve resource.
+    pub fn from_subj<R>(subject: &R) -> Self
+    where
+        R: CurveResource<P> + ?Sized,
+    {
+        let bounds = resource_bounds(subject).unwrap_or_else(FloatRect::zero);
+        let adapter = FloatPointAdapter::with_coordinate_bits(bounds, Self::COORDINATE_BITS);
+        Self::with_adapter::<R, R>(subject, None, adapter)
     }
 
     /// Creates an overlay with an explicit float-to-grid scale.
@@ -69,27 +80,31 @@ where
     /// Larger values retain smaller features but reduce the safe coordinate
     /// range. The scale is rejected when it cannot represent the combined
     /// input bounds safely.
-    pub fn try_from_subj_and_clip_with_scale(
-        subject: &CurveShape<P>,
-        clip: &CurveShape<P>,
+    pub fn try_from_subj_and_clip_with_scale<R0, R1>(
+        subject: &R0,
+        clip: &R1,
         scale: P::Scalar,
-    ) -> Result<Self, CurveConversionError> {
-        let bounds = i_overlay::i_float::float::rect::FloatRect::with_rects(subject.bounds(), clip.bounds());
+    ) -> Result<Self, CurveConversionError>
+    where
+        R0: CurveResource<P> + ?Sized,
+        R1: CurveResource<P> + ?Sized,
+    {
+        let bounds = combined_bounds(subject, clip);
         let adapter =
             FloatPointAdapter::try_with_scale_and_coordinate_bits(bounds, scale, Self::COORDINATE_BITS)?;
         Ok(Self::with_adapter(subject, Some(clip), adapter))
     }
 
-    fn with_adapter(
-        subject: &CurveShape<P>,
-        clip: Option<&CurveShape<P>>,
-        adapter: FloatPointAdapter<P, I>,
-    ) -> Self {
-        let capacity = subject.segment_count() + clip.map_or(0, CurveShape::segment_count);
+    fn with_adapter<R0, R1>(subject: &R0, clip: Option<&R1>, adapter: FloatPointAdapter<P, I>) -> Self
+    where
+        R0: CurveResource<P> + ?Sized,
+        R1: CurveResource<P> + ?Sized,
+    {
+        let capacity = resource_segment_count(subject) + clip.map_or(0, resource_segment_count);
         let mut overlay = IntCurveOverlay::with_capacity(capacity);
-        add_converted_shape(&mut overlay, subject, &adapter, true);
+        add_converted_resource(&mut overlay, subject, &adapter, true);
         if let Some(clip) = clip {
-            add_converted_shape(&mut overlay, clip, &adapter, false);
+            add_converted_resource(&mut overlay, clip, &adapter, false);
         }
         Self { adapter, overlay }
     }
@@ -113,13 +128,20 @@ impl<P: FloatPointCompatible> FloatCurveOverlay<P> {
     ///
     /// This spelling uses the default internal engine.
     #[inline]
-    pub fn with_subj_and_clip(subject: &CurveShape<P>, clip: &CurveShape<P>) -> Self {
+    pub fn with_subj_and_clip<R0, R1>(subject: &R0, clip: &R1) -> Self
+    where
+        R0: CurveResource<P> + ?Sized,
+        R1: CurveResource<P> + ?Sized,
+    {
         Self::from_subj_and_clip(subject, clip)
     }
 
     /// Creates a subject-only overlay with automatic scaling.
     #[inline]
-    pub fn with_subj(subject: &CurveShape<P>) -> Self {
+    pub fn with_subj<R>(subject: &R) -> Self
+    where
+        R: CurveResource<P> + ?Sized,
+    {
         Self::from_subj(subject)
     }
 
@@ -128,25 +150,30 @@ impl<P: FloatPointCompatible> FloatCurveOverlay<P> {
     /// This spelling keeps the ordinary API independent of the internal
     /// integer engine while still allowing a reproducible grid resolution.
     #[inline]
-    pub fn try_with_subj_and_clip_scale(
-        subject: &CurveShape<P>,
-        clip: &CurveShape<P>,
+    pub fn try_with_subj_and_clip_scale<R0, R1>(
+        subject: &R0,
+        clip: &R1,
         scale: P::Scalar,
-    ) -> Result<Self, CurveConversionError> {
+    ) -> Result<Self, CurveConversionError>
+    where
+        R0: CurveResource<P> + ?Sized,
+        R1: CurveResource<P> + ?Sized,
+    {
         Self::try_from_subj_and_clip_with_scale(subject, clip, scale)
     }
 }
 
-fn add_converted_shape<P, I>(
+fn add_converted_resource<P, I, R>(
     overlay: &mut IntCurveOverlay<I>,
-    source: &CurveShape<P>,
+    source: &R,
     adapter: &FloatPointAdapter<P, I>,
     is_subject: bool,
 ) where
     P: FloatPointCompatible,
     I: IntNumber + Expiration + LayoutNumber + SortKey,
+    R: CurveResource<P> + ?Sized,
 {
-    let shape = convert_shape(source.clone(), adapter);
+    let shape = convert_resource(source, adapter);
     if shape.contours.is_empty() {
         return;
     }
@@ -159,12 +186,12 @@ fn add_converted_shape<P, I>(
     assert!(result.is_ok(), "float conversion produced invalid curve topology");
 }
 
-/// Convenience Boolean operations for a pair of float curve shapes.
-pub trait SingleFloatCurveOverlay<P: FloatPointCompatible> {
+/// Convenience Boolean operations for float curve resources.
+pub trait SingleFloatCurveOverlay<P: FloatPointCompatible>: CurveResource<P> {
     /// Uses the default internal engine and returns float curves.
     fn overlay(
         &self,
-        clip: &Self,
+        clip: &(impl CurveResource<P> + ?Sized),
         overlay_rule: OverlayRule,
         fill_rule: FillRule,
     ) -> alloc::vec::Vec<CurveShape<P>>;
@@ -172,7 +199,7 @@ pub trait SingleFloatCurveOverlay<P: FloatPointCompatible> {
     /// Uses an explicitly selected internal engine and returns float curves.
     fn overlay_as<I>(
         &self,
-        clip: &Self,
+        clip: &(impl CurveResource<P> + ?Sized),
         overlay_rule: OverlayRule,
         fill_rule: FillRule,
     ) -> alloc::vec::Vec<CurveShape<P>>
@@ -180,11 +207,15 @@ pub trait SingleFloatCurveOverlay<P: FloatPointCompatible> {
         I: IntNumber + Expiration + LayoutNumber + SortKey;
 }
 
-impl<P: FloatPointCompatible> SingleFloatCurveOverlay<P> for CurveShape<P> {
+impl<P, R> SingleFloatCurveOverlay<P> for R
+where
+    P: FloatPointCompatible,
+    R: CurveResource<P> + ?Sized,
+{
     #[inline]
     fn overlay(
         &self,
-        clip: &Self,
+        clip: &(impl CurveResource<P> + ?Sized),
         overlay_rule: OverlayRule,
         fill_rule: FillRule,
     ) -> alloc::vec::Vec<CurveShape<P>> {
@@ -194,7 +225,7 @@ impl<P: FloatPointCompatible> SingleFloatCurveOverlay<P> for CurveShape<P> {
     #[inline]
     fn overlay_as<I>(
         &self,
-        clip: &Self,
+        clip: &(impl CurveResource<P> + ?Sized),
         overlay_rule: OverlayRule,
         fill_rule: FillRule,
     ) -> alloc::vec::Vec<CurveShape<P>>
@@ -203,6 +234,38 @@ impl<P: FloatPointCompatible> SingleFloatCurveOverlay<P> for CurveShape<P> {
     {
         FloatCurveOverlay::<P, I>::from_subj_and_clip(self, clip).overlay(overlay_rule, fill_rule)
     }
+}
+
+fn resource_bounds<P, R>(resource: &R) -> Option<FloatRect<P::Scalar>>
+where
+    P: FloatPointCompatible,
+    R: CurveResource<P> + ?Sized,
+{
+    resource
+        .iter_paths()
+        .map(CurvePath::bounds)
+        .reduce(FloatRect::with_rects)
+}
+
+fn combined_bounds<P, R0, R1>(subject: &R0, clip: &R1) -> FloatRect<P::Scalar>
+where
+    P: FloatPointCompatible,
+    R0: CurveResource<P> + ?Sized,
+    R1: CurveResource<P> + ?Sized,
+{
+    match (resource_bounds(subject), resource_bounds(clip)) {
+        (Some(subject), Some(clip)) => FloatRect::with_rects(subject, clip),
+        (Some(bounds), None) | (None, Some(bounds)) => bounds,
+        (None, None) => FloatRect::zero(),
+    }
+}
+
+fn resource_segment_count<P, R>(resource: &R) -> usize
+where
+    P: FloatPointCompatible,
+    R: CurveResource<P> + ?Sized,
+{
+    resource.iter_paths().map(|path| path.segments().len()).sum()
 }
 
 #[cfg(test)]

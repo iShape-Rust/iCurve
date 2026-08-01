@@ -298,47 +298,11 @@ fn build_overlay_result(
     overlay_rule: OverlayRule,
     fill_rule: FillRule,
 ) -> Result<OverlayResult, String> {
-    let subject = combined_float_shape(&example.subject)
-        .map_err(|error| format!("Subject builder: {error:?}"))?;
-    let clip =
-        combined_float_shape(&example.clip).map_err(|error| format!("Clip builder: {error:?}"))?;
-    let overlay = FloatCurveOverlay::with_subj_and_clip(&subject, &clip);
+    let overlay = FloatCurveOverlay::with_subj_and_clip(&example.subject, &example.clip);
 
     Ok(OverlayResult {
         shapes: overlay.overlay(overlay_rule, fill_rule),
     })
-}
-
-fn combined_float_shape(
-    shapes: &[FloatCurveShape<CurvePoint>],
-) -> Result<FloatCurveShape<CurvePoint>, CurveError> {
-    let mut builder = CurveBuilder::new();
-
-    for shape in shapes {
-        for contour in shape.contours() {
-            builder = append_float_contour(builder, contour)?;
-        }
-    }
-
-    builder.build()
-}
-
-fn append_float_contour(
-    mut builder: CurveBuilder<CurvePoint>,
-    contour: &FloatCurvePath<CurvePoint>,
-) -> Result<CurveBuilder<CurvePoint>, CurveError> {
-    builder = builder.move_to(contour.start())?;
-    for segment in contour.segments() {
-        builder = match segment {
-            FloatCurveSegment::Line { to } => builder.line_to(*to)?,
-            FloatCurveSegment::Quad { ctrl, to } => builder.quad_to(*ctrl, *to)?,
-            FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => {
-                builder.cubic_to(*ctrl0, *ctrl1, *to)?
-            }
-            FloatCurveSegment::Arc { arc } => builder.rational_arc_to(*arc)?,
-        };
-    }
-    Ok(builder)
 }
 
 fn print_overlay_input(example: &BoolExample, overlay_rule: OverlayRule, fill_rule: FillRule) {

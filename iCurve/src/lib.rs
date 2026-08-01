@@ -10,7 +10,7 @@ mod kernel;
 
 pub use float::{
     CurveBuildError, CurveBuilder, CurveConversionError, CurveConverter, CurvePath as FloatCurvePath,
-    CurveSegment as FloatCurveSegment, CurveShape as FloatCurveShape, FloatCurveOverlay,
+    CurveResource, CurveSegment as FloatCurveSegment, CurveShape as FloatCurveShape, FloatCurveOverlay,
     SingleFloatCurveOverlay,
 };
 pub use i_overlay::core::fill_rule::FillRule;
