@@ -10,15 +10,61 @@ pub struct CurvePath<P: FloatPointCompatible> {
     pub(crate) segments: Vec<CurveSegment<P>>,
 }
 
+impl<P> core::fmt::Debug for CurvePath<P>
+where
+    P: FloatPointCompatible + core::fmt::Debug,
+    P::Scalar: core::fmt::Debug,
+{
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter
+            .debug_struct("CurvePath")
+            .field("start", &self.start)
+            .field("segments", &self.segments)
+            .finish()
+    }
+}
+
 impl<P: FloatPointCompatible> CurvePath<P> {
+    /// Returns the first point of this path.
     #[inline]
     pub fn start(&self) -> P {
         self.start
     }
 
+    /// Returns the segments in this path.
     #[inline]
     pub fn segments(&self) -> &[CurveSegment<P>] {
         &self.segments
+    }
+
+    /// Returns an iterator over the segments in this path.
+    #[inline]
+    pub fn iter(&self) -> core::slice::Iter<'_, CurveSegment<P>> {
+        self.segments.iter()
+    }
+
+    /// Returns the number of segments in this path.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.segments.len()
+    }
+
+    /// Returns whether this path contains no segments.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.segments.is_empty()
+    }
+
+    /// Consumes this path and returns its start point and segments.
+    #[inline]
+    pub fn into_parts(self) -> (P, Vec<CurveSegment<P>>) {
+        (self.start, self.segments)
+    }
+
+    /// Consumes this path and returns its segments without cloning.
+    #[inline]
+    pub fn into_segments(self) -> Vec<CurveSegment<P>> {
+        self.segments
     }
 
     #[inline]
@@ -62,6 +108,33 @@ impl<P: FloatPointCompatible> CurvePath<P> {
         }
 
         bounds.unwrap_or_else(FloatRect::zero)
+    }
+}
+
+impl<P: FloatPointCompatible> AsRef<[CurveSegment<P>]> for CurvePath<P> {
+    #[inline]
+    fn as_ref(&self) -> &[CurveSegment<P>] {
+        &self.segments
+    }
+}
+
+impl<P: FloatPointCompatible> IntoIterator for CurvePath<P> {
+    type Item = CurveSegment<P>;
+    type IntoIter = alloc::vec::IntoIter<CurveSegment<P>>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.segments.into_iter()
+    }
+}
+
+impl<'a, P: FloatPointCompatible> IntoIterator for &'a CurvePath<P> {
+    type Item = &'a CurveSegment<P>;
+    type IntoIter = core::slice::Iter<'a, CurveSegment<P>>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.segments.iter()
     }
 }
 

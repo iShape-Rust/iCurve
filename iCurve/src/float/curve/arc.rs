@@ -7,7 +7,7 @@ use i_overlay::i_float::float::rect::FloatRect;
 ///
 /// `rotation` is counter-clockwise and expressed in radians. The radii are
 /// measured before this rotation is applied.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ellipse<P: FloatPointCompatible> {
     pub center: P,
     pub radius_x: P::Scalar,
@@ -20,7 +20,7 @@ pub struct Ellipse<P: FloatPointCompatible> {
 /// Angles are expressed in radians. The sign of `sweep_angle` defines the
 /// direction: positive is counter-clockwise and negative is clockwise. A
 /// single arc may span at most one full revolution.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EllipticArc<P: FloatPointCompatible> {
     pub ellipse: Ellipse<P>,
     pub start_angle: P::Scalar,
@@ -33,7 +33,7 @@ pub struct EllipticArc<P: FloatPointCompatible> {
 /// supporting elliptic arc is retained as semantic metadata, but after a
 /// boolean operation or coordinate snap its endpoints are not required to lie
 /// exactly on that ellipse.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RationalArc<P: FloatPointCompatible> {
     pub ellipse: Ellipse<P>,
     pub control_points: [P; 3],

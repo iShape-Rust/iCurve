@@ -163,3 +163,34 @@ fn float_curve_resources_accept_shape_collections_and_paths() {
         FloatCurveOverlay::with_subj_and_clip(&empty, &clip).overlay(OverlayRule::Clip, FillRule::NonZero);
     assert_eq!(result.len(), 1);
 }
+
+#[test]
+fn float_results_support_debug_and_container_conversions() {
+    let shape = float_rectangle(0.0, 0.0, 10.0, 10.0);
+
+    let debug = format!("{shape:?}");
+    assert!(debug.contains("CurveShape"));
+    assert_eq!(shape.len(), shape.contours().len());
+    assert!(!shape.is_empty());
+    let _: &[i_curve::FloatCurvePath<[f64; 2]>] = shape.as_ref();
+
+    let borrowed_segment_count = (&shape).into_iter().flat_map(IntoIterator::into_iter).count();
+    assert_eq!(borrowed_segment_count, shape.segment_count());
+
+    let taken_contours = shape.clone().into_contours();
+    assert_eq!(taken_contours.len(), shape.len());
+
+    let mut contours: Vec<_> = shape.into_iter().collect();
+    let contour = contours.remove(0);
+    assert_eq!(contour.len(), borrowed_segment_count);
+    assert!(!contour.is_empty());
+    let _: &[i_curve::FloatCurveSegment<[f64; 2]>] = contour.as_ref();
+
+    let owned_segments: Vec<_> = contour.clone().into_iter().collect();
+    assert_eq!(owned_segments.len(), borrowed_segment_count);
+
+    let expected_start = contour.start();
+    let (start, segments) = contour.into_parts();
+    assert_eq!(start, expected_start);
+    assert_eq!(segments.len(), borrowed_segment_count);
+}

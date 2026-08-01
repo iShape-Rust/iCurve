@@ -231,10 +231,10 @@ use i_curve::FloatCurveSegment;
 
 # fn inspect(result: &[i_curve::FloatCurveShape<[f64; 2]>]) {
 for shape in result {
-    for contour in shape.contours() {
+    for contour in shape {
         let mut current = contour.start();
 
-        for segment in contour.segments() {
+        for segment in contour {
             match segment {
                 FloatCurveSegment::Line { to } => {
                     // Render a line from `current` to `to`.
@@ -255,6 +255,21 @@ for shape in result {
 
         assert_eq!(current, contour.start());
     }
+}
+# }
+```
+
+Float shapes, paths, segments, and arcs implement `Debug`. Shapes and paths
+also provide `len`, `is_empty`, `iter`, `AsRef`, and owned or borrowed
+`IntoIterator` implementations. Use `into_contours()` or `into_parts()` to
+take a result apart without cloning:
+
+```rust
+# fn consume(shape: i_curve::FloatCurveShape<[f64; 2]>) {
+for contour in shape {
+    let (start, segments) = contour.into_parts();
+    // Move `segments` directly into a renderer or another representation.
+    let _ = (start, segments);
 }
 # }
 ```
