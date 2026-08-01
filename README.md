@@ -364,6 +364,10 @@ for manual conversion workflows. Engine-generic APIs use the sealed
 as the float overlay API. It flattens their paths into one integer shape;
 contours that collapse completely on the selected grid are omitted.
 
+Integer `RationalArc` values expose [`validate`](https://docs.rs/i_curve/latest/i_curve/int/arc/struct.RationalArc.html#method.validate).
+`IntCurveOverlay` applies the same validation when a shape is added and reports
+the contour, segment, and specific arc invariant through `CurveInputError`.
+
 The integer layer is not required for ordinary `f32`/`f64` use. Its coordinate
 limits and approximation options are documented in the
 [`int` module](https://docs.rs/i_curve/latest/i_curve/int/index.html).

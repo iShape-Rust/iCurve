@@ -6,7 +6,7 @@ use i_overlay::i_shape::int::IntPoint;
 /// Integer curve contour represented by a start point and ordered segments.
 ///
 /// Construction does not validate the contour. Boolean input requires at
-/// least one segment, exact closure, and connected rational arcs; these
+/// least one segment, exact closure, and valid connected rational arcs; these
 /// conditions are checked by [`IntCurveOverlay`](crate::int::IntCurveOverlay).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CurvePath<I: IntNumber> {

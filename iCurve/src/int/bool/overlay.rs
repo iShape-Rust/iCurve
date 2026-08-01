@@ -7,6 +7,7 @@ use crate::int::bool::planarize::CurvePlanarizer;
 use crate::int::bool::recompose::CurveRecomposer;
 use crate::int::bool::source::{CurveId, CurveSource};
 use crate::int::curve::shape::CurveShape;
+use crate::kernel::int::curve::arc::RationalArcError;
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::normalization::canonical::{PushCanonicalSimpleParametricSegment, PushSimpleSegment};
 use alloc::vec::Vec;
@@ -42,6 +43,15 @@ pub enum CurveInputError {
         /// Zero-based segment index within the rejected contour.
         segment: usize,
     },
+    /// A rational arc violates an integer kernel invariant.
+    InvalidArc {
+        /// Zero-based contour index within the rejected shape.
+        contour: usize,
+        /// Zero-based segment index within the rejected contour.
+        segment: usize,
+        /// Specific invalid arc invariant.
+        error: RationalArcError,
+    },
 }
 
 impl core::fmt::Display for CurveInputError {
@@ -58,11 +68,26 @@ impl core::fmt::Display for CurveInputError {
                 formatter,
                 "rational arc {segment} in contour {contour} is disconnected"
             ),
+            Self::InvalidArc {
+                contour,
+                segment,
+                error: _,
+            } => write!(
+                formatter,
+                "rational arc {segment} in contour {contour} is invalid"
+            ),
         }
     }
 }
 
-impl core::error::Error for CurveInputError {}
+impl core::error::Error for CurveInputError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::InvalidArc { error, .. } => Some(error),
+            _ => None,
+        }
+    }
+}
 
 /// Invalid [`CurveOverlayOptions`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -377,6 +402,11 @@ fn validate_shape<I: IntNumber>(shape: &CurveShape<I>) -> Result<(), CurveInputE
                             segment: segment_index,
                         });
                     }
+                    arc.validate().map_err(|error| CurveInputError::InvalidArc {
+                        contour: contour_index,
+                        segment: segment_index,
+                        error,
+                    })?;
                     arc.control_points[2]
                 }
             };

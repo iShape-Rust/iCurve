@@ -84,7 +84,7 @@ pub struct EllipseFrame<I: IntNumber> {
 /// used by kernel algorithms. Boolean overlay processing may snap a shared endpoint,
 /// so the rational endpoints are not required to lie exactly on `ellipse`
 /// after every operation.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ArcSegment<I: IntNumber> {
     /// Supporting ellipse shared by all subsegments of the source arc.
     pub ellipse: EllipseFrame<I>,
@@ -103,6 +103,62 @@ pub struct ArcSegment<I: IntNumber> {
     /// Traversal direction from `start_phase` to `end_phase`.
     pub direction: ArcDirection,
 }
+
+/// Invalid structural data in an integer [`ArcSegment`].
+///
+/// The rational control points and weights are authoritative. Agreement
+/// between their endpoints and the supporting ellipse is intentionally not
+/// required because Boolean processing may snap those endpoints.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum RationalArcError {
+    /// The supporting ellipse has a zero or linearly dependent semi-axis.
+    DegenerateEllipse,
+    /// The start phase is not a fixed-point unit vector.
+    InvalidStartPhase,
+    /// The end phase is not a fixed-point unit vector.
+    InvalidEndPhase,
+    /// A rational weight is zero or negative.
+    NonPositiveWeight {
+        /// Zero-based index within [`ArcSegment::weights`].
+        index: usize,
+    },
+    /// A rational weight exceeds fixed-point one.
+    WeightOutOfRange {
+        /// Zero-based index within [`ArcSegment::weights`].
+        index: usize,
+    },
+    /// The authoritative start and end control points are equal.
+    ZeroChord,
+    /// The phase traversal does not agree with the declared direction or is
+    /// not a directed minor interval.
+    DirectionMismatch,
+    /// The rational control polygon is not weakly monotone on both axes.
+    NonMonotoneControlPoints,
+}
+
+impl core::fmt::Display for RationalArcError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match *self {
+            Self::DegenerateEllipse => formatter.write_str("arc ellipse frame is degenerate"),
+            Self::InvalidStartPhase => {
+                formatter.write_str("arc start phase is not a fixed-point unit vector")
+            }
+            Self::InvalidEndPhase => formatter.write_str("arc end phase is not a fixed-point unit vector"),
+            Self::NonPositiveWeight { index } => write!(formatter, "arc weight {index} must be positive"),
+            Self::WeightOutOfRange { index } => {
+                write!(formatter, "arc weight {index} exceeds fixed-point one")
+            }
+            Self::ZeroChord => formatter.write_str("arc chord must be non-zero"),
+            Self::DirectionMismatch => formatter.write_str("arc phases do not agree with its direction"),
+            Self::NonMonotoneControlPoints => {
+                formatter.write_str("arc control points must be monotone on both axes")
+            }
+        }
+    }
+}
+
+impl core::error::Error for RationalArcError {}
 
 impl<I: IntNumber> ArcPhase<I> {
     #[inline]
@@ -145,47 +201,9 @@ impl<I: IntNumber> ArcPhase<I> {
 
         Self::from_wide_vector(cos, sin)
     }
-
-    #[inline]
-    fn debug_assert_invariants(&self) {
-        let denominator = FixedScale::<I>::DENOMINATOR;
-        let cos = self.cos.to_wide();
-        let sin = self.sin.to_wide();
-        let square_length = cos * cos + sin * sin;
-        let expected = denominator * denominator;
-        let error = (square_length - expected).unsigned_abs();
-        let tolerance = (denominator << 2).unsigned_abs();
-
-        debug_assert!(error <= tolerance, "arc phase must be a fixed-point unit vector");
-    }
 }
 
 impl<I: IntNumber> EllipseFrame<I> {
-    #[inline]
-    fn debug_assert_invariants(&self) {
-        let axis_x_x = self.axis_x.x.to_wide();
-        let axis_x_y = self.axis_x.y.to_wide();
-        let axis_y_x = self.axis_y.x.to_wide();
-        let axis_y_y = self.axis_y.y.to_wide();
-
-        debug_assert!(
-            axis_x_x != I::Wide::ZERO || axis_x_y != I::Wide::ZERO,
-            "ellipse first semi-axis must be non-zero"
-        );
-        debug_assert!(
-            axis_y_x != I::Wide::ZERO || axis_y_y != I::Wide::ZERO,
-            "ellipse second semi-axis must be non-zero"
-        );
-        debug_assert!(
-            axis_x_x * axis_y_y - axis_x_y * axis_y_x != I::Wide::ZERO,
-            "ellipse frame must be non-degenerate"
-        );
-
-        // Exact perpendicularity is intentionally not asserted: converting
-        // a rotated float ellipse to integer axes can introduce a small dot
-        // product through coordinate quantization.
-    }
-
     /// Recovers a normalized ellipse phase for a world-space point.
     ///
     /// The inverse frame transform gives a vector proportional to `(cos, sin)`.
@@ -218,6 +236,61 @@ impl<I: IntNumber> EllipseFrame<I> {
 }
 
 impl<I: IntNumber> ArcSegment<I> {
+    /// Validates the structural invariants required by the integer curve kernel.
+    pub fn validate(&self) -> Result<(), RationalArcError> {
+        let axis_x_x = self.ellipse.axis_x.x.to_wide();
+        let axis_x_y = self.ellipse.axis_x.y.to_wide();
+        let axis_y_x = self.ellipse.axis_y.x.to_wide();
+        let axis_y_y = self.ellipse.axis_y.y.to_wide();
+        let axis_x_is_zero = axis_x_x == I::Wide::ZERO && axis_x_y == I::Wide::ZERO;
+        let axis_y_is_zero = axis_y_x == I::Wide::ZERO && axis_y_y == I::Wide::ZERO;
+        let axes_are_dependent = axis_x_x * axis_y_y == axis_x_y * axis_y_x;
+        if axis_x_is_zero || axis_y_is_zero || axes_are_dependent {
+            return Err(RationalArcError::DegenerateEllipse);
+        }
+
+        if !phase_is_valid(self.start_phase) {
+            return Err(RationalArcError::InvalidStartPhase);
+        }
+        if !phase_is_valid(self.end_phase) {
+            return Err(RationalArcError::InvalidEndPhase);
+        }
+
+        let denominator = FixedScale::<I>::DENOMINATOR;
+        for (index, weight) in self.weights.iter().enumerate() {
+            let weight = weight.to_wide();
+            if weight <= I::Wide::ZERO {
+                return Err(RationalArcError::NonPositiveWeight { index });
+            }
+            if weight > denominator {
+                return Err(RationalArcError::WeightOutOfRange { index });
+            }
+        }
+
+        if self.control_points[0] == self.control_points[2] {
+            return Err(RationalArcError::ZeroChord);
+        }
+
+        let start_cos = self.start_phase.cos.to_wide();
+        let start_sin = self.start_phase.sin.to_wide();
+        let end_cos = self.end_phase.cos.to_wide();
+        let end_sin = self.end_phase.sin.to_wide();
+        let cross = start_cos * end_sin - start_sin * end_cos;
+        let direction_is_valid = match self.direction {
+            ArcDirection::Clockwise => cross < I::Wide::ZERO,
+            ArcDirection::CounterClockwise => cross > I::Wide::ZERO,
+        };
+        if !direction_is_valid {
+            return Err(RationalArcError::DirectionMismatch);
+        }
+
+        if !self.is_xy_monotone() {
+            return Err(RationalArcError::NonMonotoneControlPoints);
+        }
+
+        Ok(())
+    }
+
     /// Returns whether the rational control polygon is weakly monotone on
     /// both world axes.
     ///
@@ -309,45 +382,24 @@ impl<I: IntNumber> ArcSegment<I> {
     /// asserted here because boolean overlay processing may snap endpoints.
     #[inline]
     pub(crate) fn debug_assert_invariants(&self) {
-        self.ellipse.debug_assert_invariants();
-        self.start_phase.debug_assert_invariants();
-        self.end_phase.debug_assert_invariants();
-
-        let denominator = FixedScale::<I>::DENOMINATOR;
-        for weight in self.weights {
-            let weight = weight.to_wide();
-            debug_assert!(
-                weight > I::Wide::ZERO && weight <= denominator,
-                "arc rational weights must be in the fixed-point interval (0, 1]"
-            );
-        }
-
-        debug_assert!(
-            self.control_points[0] != self.control_points[2],
-            "normalized arc must have a non-zero chord"
-        );
-
-        let start_cos = self.start_phase.cos.to_wide();
-        let start_sin = self.start_phase.sin.to_wide();
-        let end_cos = self.end_phase.cos.to_wide();
-        let end_sin = self.end_phase.sin.to_wide();
-        let cross = start_cos * end_sin - start_sin * end_cos;
-
-        match self.direction {
-            ArcDirection::Clockwise => {
-                debug_assert!(
-                    cross < I::Wide::ZERO,
-                    "clockwise arc must span less than 180 degrees"
-                );
-            }
-            ArcDirection::CounterClockwise => {
-                debug_assert!(
-                    cross > I::Wide::ZERO,
-                    "counter-clockwise arc must span less than 180 degrees"
-                );
-            }
-        }
+        debug_assert!(self.validate().is_ok(), "invalid integer rational arc");
     }
+}
+
+#[inline]
+fn phase_is_valid<I: IntNumber>(phase: ArcPhase<I>) -> bool {
+    let denominator = FixedScale::<I>::DENOMINATOR;
+    let cos = phase.cos.to_wide();
+    let sin = phase.sin.to_wide();
+    if cos < -denominator || cos > denominator || sin < -denominator || sin > denominator {
+        return false;
+    }
+
+    let square_length = cos * cos + sin * sin;
+    let expected = denominator * denominator;
+    let error = (square_length - expected).unsigned_abs();
+    let tolerance = (denominator << 2).unsigned_abs();
+    error <= tolerance
 }
 
 #[inline]
@@ -416,6 +468,50 @@ mod tests {
             end_phase: ArcPhase { cos: 0, sin: one },
             direction: ArcDirection::CounterClockwise,
         }
+    }
+
+    #[test]
+    fn validates_public_arc_invariants() {
+        let source = quarter_circle();
+        assert_eq!(source.validate(), Ok(()));
+
+        let mut arc = source;
+        arc.ellipse.axis_y = arc.ellipse.axis_x;
+        assert_eq!(arc.validate(), Err(RationalArcError::DegenerateEllipse));
+
+        let mut arc = source;
+        arc.start_phase = ArcPhase { cos: 0, sin: 0 };
+        assert_eq!(arc.validate(), Err(RationalArcError::InvalidStartPhase));
+
+        let mut arc = source;
+        arc.end_phase = ArcPhase { cos: 0, sin: 0 };
+        assert_eq!(arc.validate(), Err(RationalArcError::InvalidEndPhase));
+
+        let mut arc = source;
+        arc.weights[1] = 0;
+        assert_eq!(
+            arc.validate(),
+            Err(RationalArcError::NonPositiveWeight { index: 1 })
+        );
+
+        let mut arc = source;
+        arc.weights[1] = i32::MAX;
+        assert_eq!(
+            arc.validate(),
+            Err(RationalArcError::WeightOutOfRange { index: 1 })
+        );
+
+        let mut arc = source;
+        arc.control_points[2] = arc.control_points[0];
+        assert_eq!(arc.validate(), Err(RationalArcError::ZeroChord));
+
+        let mut arc = source;
+        arc.direction = ArcDirection::Clockwise;
+        assert_eq!(arc.validate(), Err(RationalArcError::DirectionMismatch));
+
+        let mut arc = source;
+        arc.control_points[1] = IntPoint::new(-10, 100);
+        assert_eq!(arc.validate(), Err(RationalArcError::NonMonotoneControlPoints));
     }
 
     #[test]

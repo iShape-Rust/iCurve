@@ -1,3 +1,4 @@
+use i_curve::int::arc::{ArcDirection, ArcPhase, ArcVector, EllipseFrame, RationalArc, RationalArcError};
 use i_curve::int::{
     CurveInputError, CurveOverlayOptions, CurveOverlayOptionsError, CurvePath, CurveSegment, CurveShape,
     IntCurveOverlay, IntPoint, overlay,
@@ -23,6 +24,21 @@ fn rectangle(x0: i32, y0: i32, x1: i32, y1: i32) -> CurveShape<i32> {
             CurveSegment::Line { to: start },
         ],
     ))
+}
+
+fn invalid_arc(control_points: [IntPoint<i32>; 3]) -> RationalArc<i32> {
+    RationalArc {
+        ellipse: EllipseFrame {
+            center: IntPoint::new(0, 0),
+            axis_x: ArcVector { x: 0, y: 0 },
+            axis_y: ArcVector { x: 0, y: 0 },
+        },
+        control_points,
+        weights: [0; 3],
+        start_phase: ArcPhase { cos: 0, sin: 0 },
+        end_phase: ArcPhase { cos: 0, sin: 0 },
+        direction: ArcDirection::CounterClockwise,
+    }
 }
 
 #[test]
@@ -61,7 +77,7 @@ fn extended_builder_validates_before_adding_input() {
     let disconnected = CurveShape::from_path(CurvePath::new(
         IntPoint::new(1_i32, 1),
         vec![CurveSegment::Arc {
-            arc: Default::default(),
+            arc: invalid_arc([IntPoint::new(0, 0); 3]),
         }],
     ));
     assert_eq!(
@@ -71,6 +87,24 @@ fn extended_builder_validates_before_adding_input() {
             segment: 0,
         })
     );
+
+    let start = IntPoint::new(0_i32, 0);
+    let invalid = CurveShape::from_path(CurvePath::new(
+        start,
+        vec![CurveSegment::Arc {
+            arc: invalid_arc([start, IntPoint::new(1, 1), start]),
+        }],
+    ));
+    let error = curves.add_subject(invalid).unwrap_err();
+    assert_eq!(
+        error,
+        CurveInputError::InvalidArc {
+            contour: 0,
+            segment: 0,
+            error: RationalArcError::DegenerateEllipse,
+        }
+    );
+    assert!(core::error::Error::source(&error).is_some_and(|source| source.is::<RationalArcError>()));
 
     curves.add_subject(rectangle(0, 0, 10, 10)).unwrap();
     let result = curves.overlay(OverlayRule::Subject, FillRule::NonZero);
@@ -142,7 +176,10 @@ fn float_builder_is_at_top_level_and_converter_is_scoped() {
     assert_curve_int::<i32>();
     assert_curve_int::<i64>();
 
-    let _: i_curve::int::arc::RationalArc<i32> = Default::default();
+    assert_eq!(
+        invalid_arc([IntPoint::new(0, 0); 3]).validate(),
+        Err(RationalArcError::DegenerateEllipse)
+    );
 }
 
 fn float_rectangle(x0: f64, y0: f64, x1: f64, y1: f64) -> i_curve::FloatCurveShape<[f64; 2]> {
