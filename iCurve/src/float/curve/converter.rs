@@ -3,9 +3,7 @@ use crate::float::curve::path::CurvePath as FloatCurvePath;
 use crate::float::curve::segment::CurveSegment as FloatCurveSegment;
 use crate::float::curve::shape::CurveShape as FloatCurveShape;
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
-use crate::int::curve::path::CurvePath as IntCurvePath;
-use crate::int::curve::segment::CurveSegment as IntCurveSegment;
-use crate::int::curve::shape::CurveShape as IntCurveShape;
+use crate::int::{CurvePath as IntCurvePath, CurveSegment as IntCurveSegment, CurveShape as IntCurveShape};
 use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcSegment, ArcVector, EllipseFrame};
 use alloc::vec::Vec;
 use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterScaleError};
@@ -25,14 +23,35 @@ pub struct CurveConverter<P: FloatPointCompatible, I: IntNumber> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CurveConversionError {
-    Adapter(FloatPointAdapterScaleError),
+    /// Requested scale would exceed the safe integer coordinate range.
+    ScaleTooLarge,
+    /// Requested scale is zero or negative.
+    ScaleNonPositive,
+    /// Requested scale is NaN or infinite.
+    ScaleNotFinite,
 }
 
 impl From<FloatPointAdapterScaleError> for CurveConversionError {
     fn from(error: FloatPointAdapterScaleError) -> Self {
-        Self::Adapter(error)
+        match error {
+            FloatPointAdapterScaleError::ScaleTooLarge => Self::ScaleTooLarge,
+            FloatPointAdapterScaleError::ScaleNonPositive => Self::ScaleNonPositive,
+            FloatPointAdapterScaleError::ScaleNotFinite => Self::ScaleNotFinite,
+        }
     }
 }
+
+impl core::fmt::Display for CurveConversionError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::ScaleTooLarge => formatter.write_str("conversion scale exceeds the safe coordinate range"),
+            Self::ScaleNonPositive => formatter.write_str("conversion scale must be positive"),
+            Self::ScaleNotFinite => formatter.write_str("conversion scale must be finite"),
+        }
+    }
+}
+
+impl core::error::Error for CurveConversionError {}
 
 impl<P: FloatPointCompatible, I: IntNumber> CurveConverter<P, I> {
     /// Coordinate magnitude bound used by the integer curve kernel.
@@ -304,7 +323,6 @@ mod tests {
     use super::*;
     use crate::float::curve::arc::{Ellipse, EllipticArc};
     use crate::float::curve::builder::{CurveBuilder, CurveError};
-    use i_overlay::i_float::adapter::FloatPointAdapterScaleError;
     use i_overlay::i_float::int::number::fixed_scale::FixedScale;
     use i_overlay::i_shape::int::IntPoint;
 
@@ -403,10 +421,7 @@ mod tests {
             Err(error) => error,
         };
 
-        assert_eq!(
-            error,
-            CurveConversionError::Adapter(FloatPointAdapterScaleError::ScaleTooLarge)
-        );
+        assert_eq!(error, CurveConversionError::ScaleTooLarge);
         Ok(())
     }
 
@@ -417,19 +432,13 @@ mod tests {
             Err(error) => error,
         };
 
-        assert_eq!(
-            error,
-            CurveConversionError::Adapter(FloatPointAdapterScaleError::ScaleNonPositive)
-        );
+        assert_eq!(error, CurveConversionError::ScaleNonPositive);
 
         let error = match CurveConverter::<_, i32>::try_with_scale(float_shape()?, 1.0e20) {
             Ok(_) => panic!("unsafe scale must fail"),
             Err(error) => error,
         };
-        assert_eq!(
-            error,
-            CurveConversionError::Adapter(FloatPointAdapterScaleError::ScaleTooLarge)
-        );
+        assert_eq!(error, CurveConversionError::ScaleTooLarge);
         Ok(())
     }
 

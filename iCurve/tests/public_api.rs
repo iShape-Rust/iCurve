@@ -1,0 +1,106 @@
+use i_curve::int::{CurvePath, CurveSegment, CurveShape};
+use i_curve::{
+    CurveBuilder, CurveInputError, CurveOverlayOptions, FillRule, IntCurveOverlay, IntPoint, OverlayRule,
+    overlay,
+};
+
+fn rectangle(x0: i32, y0: i32, x1: i32, y1: i32) -> CurveShape<i32> {
+    let start = IntPoint::new(x0, y0);
+    CurveShape::from_path(CurvePath::new(
+        start,
+        vec![
+            CurveSegment::Line {
+                to: IntPoint::new(x1, y0),
+            },
+            CurveSegment::Line {
+                to: IntPoint::new(x1, y1),
+            },
+            CurveSegment::Line {
+                to: IntPoint::new(x0, y1),
+            },
+            CurveSegment::Line { to: start },
+        ],
+    ))
+}
+
+#[test]
+fn top_level_integer_overlay_is_complete() -> Result<(), CurveInputError> {
+    let result = overlay(
+        rectangle(0, 0, 100, 100),
+        rectangle(50, 25, 150, 75),
+        OverlayRule::Intersect,
+        FillRule::NonZero,
+    )?;
+
+    assert_eq!(result.len(), 1);
+    assert!(result[0].contours.iter().all(CurvePath::is_closed));
+    Ok(())
+}
+
+#[test]
+fn extended_builder_validates_before_adding_input() {
+    let mut curves = IntCurveOverlay::new();
+    assert_eq!(
+        curves.add_subject(CurveShape::new(vec![])),
+        Err(CurveInputError::EmptyShape)
+    );
+
+    let invalid = CurveShape::from_path(CurvePath::new(
+        IntPoint::new(0_i32, 0),
+        vec![CurveSegment::Line {
+            to: IntPoint::new(10, 0),
+        }],
+    ));
+    assert_eq!(
+        curves.add_subject(invalid),
+        Err(CurveInputError::UnclosedContour { contour: 0 })
+    );
+
+    let disconnected = CurveShape::from_path(CurvePath::new(
+        IntPoint::new(1_i32, 1),
+        vec![CurveSegment::Arc {
+            arc: Default::default(),
+        }],
+    ));
+    assert_eq!(
+        curves.add_subject(disconnected),
+        Err(CurveInputError::DisconnectedArc {
+            contour: 0,
+            segment: 0,
+        })
+    );
+
+    curves.add_subject(rectangle(0, 0, 10, 10)).unwrap();
+    let result = curves.overlay(OverlayRule::Subject, FillRule::NonZero);
+    assert_eq!(result.len(), 1);
+}
+
+#[test]
+fn options_are_configured_without_public_overlay_fields() {
+    let options = CurveOverlayOptions {
+        min_chord_length_power: 5,
+        angle_tolerance_power: 4,
+        max_approximation_depth: 12,
+    };
+    let curves = IntCurveOverlay::<i32>::new().with_options(options);
+
+    assert_eq!(curves.options(), options);
+}
+
+#[test]
+fn float_builder_and_converter_are_available_at_top_level() {
+    let source = CurveBuilder::new()
+        .move_to([0.0_f64, 0.0])
+        .unwrap()
+        .quad_to([5.0, -2.0], [10.0, 0.0])
+        .unwrap()
+        .close_contour()
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let converter = i_curve::CurveConverter::<_, i32>::new(source);
+    assert!(converter.shape().contours[0].is_closed());
+
+    let _: i_curve::int::arc::RationalArc<i32> = Default::default();
+}

@@ -25,6 +25,7 @@ struct CubicSelfIntersection<I: IntNumber> {
     point: IntPoint<I>,
 }
 
+#[cfg(test)]
 pub(crate) enum CubicSShapeNormalization<I: IntNumber> {
     NoS(CubicSegment<I>),
     Pieces([CubicSegment<I>; 2]),
@@ -142,6 +143,7 @@ impl<I: IntNumber> CubicSegment<I> {
         segments
     }
 
+    #[cfg(test)]
     #[inline]
     pub(crate) fn normalize_monotone_without_s_shape(self) -> CubicSShapeNormalization<I> {
         match self.s_shape_split_param() {

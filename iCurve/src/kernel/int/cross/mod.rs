@@ -1,5 +1,6 @@
 mod chord;
-pub mod intersect;
-pub mod intersector;
+#[cfg(test)]
+mod intersect;
+pub(crate) mod intersector;
 mod parallel;
 mod segment;

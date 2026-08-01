@@ -1,16 +1,10 @@
 #[cfg(test)]
 mod tests {
-    use i_curve::float::curve::arc::{Ellipse, EllipticArc};
-    use i_curve::float::curve::builder::CurveBuilder;
-    use i_curve::float::curve::converter::CurveConverter;
-    use i_curve::int::bool::overlay::IntCurveOverlay;
-    use i_curve::int::curve::path::CurvePath;
-    use i_curve::int::curve::segment::CurveSegment;
-    use i_curve::int::curve::shape::CurveShape;
-    use i_overlay::core::fill_rule::FillRule;
-    use i_overlay::core::overlay::ShapeType;
-    use i_overlay::core::overlay_rule::OverlayRule;
-    use i_overlay::i_shape::int::IntPoint;
+    use i_curve::float::arc::{Ellipse, EllipticArc};
+    use i_curve::int::{CurvePath, CurveSegment, CurveShape};
+    use i_curve::{
+        CurveBuilder, CurveConverter, FillRule, IntCurveOverlay, IntPoint, OverlayRule, ShapeType,
+    };
 
     #[test]
     fn test_00() {
@@ -44,12 +38,12 @@ mod tests {
             }],
         }];
 
-        let mut overlay = IntCurveOverlay::new(4);
+        let mut overlay = IntCurveOverlay::with_capacity(4);
         for shape in subject {
-            overlay.add_shape(shape, ShapeType::Subject);
+            overlay.add_shape(shape, ShapeType::Subject).unwrap();
         }
         for shape in clip {
-            overlay.add_shape(shape, ShapeType::Clip);
+            overlay.add_shape(shape, ShapeType::Clip).unwrap();
         }
         let result = overlay.overlay(OverlayRule::Union, FillRule::NonZero);
         dbg!(result);
@@ -87,12 +81,12 @@ mod tests {
             }],
         }];
 
-        let mut overlay = IntCurveOverlay::new(4);
+        let mut overlay = IntCurveOverlay::with_capacity(4);
         for shape in subject {
-            overlay.add_shape(shape, ShapeType::Subject);
+            overlay.add_shape(shape, ShapeType::Subject).unwrap();
         }
         for shape in clip {
-            overlay.add_shape(shape, ShapeType::Clip);
+            overlay.add_shape(shape, ShapeType::Clip).unwrap();
         }
         let result = overlay.overlay(OverlayRule::Union, FillRule::NonZero);
         dbg!(result);
@@ -136,12 +130,12 @@ mod tests {
             }],
         }];
 
-        let mut overlay = IntCurveOverlay::new(4);
+        let mut overlay = IntCurveOverlay::with_capacity(4);
         for shape in subject {
-            overlay.add_shape(shape, ShapeType::Subject);
+            overlay.add_shape(shape, ShapeType::Subject).unwrap();
         }
         for shape in clip {
-            overlay.add_shape(shape, ShapeType::Clip);
+            overlay.add_shape(shape, ShapeType::Clip).unwrap();
         }
         let result = overlay.overlay(OverlayRule::Union, FillRule::NonZero);
         dbg!(result);
@@ -190,19 +184,21 @@ mod tests {
             .iter()
             .map(|contour| contour.segments.len())
             .sum();
-        let mut overlay = IntCurveOverlay::new(capacity);
+        let mut overlay = IntCurveOverlay::with_capacity(capacity);
         for (index, contour) in int_shape.contours.into_iter().enumerate() {
             let shape_type = if index < SUBJECT_CONTOURS {
                 ShapeType::Subject
             } else {
                 ShapeType::Clip
             };
-            overlay.add_shape(
-                CurveShape {
-                    contours: vec![contour],
-                },
-                shape_type,
-            );
+            overlay
+                .add_shape(
+                    CurveShape {
+                        contours: vec![contour],
+                    },
+                    shape_type,
+                )
+                .unwrap();
         }
         let result = overlay.overlay(OverlayRule::Union, FillRule::NonZero);
         dbg!(result);
@@ -228,8 +224,8 @@ mod tests {
             }],
         };
 
-        let mut overlay = IntCurveOverlay::new(2);
-        overlay.add_shape(clip, ShapeType::Clip);
+        let mut overlay = IntCurveOverlay::with_capacity(2);
+        overlay.add_shape(clip, ShapeType::Clip).unwrap();
 
         let result = overlay.overlay(OverlayRule::Clip, FillRule::NonZero);
         assert!(!result.is_empty());

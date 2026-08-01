@@ -65,6 +65,34 @@ impl From<EllipticArcError> for RationalArcError {
     }
 }
 
+impl core::fmt::Display for EllipticArcError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let message = match self {
+            Self::NonFinite => "ellipse and arc values must be finite",
+            Self::NonPositiveRadius => "ellipse radii must be positive",
+            Self::ZeroSweep => "arc sweep must be non-zero",
+            Self::SweepTooLarge => "arc sweep must not exceed one full turn",
+            Self::DegeneratePiece => "arc cannot be represented by a finite rational quadratic",
+        };
+        formatter.write_str(message)
+    }
+}
+
+impl core::error::Error for EllipticArcError {}
+
+impl core::fmt::Display for RationalArcError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Elliptic(error) => error.fmt(formatter),
+            Self::NonFiniteControlPoint => formatter.write_str("arc control points must be finite"),
+            Self::NonFiniteWeight => formatter.write_str("arc weights must be finite"),
+            Self::NonPositiveWeight => formatter.write_str("arc weights must be positive"),
+        }
+    }
+}
+
+impl core::error::Error for RationalArcError {}
+
 impl<P: FloatPointCompatible> Ellipse<P> {
     #[inline]
     pub fn point_at(&self, angle: P::Scalar) -> P {

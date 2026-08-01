@@ -1,6 +1,6 @@
-pub mod arc;
-pub mod builder;
-pub mod converter;
-pub mod path;
-pub mod segment;
-pub mod shape;
+pub(crate) mod arc;
+pub(crate) mod builder;
+pub(crate) mod converter;
+pub(crate) mod path;
+pub(crate) mod segment;
+pub(crate) mod shape;

@@ -44,15 +44,15 @@ pub(crate) struct SegmentIntersectionBuffer<I: IntNumber> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ContactPoint<I: IntNumber> {
-    pub point: IntPoint<I>,
-    pub t0: SegmentParam<I>,
-    pub t1: SegmentParam<I>,
-    pub contact_type: ContactType,
+pub(crate) struct ContactPoint<I: IntNumber> {
+    pub(crate) point: IntPoint<I>,
+    pub(crate) t0: SegmentParam<I>,
+    pub(crate) t1: SegmentParam<I>,
+    pub(crate) contact_type: ContactType,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ContactType {
+pub(crate) enum ContactType {
     Cross,
     Tangent,
 }

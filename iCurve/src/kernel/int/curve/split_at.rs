@@ -9,7 +9,7 @@ use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
-pub trait SplitAt<I: IntNumber> {
+pub(crate) trait SplitAt<I: IntNumber> {
     type Output;
     fn split_at(&self, t: SegmentParam<I>) -> Self::Output;
     fn split_at_left(&self, t: SegmentParam<I>) -> Self;

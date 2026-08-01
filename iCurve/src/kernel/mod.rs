@@ -1,1 +1,1 @@
-pub mod int;
+pub(crate) mod int;

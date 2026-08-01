@@ -3,11 +3,14 @@ use crate::kernel::int::curve::param::{SegmentParam, interpolate_segment_param};
 use crate::kernel::int::curve::point_at::PointAt;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::curve::split_at::{SplitAt, segment_range};
+#[cfg(test)]
 use crate::kernel::int::normalization::cubic::CubicSShapeNormalization;
+#[cfg(test)]
 use crate::kernel::int::normalization::monotone::decomposition::DecomposeIntoMonotone;
 use alloc::vec::Vec;
 use i_overlay::i_float::int::number::int::IntNumber;
 
+#[cfg(test)]
 pub(crate) trait PushCanonicalSegment<I: IntNumber> {
     fn push_canonical(&mut self, segment: Segment<I>);
 }
@@ -16,6 +19,7 @@ pub(crate) trait PushSimpleSegment<I: IntNumber> {
     fn push_simple(&mut self, segment: Segment<I>);
 }
 
+#[cfg(test)]
 pub(crate) trait PushCanonicalSimpleSegment<I: IntNumber> {
     fn push_canonical_simple(&mut self, segment: Segment<I>);
 }
@@ -31,6 +35,7 @@ pub(crate) trait PushCanonicalSimpleParametricSegment<I: IntNumber> {
     fn push_canonical_simple_parametric(&mut self, segment: Segment<I>);
 }
 
+#[cfg(test)]
 impl<I: IntNumber> PushCanonicalSegment<I> for Vec<Segment<I>> {
     fn push_canonical(&mut self, segment: Segment<I>) {
         let mut simple_segments = Vec::new();
@@ -103,6 +108,7 @@ impl<I: IntNumber> PushSimpleWithoutSelfIntersection<I> for Vec<Segment<I>> {
     }
 }
 
+#[cfg(test)]
 impl<I: IntNumber> PushCanonicalSimpleSegment<I> for Vec<Segment<I>> {
     fn push_canonical_simple(&mut self, segment: Segment<I>) {
         match segment {

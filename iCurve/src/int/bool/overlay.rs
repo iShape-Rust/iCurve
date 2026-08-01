@@ -20,6 +20,44 @@ use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::vector::edge::DataVectorShape;
 use i_tree::{Expiration, LayoutNumber};
 
+/// Structural error in an integer curve input.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CurveInputError {
+    /// A shape has no contours.
+    EmptyShape,
+    /// A contour has no segments.
+    EmptyContour { contour: usize },
+    /// The last endpoint of a contour does not equal its start point.
+    UnclosedContour { contour: usize },
+    /// A rational arc does not start at the preceding segment endpoint.
+    DisconnectedArc { contour: usize, segment: usize },
+}
+
+impl core::fmt::Display for CurveInputError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match *self {
+            Self::EmptyShape => formatter.write_str("curve shape has no contours"),
+            Self::EmptyContour { contour } => {
+                write!(formatter, "curve contour {contour} has no segments")
+            }
+            Self::UnclosedContour { contour } => {
+                write!(formatter, "curve contour {contour} is not closed")
+            }
+            Self::DisconnectedArc { contour, segment } => write!(
+                formatter,
+                "rational arc {segment} in contour {contour} is disconnected"
+            ),
+        }
+    }
+}
+
+impl core::error::Error for CurveInputError {}
+
+/// Controls the chord approximation used to determine boolean topology.
+///
+/// These values are expressed in the integer coordinate system. The default
+/// is intended for general-purpose input; change it only after selecting the
+/// integer or float conversion scale deliberately.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CurveOverlayOptions {
     /// Chords shorter than `2^min_chord_length_power` are accepted without
@@ -43,14 +81,20 @@ impl Default for CurveOverlayOptions {
 }
 
 pub struct IntCurveOverlay<I: IntNumber> {
-    pub solver: Solver,
-    pub options: CurveOverlayOptions,
+    solver: Solver,
+    options: CurveOverlayOptions,
     pub(crate) curve_sources: Vec<CurveSource<I>>,
     pub(crate) curve_edges: Vec<CurveEdge<I>>,
 }
 
 impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
-    pub fn new(capacity: usize) -> Self {
+    /// Creates an empty overlay.
+    pub fn new() -> Self {
+        Self::with_capacity(0)
+    }
+
+    /// Creates an empty overlay with an input-segment allocation hint.
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
             solver: Solver::default(),
             options: CurveOverlayOptions::default(),
@@ -59,27 +103,47 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
         }
     }
 
-    /// Creates an overlay with custom solver strategy and precision settings.
-    pub fn with_solver(capacity: usize, solver: Solver) -> Self {
-        Self {
-            solver,
-            options: CurveOverlayOptions::default(),
-            curve_sources: Vec::with_capacity(capacity),
-            curve_edges: Vec::with_capacity(capacity),
-        }
+    /// Sets the polygon solver strategy and precision.
+    #[must_use]
+    pub fn with_solver(mut self, solver: Solver) -> Self {
+        self.solver = solver;
+        self
     }
 
-    /// Creates an overlay with explicit curve approximation and polygon solver options.
-    pub fn with_options(capacity: usize, solver: Solver, options: CurveOverlayOptions) -> Self {
-        Self {
-            solver,
-            options,
-            curve_sources: Vec::with_capacity(capacity),
-            curve_edges: Vec::with_capacity(capacity),
-        }
+    /// Sets the curve approximation options.
+    #[must_use]
+    pub fn with_options(mut self, options: CurveOverlayOptions) -> Self {
+        self.options = options;
+        self
     }
 
-    pub fn add_shape(&mut self, shape: CurveShape<I>, shape_type: ShapeType) {
+    /// Returns the polygon solver configuration.
+    #[inline]
+    pub fn solver(&self) -> Solver {
+        self.solver
+    }
+
+    /// Returns the curve approximation configuration.
+    #[inline]
+    pub fn options(&self) -> CurveOverlayOptions {
+        self.options
+    }
+
+    /// Adds a subject shape.
+    #[inline]
+    pub fn add_subject(&mut self, shape: CurveShape<I>) -> Result<(), CurveInputError> {
+        self.add_shape(shape, ShapeType::Subject)
+    }
+
+    /// Adds a clip shape.
+    #[inline]
+    pub fn add_clip(&mut self, shape: CurveShape<I>) -> Result<(), CurveInputError> {
+        self.add_shape(shape, ShapeType::Clip)
+    }
+
+    /// Validates and adds a shape as a subject or clip operand.
+    pub fn add_shape(&mut self, shape: CurveShape<I>, shape_type: ShapeType) -> Result<(), CurveInputError> {
+        validate_shape(&shape)?;
         let mut simple_curves = Vec::new();
         let mut canonical_curves = Vec::new();
 
@@ -108,6 +172,8 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
                 current = end;
             }
         }
+
+        Ok(())
     }
 
     fn prepare(&mut self) {
@@ -158,7 +224,7 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
     }
 
     #[inline]
-    pub fn overlay(&mut self, overlay_rule: OverlayRule, fill_rule: FillRule) -> Vec<CurveShape<I>>
+    pub fn overlay(mut self, overlay_rule: OverlayRule, fill_rule: FillRule) -> Vec<CurveShape<I>>
     where
         I: Expiration + LayoutNumber + SortKey,
     {
@@ -170,6 +236,76 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
         // Restore maximal runs from their source curves and parameter spans.
         CurveRecomposer::new().recompose(vector_shapes, &data_store, &self.curve_sources)
     }
+}
+
+impl<I: IntNumber + SortKey> Default for IntCurveOverlay<I> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Performs a boolean operation on one subject and one clip shape.
+///
+/// Use [`IntCurveOverlay`] when an operation has more inputs or needs custom
+/// approximation or polygon solver options.
+pub fn overlay<I>(
+    subject: CurveShape<I>,
+    clip: CurveShape<I>,
+    overlay_rule: OverlayRule,
+    fill_rule: FillRule,
+) -> Result<Vec<CurveShape<I>>, CurveInputError>
+where
+    I: IntNumber + Expiration + LayoutNumber + SortKey,
+{
+    let capacity = segment_count(&subject).saturating_add(segment_count(&clip));
+    let mut overlay = IntCurveOverlay::with_capacity(capacity);
+    overlay.add_subject(subject)?;
+    overlay.add_clip(clip)?;
+    Ok(overlay.overlay(overlay_rule, fill_rule))
+}
+
+fn segment_count<I: IntNumber>(shape: &CurveShape<I>) -> usize {
+    shape.contours.iter().map(|contour| contour.segments.len()).sum()
+}
+
+fn validate_shape<I: IntNumber>(shape: &CurveShape<I>) -> Result<(), CurveInputError> {
+    if shape.contours.is_empty() {
+        return Err(CurveInputError::EmptyShape);
+    }
+
+    for (contour_index, contour) in shape.contours.iter().enumerate() {
+        if contour.segments.is_empty() {
+            return Err(CurveInputError::EmptyContour {
+                contour: contour_index,
+            });
+        }
+
+        let mut current = contour.start;
+        for (segment_index, segment) in contour.segments.iter().enumerate() {
+            current = match segment {
+                crate::int::curve::segment::CurveSegment::Line { to }
+                | crate::int::curve::segment::CurveSegment::Quad { to, .. }
+                | crate::int::curve::segment::CurveSegment::Cubic { to, .. } => *to,
+                crate::int::curve::segment::CurveSegment::Arc { arc } => {
+                    if arc.control_points[0] != current {
+                        return Err(CurveInputError::DisconnectedArc {
+                            contour: contour_index,
+                            segment: segment_index,
+                        });
+                    }
+                    arc.control_points[2]
+                }
+            };
+        }
+
+        if current != contour.start {
+            return Err(CurveInputError::UnclosedContour {
+                contour: contour_index,
+            });
+        }
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -248,7 +384,7 @@ mod tests {
             curve_edges: Vec::new(),
         };
 
-        overlay.add_shape(shape, ShapeType::Subject);
+        overlay.add_shape(shape, ShapeType::Subject).unwrap();
 
         assert_eq!(overlay.curve_sources.len(), 2);
         assert_eq!(overlay.curve_edges.len(), 2);
@@ -289,7 +425,7 @@ mod tests {
             curve_edges: Vec::new(),
         };
 
-        overlay.add_shape(shape, ShapeType::Clip);
+        overlay.add_shape(shape, ShapeType::Clip).unwrap();
 
         assert_eq!(overlay.curve_sources.len(), 2);
         assert_eq!(overlay.curve_edges.len(), 2);
@@ -322,7 +458,7 @@ mod tests {
             curve_edges: Vec::new(),
         };
 
-        overlay.add_shape(shape, ShapeType::Subject);
+        overlay.add_shape(shape, ShapeType::Subject).unwrap();
 
         assert_eq!(overlay.curve_sources.len(), 2);
         let quad_edges: Vec<_> = overlay
@@ -369,7 +505,7 @@ mod tests {
             curve_edges: Vec::new(),
         };
 
-        overlay.add_shape(shape, ShapeType::Subject);
+        overlay.add_shape(shape, ShapeType::Subject).unwrap();
 
         assert_eq!(overlay.curve_sources.len(), 3);
         assert!(matches!(overlay.curve_sources[0].curve, Segment::Cubic(_)));
@@ -409,7 +545,7 @@ mod tests {
             curve_edges: Vec::new(),
         };
 
-        overlay.add_shape(shape, ShapeType::Clip);
+        overlay.add_shape(shape, ShapeType::Clip).unwrap();
 
         assert_eq!(overlay.curve_sources.len(), 3);
         assert!(matches!(overlay.curve_sources[2].curve, Segment::Line(_)));
@@ -479,8 +615,8 @@ mod tests {
             curve_sources: Vec::new(),
             curve_edges: Vec::new(),
         };
-        overlay.add_shape(square(), ShapeType::Subject);
-        overlay.add_shape(square(), ShapeType::Clip);
+        overlay.add_shape(square(), ShapeType::Subject).unwrap();
+        overlay.add_shape(square(), ShapeType::Clip).unwrap();
         overlay.prepare();
 
         let (shapes, store) = overlay.build_vector_shapes(OverlayRule::Intersect, FillRule::NonZero);
@@ -512,9 +648,13 @@ mod tests {
 
     #[test]
     fn identical_circles_survive_boolean_intersection_as_arcs() {
-        let mut overlay = IntCurveOverlay::new(8);
-        overlay.add_shape(circle(IntPoint::new(0, 0)), ShapeType::Subject);
-        overlay.add_shape(circle(IntPoint::new(0, 0)), ShapeType::Clip);
+        let mut overlay = IntCurveOverlay::with_capacity(8);
+        overlay
+            .add_shape(circle(IntPoint::new(0, 0)), ShapeType::Subject)
+            .unwrap();
+        overlay
+            .add_shape(circle(IntPoint::new(0, 0)), ShapeType::Clip)
+            .unwrap();
 
         let result = overlay.overlay(OverlayRule::Intersect, FillRule::NonZero);
 
@@ -531,9 +671,13 @@ mod tests {
 
     #[test]
     fn overlapping_circles_recompose_split_boundaries_as_arcs() {
-        let mut overlay = IntCurveOverlay::new(8);
-        overlay.add_shape(circle(IntPoint::new(0, 0)), ShapeType::Subject);
-        overlay.add_shape(circle(IntPoint::new(100, 0)), ShapeType::Clip);
+        let mut overlay = IntCurveOverlay::with_capacity(8);
+        overlay
+            .add_shape(circle(IntPoint::new(0, 0)), ShapeType::Subject)
+            .unwrap();
+        overlay
+            .add_shape(circle(IntPoint::new(100, 0)), ShapeType::Clip)
+            .unwrap();
 
         let result = overlay.overlay(OverlayRule::Intersect, FillRule::NonZero);
 
@@ -553,7 +697,7 @@ mod tests {
         use i_overlay::core::solver::Precision;
 
         let solver = Solver::with_precision(Precision::LOW);
-        let overlay = IntCurveOverlay::<i32>::with_solver(16, solver);
+        let overlay = IntCurveOverlay::<i32>::with_capacity(16).with_solver(solver);
 
         assert_eq!(overlay.solver.precision, Precision::LOW);
         assert_eq!(overlay.curve_edges.capacity(), 16);
@@ -568,7 +712,7 @@ mod tests {
             max_approximation_depth: 12,
         };
 
-        let overlay = IntCurveOverlay::<i32>::with_options(4, Solver::default(), options);
+        let overlay = IntCurveOverlay::<i32>::with_capacity(4).with_options(options);
 
         assert_eq!(overlay.options, options);
         assert_eq!(overlay.curve_edges.capacity(), 4);

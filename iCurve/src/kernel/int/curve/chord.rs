@@ -3,6 +3,7 @@ use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::product_uint::UIntProduct;
 use i_overlay::i_float::int::number::uint::UIntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
+#[cfg(test)]
 use i_overlay::i_float::int::rect::IntRect;
 use i_overlay::i_float::int::vector::IntVector;
 use i_overlay::i_shape::int::IntPoint;
@@ -34,6 +35,7 @@ impl<I: IntNumber> SegmentChord<I> {
     }
 
     #[inline]
+    #[cfg(test)]
     pub(crate) fn to_rect(self) -> IntRect<I> {
         IntRect::with_ab(self.a, self.b)
     }

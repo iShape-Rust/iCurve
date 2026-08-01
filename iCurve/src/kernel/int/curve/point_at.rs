@@ -4,7 +4,7 @@ use crate::kernel::int::curve::segment::Segment;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
-pub trait PointAt<I: IntNumber> {
+pub(crate) trait PointAt<I: IntNumber> {
     fn point_at(&self, param: SegmentParam<I>) -> IntPoint<I>;
 }
 

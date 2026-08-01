@@ -1,14 +1,15 @@
 use crate::collections::stack_vec::StackVec;
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::param::SegmentParam;
-use crate::kernel::int::normalization::monotone::decomposition::{
-    DecomposeIntoMonotone, MonotoneDecompositionDirection, roots_to_segments,
-};
+use crate::kernel::int::normalization::monotone::decomposition::MonotoneDecompositionDirection;
+#[cfg(test)]
+use crate::kernel::int::normalization::monotone::decomposition::{DecomposeIntoMonotone, roots_to_segments};
 use crate::kernel::int::normalization::unit_quadratic::solve_unit_quadratic;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
+#[cfg(test)]
 impl<I: IntNumber> DecomposeIntoMonotone for CubicSegment<I> {
     type Output = StackVec<CubicSegment<I>, 5>;
 

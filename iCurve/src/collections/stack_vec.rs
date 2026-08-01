@@ -2,14 +2,14 @@ use core::array::IntoIter;
 use core::iter::Take;
 
 #[derive(Debug, Clone, Copy)]
-pub struct StackVec<T: Copy + Default, const CAP: usize> {
+pub(crate) struct StackVec<T: Copy + Default, const CAP: usize> {
     pub(crate) buffer: [T; CAP],
     pub(crate) len: usize,
 }
 
 impl<T: Copy + Default, const CAP: usize> StackVec<T, CAP> {
     #[inline]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             buffer: [T::default(); CAP],
             len: 0,
@@ -38,37 +38,39 @@ impl<T: Copy + Default, const CAP: usize> StackVec<T, CAP> {
     }
 
     #[inline]
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.len = 0;
     }
 
     #[inline]
-    pub fn as_slice(&self) -> &[T] {
+    pub(crate) fn as_slice(&self) -> &[T] {
         &self.buffer[0..self.len]
     }
 
     #[inline]
-    pub fn as_mut_slice(&mut self) -> &mut [T] {
+    pub(crate) fn as_mut_slice(&mut self) -> &mut [T] {
         &mut self.buffer[0..self.len]
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
+    #[cfg(test)]
+    pub(crate) fn len(&self) -> usize {
         self.len
     }
 
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     #[inline]
-    pub fn is_full(&self) -> bool {
+    #[cfg(test)]
+    pub(crate) fn is_full(&self) -> bool {
         self.len == CAP
     }
 
     #[inline]
-    pub fn push(&mut self, value: T) {
+    pub(crate) fn push(&mut self, value: T) {
         assert!(self.len < CAP);
 
         self.buffer[self.len] = value;
@@ -76,7 +78,7 @@ impl<T: Copy + Default, const CAP: usize> StackVec<T, CAP> {
     }
 
     #[inline]
-    pub fn push_some(&mut self, value: Option<T>) {
+    pub(crate) fn push_some(&mut self, value: Option<T>) {
         if let Some(v) = value {
             self.push(v);
         }
@@ -107,7 +109,7 @@ impl<T: Copy + Default, const CAP: usize> StackVec<T, CAP> {
     }
 
     #[inline]
-    pub fn swap_remove(&mut self, idx: usize) {
+    pub(crate) fn swap_remove(&mut self, idx: usize) {
         assert!(idx < self.len);
 
         let last = self.len - 1;
@@ -116,7 +118,7 @@ impl<T: Copy + Default, const CAP: usize> StackVec<T, CAP> {
     }
 
     #[inline]
-    pub fn swap_extract(&mut self, idx: usize) -> T {
+    pub(crate) fn swap_extract(&mut self, idx: usize) -> T {
         assert!(idx < self.len);
 
         let value = self.buffer[idx];

@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 use i_overlay::i_float::int::number::int::IntNumber;
 
 impl<I: IntNumber> Segment<I> {
-    pub fn intersect(self, other: Self) -> Vec<ContactPoint<I>> {
+    pub(crate) fn intersect(self, other: Self) -> Vec<ContactPoint<I>> {
         let mut a_segments = Vec::new();
         let mut b_segments = Vec::new();
 

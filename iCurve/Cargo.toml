@@ -1,7 +1,17 @@
 [package]
 name = "i_curve"
 version = "0.1.0"
+authors = ["Nail Sharipov <nailxsharipov@gmail.com>"]
 edition = "2024"
+rust-version = "1.88"
+description = "Boolean operations on closed paths of lines, Bezier curves, and rational elliptic arcs"
+license = "MIT"
+repository = "https://github.com/iShape-Rust/iCurve"
+homepage = "https://github.com/iShape-Rust/iCurve"
+documentation = "https://docs.rs/i_curve"
+readme = "../README.md"
+keywords = ["geometry", "boolean", "bezier", "curves", "no-std"]
+categories = ["algorithms", "graphics", "mathematics", "no-std"]
 
 [features]
 default = []
@@ -19,3 +29,7 @@ eframe = { optional = true, version = ">=0.30" }
 
 [dev-dependencies]
 rand = { version = "~0.10", features = ["alloc"] }
+
+[package.metadata.docs.rs]
+no-default-features = true
+targets = ["x86_64-unknown-linux-gnu"]

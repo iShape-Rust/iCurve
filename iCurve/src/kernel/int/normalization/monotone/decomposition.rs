@@ -10,6 +10,7 @@ pub(super) enum MonotoneDecompositionDirection {
     Y,
 }
 
+#[cfg(test)]
 pub(crate) trait DecomposeIntoMonotone {
     type Output;
     fn decompose_into_monotone(&self) -> Self::Output;

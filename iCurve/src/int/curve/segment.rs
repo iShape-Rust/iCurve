@@ -1,4 +1,4 @@
-use crate::kernel::int::curve::arc::ArcSegment;
+use crate::int::arc::RationalArc;
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::quad::QuadSegment;
@@ -21,11 +21,19 @@ pub enum CurveSegment<I: IntNumber> {
         to: IntPoint<I>,
     },
     Arc {
-        arc: ArcSegment<I>,
+        arc: RationalArc<I>,
     },
 }
 
 impl<I: IntNumber> CurveSegment<I> {
+    /// Returns this segment's endpoint.
+    pub fn end_point(&self) -> IntPoint<I> {
+        match self {
+            Self::Line { to } | Self::Quad { to, .. } | Self::Cubic { to, .. } => *to,
+            Self::Arc { arc } => arc.control_points[2],
+        }
+    }
+
     pub(crate) fn from_kernel_segment(segment: Segment<I>) -> Self {
         match segment {
             Segment::Line(line) => Self::Line {
@@ -85,7 +93,7 @@ mod tests {
     #[test]
     fn arc_round_trips_through_kernel_segment() {
         let one = FixedScale::<i32>::DENOMINATOR as i32;
-        let arc = ArcSegment {
+        let arc = RationalArc {
             ellipse: EllipseFrame {
                 center: IntPoint::new(0, 0),
                 axis_x: ArcVector { x: 100, y: 0 },

@@ -37,6 +37,23 @@ impl From<RationalArcError> for CurveError {
     }
 }
 
+impl core::fmt::Display for CurveError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::MissingMoveTo => formatter.write_str("a segment requires move_to first"),
+            Self::EmptyPath => formatter.write_str("a contour must contain at least one segment"),
+            Self::UnclosedContour => formatter.write_str("all curve contours must be closed"),
+            Self::NoContours => formatter.write_str("a curve shape must contain at least one contour"),
+            Self::NonFinitePoint => formatter.write_str("curve points must be finite"),
+            Self::NonFiniteBounds => formatter.write_str("curve bounds must be finite"),
+            Self::Arc(error) => write!(formatter, "invalid elliptic arc: {error}"),
+            Self::RationalArc(error) => write!(formatter, "invalid rational arc: {error}"),
+        }
+    }
+}
+
+impl core::error::Error for CurveError {}
+
 impl<P: FloatPointCompatible> Default for CurveBuilder<P> {
     fn default() -> Self {
         Self::new()

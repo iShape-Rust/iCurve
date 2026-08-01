@@ -8,7 +8,7 @@ use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 #[derive(Debug, Clone, Copy)]
-pub enum Segment<I: IntNumber> {
+pub(crate) enum Segment<I: IntNumber> {
     Line(LineSegment<I>),
     Quad(QuadSegment<I>),
     Cubic(CubicSegment<I>),
@@ -25,7 +25,7 @@ impl<I: IntNumber> Default for Segment<I> {
 
 impl<I: IntNumber> Segment<I> {
     #[inline]
-    pub fn convex_hull(&self) -> StackVec<IntPoint<I>, 4> {
+    pub(crate) fn convex_hull(&self) -> StackVec<IntPoint<I>, 4> {
         match self {
             Segment::Line(line) => StackVec::with_slice_as_convex(&line.control_points),
             Segment::Quad(quad) => StackVec::with_slice_as_convex(&quad.control_points),

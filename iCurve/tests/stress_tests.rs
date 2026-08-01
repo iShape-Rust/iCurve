@@ -1,12 +1,5 @@
-use i_curve::int::bool::overlay::IntCurveOverlay;
-use i_curve::int::curve::path::CurvePath;
-use i_curve::int::curve::segment::CurveSegment;
-use i_curve::int::curve::shape::CurveShape;
-use i_overlay::core::fill_rule::FillRule;
-use i_overlay::core::overlay::ShapeType;
-use i_overlay::core::overlay_rule::OverlayRule;
-use i_overlay::core::solver::{Precision, Solver};
-use i_overlay::i_shape::int::IntPoint;
+use i_curve::int::{CurvePath, CurveSegment, CurveShape};
+use i_curve::{FillRule, IntCurveOverlay, IntPoint, OverlayRule, Precision, ShapeType, Solver};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use std::any::Any;
@@ -154,13 +147,13 @@ fn run_case(
 
 fn overlay(subject: &[CurveShape<i32>], clip: &[CurveShape<i32>], rule: OverlayRule) -> Vec<CurveShape<i32>> {
     let capacity = segment_count(subject) + segment_count(clip);
-    let mut overlay = IntCurveOverlay::with_solver(capacity, stress_solver());
+    let mut overlay = IntCurveOverlay::with_capacity(capacity).with_solver(stress_solver());
 
     for shape in subject {
-        overlay.add_shape(shape.clone(), ShapeType::Subject);
+        overlay.add_shape(shape.clone(), ShapeType::Subject).unwrap();
     }
     for shape in clip {
-        overlay.add_shape(shape.clone(), ShapeType::Clip);
+        overlay.add_shape(shape.clone(), ShapeType::Clip).unwrap();
     }
 
     overlay.overlay(rule, FillRule::NonZero)
