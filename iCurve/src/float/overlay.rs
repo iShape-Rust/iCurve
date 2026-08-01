@@ -146,7 +146,60 @@ fn add_converted_resource<P, I, R>(
     assert!(result.is_ok(), "float conversion produced invalid curve topology");
 }
 
-/// Convenience Boolean operations for float curve resources.
+impl<P: FloatPointCompatible> CurveShape<P> {
+    /// Performs a Boolean operation using the standard `i32` engine.
+    pub fn overlay(
+        &self,
+        clip: &(impl CurveResource<P> + ?Sized),
+        overlay_rule: OverlayRule,
+        fill_rule: FillRule,
+    ) -> alloc::vec::Vec<Self> {
+        FloatCurveOverlay::<P, i32>::new(self, clip).overlay(overlay_rule, fill_rule)
+    }
+
+    /// Performs a Boolean operation using an explicitly selected integer engine.
+    pub fn overlay_as<I>(
+        &self,
+        clip: &(impl CurveResource<P> + ?Sized),
+        overlay_rule: OverlayRule,
+        fill_rule: FillRule,
+    ) -> alloc::vec::Vec<Self>
+    where
+        I: IntNumber + Expiration + LayoutNumber + SortKey,
+    {
+        FloatCurveOverlay::<P, I>::new(self, clip).overlay(overlay_rule, fill_rule)
+    }
+}
+
+impl<P: FloatPointCompatible> CurvePath<P> {
+    /// Performs a Boolean operation using the standard `i32` engine.
+    pub fn overlay(
+        &self,
+        clip: &(impl CurveResource<P> + ?Sized),
+        overlay_rule: OverlayRule,
+        fill_rule: FillRule,
+    ) -> alloc::vec::Vec<CurveShape<P>> {
+        FloatCurveOverlay::<P, i32>::new(self, clip).overlay(overlay_rule, fill_rule)
+    }
+
+    /// Performs a Boolean operation using an explicitly selected integer engine.
+    pub fn overlay_as<I>(
+        &self,
+        clip: &(impl CurveResource<P> + ?Sized),
+        overlay_rule: OverlayRule,
+        fill_rule: FillRule,
+    ) -> alloc::vec::Vec<CurveShape<P>>
+    where
+        I: IntNumber + Expiration + LayoutNumber + SortKey,
+    {
+        FloatCurveOverlay::<P, I>::new(self, clip).overlay(overlay_rule, fill_rule)
+    }
+}
+
+/// Convenience Boolean operations for arbitrary float curve resources.
+///
+/// [`CurveShape`] and [`CurvePath`] provide the same methods directly. Import
+/// this trait when the subject is a slice, array, `Vec`, or another resource.
 pub trait SingleFloatCurveOverlay<P: FloatPointCompatible>: CurveResource<P> {
     /// Uses the default internal engine and returns float curves.
     fn overlay(

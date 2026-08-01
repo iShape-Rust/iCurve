@@ -1,7 +1,7 @@
 use i_curve::int::{CurvePath, CurveSegment, CurveShape};
 use i_curve::{
     CurveBuilder, CurveInputError, CurveOverlayOptions, CurveResource, FillRule, FloatCurveOverlay,
-    IntCurveOverlay, IntPoint, OverlayRule, Precision, SingleFloatCurveOverlay, Solver, overlay,
+    IntCurveOverlay, IntPoint, OverlayRule, Precision, Solver, overlay,
 };
 
 fn rectangle(x0: i32, y0: i32, x1: i32, y1: i32) -> CurveShape<i32> {
@@ -127,8 +127,12 @@ fn top_level_float_overlay_hides_integer_conversion() {
     let clip = float_rectangle(4.0, 2.0, 12.0, 8.0);
 
     let result = subject.overlay(&clip, OverlayRule::Difference, FillRule::NonZero);
+    let wide_result = subject.overlay_as::<i64>(&clip, OverlayRule::Intersect, FillRule::NonZero);
+    let path_result = subject.contours()[0].overlay(&clip, OverlayRule::Intersect, FillRule::NonZero);
 
     let _: &[i_curve::FloatCurvePath<[f64; 2]>] = result[0].contours();
+    assert_eq!(wide_result.len(), 1);
+    assert_eq!(path_result.len(), 1);
     assert!(
         result
             .iter()
@@ -139,6 +143,8 @@ fn top_level_float_overlay_hides_integer_conversion() {
 
 #[test]
 fn float_curve_resources_accept_shape_collections_and_paths() {
+    use i_curve::SingleFloatCurveOverlay as _;
+
     let subjects = [
         float_rectangle(0.0, 0.0, 2.0, 2.0),
         float_rectangle(4.0, 0.0, 6.0, 2.0),

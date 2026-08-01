@@ -139,10 +139,20 @@ assert_eq!(shape.contours().len(), 1);
 
 ## Boolean operations
 
-For the common two-shape case, import `SingleFloatCurveOverlay` and call:
+For the common shape case, `overlay` is an inherent method, so no extension
+trait import is needed:
 
-```text
-subject.overlay(&clip, overlay_rule, fill_rule)
+```rust
+use i_curve::{FillRule, FloatCurveShape, OverlayRule};
+
+# fn example(subject: &FloatCurveShape<[f64; 2]>, clip: &FloatCurveShape<[f64; 2]>) {
+let result = subject.overlay(
+    clip,
+    OverlayRule::Intersect,
+    FillRule::NonZero,
+);
+# let _ = result;
+# }
 ```
 
 `OverlayRule` provides:
@@ -158,9 +168,9 @@ The return type is `Vec<FloatCurveShape<P>>`, where `P` is the same point type
 used by the input. A result can contain multiple shapes, each containing one or
 more closed contours.
 
-Both operands implement `CurveResource`, so the same API accepts a single
-`FloatCurvePath`, a `FloatCurveShape`, or a slice, array, or `Vec` of paths or
-shapes. Every path in one resource belongs to the same subject or clip operand:
+`FloatCurvePath` also provides `overlay` directly. For a slice, array, `Vec`,
+or another `CurveResource`, import `SingleFloatCurveOverlay`. Every path in one
+resource belongs to the same subject or clip operand:
 
 ```rust
 use i_curve::{FillRule, OverlayRule, SingleFloatCurveOverlay};
