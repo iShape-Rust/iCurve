@@ -284,15 +284,19 @@ for shape in result {
 Float shapes, paths, segments, and arcs implement `Debug`. Shapes and paths
 also provide `len`, `is_empty`, `iter`, `AsRef`, and owned or borrowed
 `IntoIterator` implementations. Use `into_contours()` or `into_parts()` to
-take a result apart without cloning:
+take a result apart without cloning, then `try_new` to validate and rebuild it:
 
 ```rust
-# fn consume(shape: i_curve::FloatCurveShape<[f64; 2]>) {
+use i_curve::{FloatCurvePath, FloatCurveShape};
+
+# fn rebuild(shape: FloatCurveShape<[f64; 2]>) -> Result<FloatCurveShape<[f64; 2]>, i_curve::CurveBuildError> {
+let mut contours = Vec::new();
 for contour in shape {
     let (start, segments) = contour.into_parts();
-    // Move `segments` directly into a renderer or another representation.
-    let _ = (start, segments);
+    // Transform `segments` here without cloning them.
+    contours.push(FloatCurvePath::try_new(start, segments)?);
 }
+FloatCurveShape::try_new(contours)
 # }
 ```
 

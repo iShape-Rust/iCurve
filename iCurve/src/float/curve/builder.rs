@@ -1,12 +1,11 @@
 use crate::float::curve::arc::{
     EllipticArc, EllipticArcError, RationalArc, RationalArcError, is_finite_point,
 };
-use crate::float::curve::path::CurvePath;
+use crate::float::curve::path::{CurvePath, same_point};
 use crate::float::curve::segment::CurveSegment;
 use crate::float::curve::shape::CurveShape;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
-use i_overlay::i_float::float::number::FloatNumber;
 
 /// Mutable builder for closed float curve paths.
 ///
@@ -28,6 +27,7 @@ pub enum CurveError {
     NonFiniteBounds,
     Arc(EllipticArcError),
     RationalArc(RationalArcError),
+    DisconnectedArc,
 }
 
 impl From<EllipticArcError> for CurveError {
@@ -53,6 +53,7 @@ impl core::fmt::Display for CurveError {
             Self::NonFiniteBounds => formatter.write_str("curve bounds must be finite"),
             Self::Arc(error) => write!(formatter, "invalid elliptic arc: {error}"),
             Self::RationalArc(error) => write!(formatter, "invalid rational arc: {error}"),
+            Self::DisconnectedArc => formatter.write_str("an arc must start at the current path point"),
         }
     }
 }
@@ -156,28 +157,26 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
         let shape = CurveShape {
             contours: core::mem::take(&mut self.contours),
         };
-        let bounds = shape.bounds();
-        let finite_bounds = bounds.min_x.to_f64().is_finite()
-            && bounds.max_x.to_f64().is_finite()
-            && bounds.min_y.to_f64().is_finite()
-            && bounds.max_y.to_f64().is_finite()
-            && bounds.width().to_f64().is_finite()
-            && bounds.height().to_f64().is_finite();
-
-        if finite_bounds {
-            Ok(shape)
-        } else {
+        if let Err(error) = shape.validate() {
             self.contours = shape.contours;
             if had_current {
                 self.current = self.contours.pop();
             }
-            Err(CurveError::NonFiniteBounds)
+            Err(error)
+        } else {
+            Ok(shape)
         }
     }
 
     fn push_segment(&mut self, segment: CurveSegment<P>) -> Result<(), CurveError> {
         match self.current.as_mut() {
             Some(path) => {
+                if let CurveSegment::Arc { arc } = &segment {
+                    let current = path.end_point().unwrap_or(path.start);
+                    if !same_point(current, arc.start_point()) {
+                        return Err(CurveError::DisconnectedArc);
+                    }
+                }
                 path.segments.push(segment);
                 Ok(())
             }
@@ -189,12 +188,7 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
         let Some(path) = self.current.as_ref() else {
             return Ok(());
         };
-        if path.segments.is_empty() {
-            return Err(CurveError::EmptyPath);
-        }
-        if !path.is_closed() {
-            return Err(CurveError::UnclosedContour);
-        }
+        path.validate()?;
         let path = self.current.take().expect("current path was validated above");
         self.contours.push(path);
         Ok(())
@@ -319,6 +313,29 @@ mod tests {
             arc,
             Err(CurveError::Arc(EllipticArcError::SweepTooLarge))
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_disconnected_arcs_in_builder_and_path_constructor() -> Result<(), CurveError> {
+        let arc = EllipticArc {
+            ellipse: Ellipse {
+                center: [0.0, 0.0],
+                radius_x: 5.0,
+                radius_y: 5.0,
+                rotation: 0.0,
+            },
+            start_angle: 0.0,
+            sweep_angle: core::f64::consts::FRAC_PI_2,
+        };
+
+        let mut builder = CurveBuilder::new();
+        let error = builder.move_to([0.0, 0.0])?.arc_to(arc);
+        assert!(matches!(error, Err(CurveError::DisconnectedArc)));
+
+        let rational = arc.to_rational_arcs()?.remove(0);
+        let error = CurvePath::try_new([0.0, 0.0], alloc::vec![CurveSegment::Arc { arc: rational }]);
+        assert!(matches!(error, Err(CurveError::DisconnectedArc)));
         Ok(())
     }
 

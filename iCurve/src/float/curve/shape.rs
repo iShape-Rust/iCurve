@@ -1,4 +1,6 @@
+use crate::float::curve::builder::CurveError;
 use crate::float::curve::path::CurvePath;
+use crate::float::curve::path::finite_rect;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::rect::FloatRect;
@@ -22,6 +24,21 @@ where
 }
 
 impl<P: FloatPointCompatible> CurveShape<P> {
+    /// Creates a validated shape from closed contours.
+    pub fn try_new(contours: Vec<CurvePath<P>>) -> Result<Self, CurveError> {
+        let shape = Self { contours };
+        shape.validate()?;
+        Ok(shape)
+    }
+
+    /// Creates a shape containing one validated closed path.
+    #[inline]
+    pub fn from_path(path: CurvePath<P>) -> Self {
+        Self {
+            contours: alloc::vec![path],
+        }
+    }
+
     /// Returns the contours in this shape.
     #[inline]
     pub fn contours(&self) -> &[CurvePath<P>] {
@@ -63,6 +80,35 @@ impl<P: FloatPointCompatible> CurveShape<P> {
             .map(CurvePath::bounds)
             .reduce(FloatRect::with_rects)
             .unwrap_or_else(FloatRect::zero)
+    }
+
+    pub(crate) fn validate(&self) -> Result<(), CurveError> {
+        if self.contours.is_empty() {
+            return Err(CurveError::NoContours);
+        }
+        for contour in &self.contours {
+            contour.validate()?;
+        }
+        if !finite_rect(&self.bounds()) {
+            return Err(CurveError::NonFiniteBounds);
+        }
+        Ok(())
+    }
+}
+
+impl<P: FloatPointCompatible> From<CurvePath<P>> for CurveShape<P> {
+    #[inline]
+    fn from(path: CurvePath<P>) -> Self {
+        Self::from_path(path)
+    }
+}
+
+impl<P: FloatPointCompatible> TryFrom<Vec<CurvePath<P>>> for CurveShape<P> {
+    type Error = CurveError;
+
+    #[inline]
+    fn try_from(contours: Vec<CurvePath<P>>) -> Result<Self, Self::Error> {
+        Self::try_new(contours)
     }
 }
 

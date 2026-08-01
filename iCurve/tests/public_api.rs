@@ -227,4 +227,24 @@ fn float_results_support_debug_and_container_conversions() {
     let (start, segments) = contour.into_parts();
     assert_eq!(start, expected_start);
     assert_eq!(segments.len(), borrowed_segment_count);
+
+    let rebuilt_contour = i_curve::FloatCurvePath::try_new(start, segments).unwrap();
+    let rebuilt_from_parts: i_curve::FloatCurvePath<[f64; 2]> =
+        rebuilt_contour.clone().into_parts().try_into().unwrap();
+    assert_eq!(rebuilt_from_parts, rebuilt_contour);
+
+    let shape_from_path: i_curve::FloatCurveShape<[f64; 2]> = rebuilt_contour.clone().into();
+    let rebuilt_shape = i_curve::FloatCurveShape::try_new(vec![rebuilt_contour.clone()]).unwrap();
+    let rebuilt_from_contours: i_curve::FloatCurveShape<[f64; 2]> = vec![rebuilt_contour].try_into().unwrap();
+    assert_eq!(shape_from_path, rebuilt_shape);
+    assert_eq!(rebuilt_from_contours, rebuilt_shape);
+
+    assert_eq!(
+        i_curve::FloatCurvePath::<[f64; 2]>::try_new([0.0, 0.0], vec![]),
+        Err(i_curve::CurveBuildError::EmptyPath)
+    );
+    assert_eq!(
+        i_curve::FloatCurveShape::<[f64; 2]>::try_new(vec![]),
+        Err(i_curve::CurveBuildError::NoContours)
+    );
 }

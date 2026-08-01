@@ -1,7 +1,9 @@
 use crate::float::curve::arc::is_finite_point;
+use crate::float::curve::builder::CurveError;
 use crate::float::curve::segment::CurveSegment;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
+use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::rect::FloatRect;
 
 #[derive(Clone, PartialEq)]
@@ -25,6 +27,13 @@ where
 }
 
 impl<P: FloatPointCompatible> CurvePath<P> {
+    /// Creates a validated closed path from a start point and connected segments.
+    pub fn try_new(start: P, segments: Vec<CurveSegment<P>>) -> Result<Self, CurveError> {
+        let path = Self { start, segments };
+        path.validate()?;
+        Ok(path)
+    }
+
     /// Returns the first point of this path.
     #[inline]
     pub fn start(&self) -> P {
@@ -109,6 +118,53 @@ impl<P: FloatPointCompatible> CurvePath<P> {
 
         bounds.unwrap_or_else(FloatRect::zero)
     }
+
+    pub(crate) fn validate(&self) -> Result<(), CurveError> {
+        validate_point(self.start)?;
+        if self.segments.is_empty() {
+            return Err(CurveError::EmptyPath);
+        }
+
+        let mut current = self.start;
+        for segment in &self.segments {
+            match segment {
+                CurveSegment::Line { to } => validate_point(*to)?,
+                CurveSegment::Quad { ctrl, to } => {
+                    validate_point(*ctrl)?;
+                    validate_point(*to)?;
+                }
+                CurveSegment::Cubic { ctrl0, ctrl1, to } => {
+                    validate_point(*ctrl0)?;
+                    validate_point(*ctrl1)?;
+                    validate_point(*to)?;
+                }
+                CurveSegment::Arc { arc } => {
+                    arc.validate()?;
+                    if !same_point(current, arc.start_point()) {
+                        return Err(CurveError::DisconnectedArc);
+                    }
+                }
+            }
+            current = segment.end_point();
+        }
+
+        if !same_point(current, self.start) {
+            return Err(CurveError::UnclosedContour);
+        }
+        if !finite_rect(&self.bounds()) {
+            return Err(CurveError::NonFiniteBounds);
+        }
+        Ok(())
+    }
+}
+
+impl<P: FloatPointCompatible> TryFrom<(P, Vec<CurveSegment<P>>)> for CurvePath<P> {
+    type Error = CurveError;
+
+    #[inline]
+    fn try_from((start, segments): (P, Vec<CurveSegment<P>>)) -> Result<Self, Self::Error> {
+        Self::try_new(start, segments)
+    }
 }
 
 impl<P: FloatPointCompatible> AsRef<[CurveSegment<P>]> for CurvePath<P> {
@@ -142,4 +198,28 @@ impl<'a, P: FloatPointCompatible> IntoIterator for &'a CurvePath<P> {
 fn add_point<P: FloatPointCompatible>(bounds: &mut Option<FloatRect<P::Scalar>>, point: P) {
     debug_assert!(is_finite_point(point));
     FloatRect::optional_add_point(bounds, &point);
+}
+
+#[inline]
+fn validate_point<P: FloatPointCompatible>(point: P) -> Result<(), CurveError> {
+    if is_finite_point(point) {
+        Ok(())
+    } else {
+        Err(CurveError::NonFinitePoint)
+    }
+}
+
+#[inline]
+pub(crate) fn same_point<P: FloatPointCompatible>(a: P, b: P) -> bool {
+    a.x() == b.x() && a.y() == b.y()
+}
+
+#[inline]
+pub(crate) fn finite_rect<F: FloatNumber>(rect: &FloatRect<F>) -> bool {
+    rect.min_x.to_f64().is_finite()
+        && rect.max_x.to_f64().is_finite()
+        && rect.min_y.to_f64().is_finite()
+        && rect.max_y.to_f64().is_finite()
+        && rect.width().to_f64().is_finite()
+        && rect.height().to_f64().is_finite()
 }

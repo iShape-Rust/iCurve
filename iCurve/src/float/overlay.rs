@@ -469,6 +469,8 @@ mod tests {
                 .iter()
                 .any(|segment| matches!(segment, FloatCurveSegment::Arc { arc } if arc.sweep_angle > 0.0))
         );
+        let rebuilt = CurveShape::try_new(result[0].clone().into_contours()).unwrap();
+        assert_eq!(rebuilt, result[0]);
     }
 
     #[test]
