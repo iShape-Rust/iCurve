@@ -3,6 +3,7 @@ use crate::int::bool::slice::{CurveMark, CurveSlice};
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::{SegmentParam, interpolate_segment_param};
 use alloc::vec::Vec;
+use i_key_sort::sort::one_key_cmp::OneKeyAndCmpSort;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
@@ -32,13 +33,18 @@ impl<I: IntNumber> CurveSplitMark<I> {
         }
     }
 
-    pub(crate) fn sort_and_dedup(marks: &mut Vec<Self>) {
-        marks.sort_unstable_by(|a, b| {
-            a.edge_index
-                .cmp(&b.edge_index)
-                .then_with(|| a.param.value().cmp(&b.param.value()))
-                .then_with(|| a.point.cmp(&b.point))
-        });
+    pub(crate) fn sort_and_dedup(marks: &mut Vec<Self>, buffer: &mut Vec<Self>) {
+        marks.sort_by_one_key_then_by_and_buffer(
+            false,
+            buffer,
+            |m| m.edge_index,
+            |m0, m1| {
+                m0.param
+                    .value()
+                    .cmp(&m1.param.value())
+                    .then_with(|| m0.point.cmp(&m1.point))
+            },
+        );
         marks.dedup();
     }
 }

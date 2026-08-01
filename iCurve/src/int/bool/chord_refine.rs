@@ -26,6 +26,7 @@ pub(crate) struct ChordTopologyRefiner<I: IntNumber> {
     bounds: Vec<CurveHullBounds<I>>,
     active: Vec<CurveHullBounds<I>>,
     split_marks: Vec<CurveSplitMark<I>>,
+    split_marks_buffer: Vec<CurveSplitMark<I>>,
     splitter: CurveEdgeSplitter<I>,
 }
 
@@ -44,6 +45,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
             bounds: Vec::new(),
             active: Vec::new(),
             split_marks: Vec::new(),
+            split_marks_buffer: Vec::new(),
             splitter: CurveEdgeSplitter::new(),
         }
     }
@@ -126,7 +128,7 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
             self.active.push(current);
         }
 
-        CurveSplitMark::sort_and_dedup(&mut self.split_marks);
+        CurveSplitMark::sort_and_dedup(&mut self.split_marks, &mut self.split_marks_buffer);
         crossed_chords
     }
 

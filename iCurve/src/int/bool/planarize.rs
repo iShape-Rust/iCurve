@@ -3,6 +3,7 @@ use crate::int::bool::slice::CurveSlice;
 use crate::int::bool::split::{CurveEdgeSplitter, CurveSplitMark};
 use crate::kernel::int::cross::intersector::{SegmentIntersectionBuffer, SegmentIntersector, SplitOptions};
 use alloc::vec::Vec;
+use i_key_sort::sort::one_key_cmp::OneKeyAndCmpSort;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::rect::IntRect;
 
@@ -14,18 +15,22 @@ struct CurveEdgeBounds<I: IntNumber> {
 
 pub(crate) struct CurvePlanarizer<I: IntNumber> {
     bounds: Vec<CurveEdgeBounds<I>>,
+    bounds_buffer: Vec<CurveEdgeBounds<I>>,
     active: Vec<CurveEdgeBounds<I>>,
     split_marks: Vec<CurveSplitMark<I>>,
+    split_marks_buffer: Vec<CurveSplitMark<I>>,
     splitter: CurveEdgeSplitter<I>,
     intersection_buffer: SegmentIntersectionBuffer<I>,
 }
 
-impl<I: IntNumber> CurvePlanarizer<I> {
+impl<I: IntNumber + i_key_sort::sort::key::SortKey> CurvePlanarizer<I> {
     pub(crate) fn new() -> Self {
         Self {
             bounds: Vec::new(),
+            bounds_buffer: Vec::new(),
             active: Vec::new(),
             split_marks: Vec::new(),
+            split_marks_buffer: Vec::new(),
             splitter: CurveEdgeSplitter::new(),
             intersection_buffer: SegmentIntersectionBuffer::default(),
         }
@@ -72,8 +77,12 @@ impl<I: IntNumber> CurvePlanarizer<I> {
             self.bounds.push(CurveEdgeBounds { edge_index, rect });
         }
 
-        self.bounds
-            .sort_unstable_by_key(|item| (item.rect.min_x, item.rect.min_y));
+        self.bounds.sort_by_one_key_then_by_and_buffer(
+            false,
+            &mut self.bounds_buffer,
+            |item| item.rect.min_x,
+            |it0, it1| it0.rect.min_y.cmp(&it1.rect.min_y),
+        );
     }
 
     fn collect_split_marks(&mut self, edges: &[CurveEdge<I>], cross_radius: I::Wide) {
@@ -118,7 +127,7 @@ impl<I: IntNumber> CurvePlanarizer<I> {
             self.active.push(current);
         }
 
-        CurveSplitMark::sort_and_dedup(&mut self.split_marks);
+        CurveSplitMark::sort_and_dedup(&mut self.split_marks, &mut self.split_marks_buffer);
     }
 }
 

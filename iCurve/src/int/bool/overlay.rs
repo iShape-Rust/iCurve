@@ -25,7 +25,7 @@ pub struct IntCurveOverlay<I: IntNumber> {
     pub(crate) curve_edges: Vec<CurveEdge<I>>,
 }
 
-impl<I: IntNumber> IntCurveOverlay<I> {
+impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
     pub fn new(capacity: usize) -> Self {
         Self {
             solver: Solver::default(),
