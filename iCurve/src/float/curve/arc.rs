@@ -85,7 +85,7 @@ impl core::error::Error for EllipticArcError {}
 impl core::fmt::Display for RationalArcError {
     fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::Elliptic(error) => error.fmt(formatter),
+            Self::Elliptic(_) => formatter.write_str("invalid supporting elliptic arc"),
             Self::NonFiniteControlPoint => formatter.write_str("arc control points must be finite"),
             Self::NonFiniteWeight => formatter.write_str("arc weights must be finite"),
             Self::NonPositiveWeight => formatter.write_str("arc weights must be positive"),
@@ -93,7 +93,14 @@ impl core::fmt::Display for RationalArcError {
     }
 }
 
-impl core::error::Error for RationalArcError {}
+impl core::error::Error for RationalArcError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::Elliptic(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl<P: FloatPointCompatible> Ellipse<P> {
     #[inline]

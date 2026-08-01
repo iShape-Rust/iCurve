@@ -85,14 +85,22 @@ impl core::fmt::Display for CurveError {
             Self::NoContours => formatter.write_str("a curve shape must contain at least one contour"),
             Self::NonFinitePoint => formatter.write_str("curve points must be finite"),
             Self::NonFiniteBounds => formatter.write_str("curve bounds must be finite"),
-            Self::Arc(error) => write!(formatter, "invalid elliptic arc: {error}"),
-            Self::RationalArc(error) => write!(formatter, "invalid rational arc: {error}"),
+            Self::Arc(_) => formatter.write_str("invalid elliptic arc"),
+            Self::RationalArc(_) => formatter.write_str("invalid rational arc"),
             Self::DisconnectedArc => formatter.write_str("an arc must start at the current path point"),
         }
     }
 }
 
-impl core::error::Error for CurveError {}
+impl core::error::Error for CurveError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::Arc(error) => Some(error),
+            Self::RationalArc(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl<P: FloatPointCompatible> Default for CurveBuilder<P> {
     fn default() -> Self {
@@ -346,6 +354,30 @@ mod tests {
             Err(CurveError::Arc(EllipticArcError::SweepTooLarge))
         ));
         Ok(())
+    }
+
+    #[test]
+    fn nested_curve_errors_preserve_the_full_source_chain() {
+        let error = CurveError::RationalArc(RationalArcError::Elliptic(EllipticArcError::NonPositiveRadius));
+
+        assert_eq!(alloc::format!("{error}"), "invalid rational arc");
+        let rational_source = core::error::Error::source(&error).unwrap();
+        assert!(rational_source.is::<RationalArcError>());
+        assert_eq!(
+            alloc::format!("{rational_source}"),
+            "invalid supporting elliptic arc"
+        );
+
+        let elliptic_source = rational_source.source().unwrap();
+        assert!(elliptic_source.is::<EllipticArcError>());
+        assert_eq!(
+            alloc::format!("{elliptic_source}"),
+            "ellipse radii must be positive"
+        );
+        assert!(elliptic_source.source().is_none());
+
+        let direct = CurveError::Arc(EllipticArcError::ZeroSweep);
+        assert!(core::error::Error::source(&direct).is_some_and(|source| source.is::<EllipticArcError>()));
     }
 
     #[test]

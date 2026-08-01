@@ -72,7 +72,7 @@ impl core::fmt::Display for FloatCurveOverlayOptionsError {
             Self::AngleToleranceOutOfRange => {
                 formatter.write_str("angle tolerance must be in the range (0, 1]")
             }
-            Self::Approximation(error) => error.fmt(formatter),
+            Self::Approximation(_) => formatter.write_str("invalid curve approximation options"),
         }
     }
 }
@@ -604,7 +604,18 @@ mod tests {
                 }
             )
         );
-        assert!(core::error::Error::source(&error).is_some());
+        assert_eq!(alloc::format!("{error}"), "invalid curve approximation options");
+        let source = core::error::Error::source(&error).unwrap();
+        assert!(source.is::<CurveOverlayOptionsError>());
+        assert_eq!(
+            alloc::format!("{source}"),
+            alloc::format!(
+                "maximum approximation depth {} exceeds the safety limit {}",
+                CurveOverlayOptions::MAX_APPROXIMATION_DEPTH + 1,
+                CurveOverlayOptions::MAX_APPROXIMATION_DEPTH
+            )
+        );
+        assert!(source.source().is_none());
     }
 
     #[test]
