@@ -82,14 +82,6 @@ impl<P: FloatPointCompatible> CurveShape<P> {
         self.contours.iter().map(|path| path.segments.len()).sum()
     }
 
-    pub(crate) fn bounds(&self) -> FloatRect<P::Scalar> {
-        self.contours
-            .iter()
-            .map(CurvePath::bounds)
-            .reduce(FloatRect::with_rects)
-            .unwrap_or_else(FloatRect::zero)
-    }
-
     pub(crate) fn validate_contours(contours: &[CurvePath<P>]) -> Result<(), CurveError> {
         if contours.is_empty() {
             return Err(CurveError::NoContours);

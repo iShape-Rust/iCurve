@@ -175,7 +175,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let converter = CurveConverter::<_, i32>::try_with_scale(input, SCALE).unwrap();
+        let converter = CurveConverter::<_, i32>::try_with_scale(&input, SCALE).unwrap();
         let int_shape = converter.into_shape();
         assert_eq!(int_shape.contours.len(), 2);
         let capacity = int_shape

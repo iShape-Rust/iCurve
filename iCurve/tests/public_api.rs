@@ -128,9 +128,11 @@ fn float_builder_is_at_top_level_and_converter_is_scoped() {
         .build()
         .unwrap();
 
-    let converter = i_curve::float::CurveConverter::<_, i32>::new(source);
+    let converter = i_curve::float::CurveConverter::<_, i32>::new(&source);
     let _: &i_curve::float::FloatPointAdapter<[f64; 2], i32> = converter.adapter();
+    assert!(converter.scale() > 0.0);
     assert!(converter.shape().contours[0].is_closed());
+    assert_eq!(source.contours().len(), 1);
 
     fn assert_int_number<I: i_curve::int::IntNumber>() {}
     assert_int_number::<i64>();
@@ -190,6 +192,11 @@ fn float_curve_resources_accept_shape_collections_and_paths() {
     let clip = float_rectangle(1.0, -1.0, 5.0, 3.0);
     let clip_path = &clip.contours()[0];
 
+    let converted = i_curve::float::CurveConverter::<_, i32>::new(&subjects);
+    assert_eq!(converted.shape().contours.len(), 2);
+    let converted = i_curve::float::CurveConverter::<_, i32>::new(clip_path);
+    assert_eq!(converted.shape().contours.len(), 1);
+
     let result = subjects
         .as_slice()
         .overlay(clip_path, OverlayRule::Intersect, FillRule::NonZero);
@@ -200,6 +207,8 @@ fn float_curve_resources_accept_shape_collections_and_paths() {
     assert_eq!(result.len(), 2);
 
     let empty: [i_curve::FloatCurveShape<[f64; 2]>; 0] = [];
+    let converted = i_curve::float::CurveConverter::<_, i32>::new(&empty);
+    assert!(converted.shape().contours.is_empty());
     let result =
         FloatCurveOverlay::<_, i32>::new(&empty, &clip).overlay(OverlayRule::Clip, FillRule::NonZero);
     assert_eq!(result.len(), 1);

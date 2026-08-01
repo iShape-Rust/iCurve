@@ -360,6 +360,9 @@ Applications that already store validated fixed-point geometry can use
 `CurveConverter` and `FloatPointAdapter` are available under `i_curve::float`
 for manual conversion workflows. Engine-generic APIs use the sealed
 `i_curve::int::CurveInt` trait, implemented for `i16`, `i32`, and `i64`.
+`CurveConverter::new(&resource)` accepts the same paths, shapes, and collections
+as the float overlay API. It flattens their paths into one integer shape;
+contours that collapse completely on the selected grid are omitted.
 
 The integer layer is not required for ordinary `f32`/`f64` use. Its coordinate
 limits and approximation options are documented in the

@@ -4,6 +4,7 @@ use crate::float::curve::path::CurvePath;
 use crate::float::curve::shape::CurveShape;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
+use i_overlay::i_float::float::rect::FloatRect;
 
 pub(crate) mod private {
     use super::{CurvePath, CurveShape, FloatPointCompatible};
@@ -215,6 +216,17 @@ where
     fn iter_paths(&self) -> Self::ResourceIter<'_> {
         private::CurveShapesResourceIter::new(self)
     }
+}
+
+pub(crate) fn resource_bounds<P, R>(resource: &R) -> Option<FloatRect<P::Scalar>>
+where
+    P: FloatPointCompatible,
+    R: CurveResource<P> + ?Sized,
+{
+    resource
+        .iter_paths()
+        .map(CurvePath::bounds)
+        .reduce(FloatRect::with_rects)
 }
 
 #[cfg(test)]

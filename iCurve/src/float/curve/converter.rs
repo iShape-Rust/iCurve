@@ -2,7 +2,7 @@ use crate::float::curve::arc::{Ellipse, RationalArc};
 use crate::float::curve::path::CurvePath as FloatCurvePath;
 use crate::float::curve::segment::CurveSegment as FloatCurveSegment;
 use crate::float::curve::shape::CurveShape as FloatCurveShape;
-use crate::float::resource::CurveResource;
+use crate::float::resource::{CurveResource, resource_bounds};
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
 use crate::int::{
     CurveInt, CurvePath as IntCurvePath, CurveSegment as IntCurveSegment, CurveShape as IntCurveShape,
@@ -12,13 +12,18 @@ use alloc::vec::Vec;
 use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterScaleError};
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
+use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::fixed_scale::FixedScale;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
-/// Converted integer contours together with the adapter that defines their
-/// coordinate system.
+/// A curve resource converted into one integer shape together with the adapter
+/// that defines its coordinate system.
+///
+/// Every path in the source resource becomes a contour of the returned shape.
+/// Paths that collapse completely on the selected integer grid are omitted,
+/// so the integer shape may be empty.
 pub struct CurveConverter<P: FloatPointCompatible, I: CurveInt> {
     adapter: FloatPointAdapter<P, I>,
     shape: IntCurveShape<I>,
@@ -65,26 +70,34 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
     /// use extended-width products separately.
     const COORDINATE_BITS: u32 = I::BITS - CURVE_COORDINATE_SAFETY_BITS;
 
-    /// Chooses the largest safe power-of-two scale for all source contours and
-    /// converts them immediately.
-    pub fn new(source: FloatCurveShape<P>) -> Self {
-        let adapter = FloatPointAdapter::with_coordinate_bits(source.bounds(), Self::COORDINATE_BITS);
-        let shape = convert_shape(source, &adapter);
+    /// Chooses the largest safe power-of-two scale for all paths in a curve
+    /// resource and converts them immediately.
+    pub fn new<R>(source: &R) -> Self
+    where
+        R: CurveResource<P> + ?Sized,
+    {
+        let bounds = resource_bounds(source).unwrap_or_else(FloatRect::zero);
+        let adapter = FloatPointAdapter::with_coordinate_bits(bounds, Self::COORDINATE_BITS);
+        let shape = convert_resource(source, &adapter);
         Self { adapter, shape }
     }
 
-    /// Converts all source contours with an explicitly requested scale.
-    pub fn try_with_scale(
-        source: FloatCurveShape<P>,
-        scale: P::Scalar,
-    ) -> Result<Self, CurveConversionError> {
-        let adapter = FloatPointAdapter::try_with_scale_and_coordinate_bits(
-            source.bounds(),
-            scale,
-            Self::COORDINATE_BITS,
-        )?;
-        let shape = convert_shape(source, &adapter);
+    /// Converts all paths in a curve resource with an explicitly requested scale.
+    pub fn try_with_scale<R>(source: &R, scale: P::Scalar) -> Result<Self, CurveConversionError>
+    where
+        R: CurveResource<P> + ?Sized,
+    {
+        let bounds = resource_bounds(source).unwrap_or_else(FloatRect::zero);
+        let adapter =
+            FloatPointAdapter::try_with_scale_and_coordinate_bits(bounds, scale, Self::COORDINATE_BITS)?;
+        let shape = convert_resource(source, &adapter);
         Ok(Self { adapter, shape })
+    }
+
+    /// Returns the effective float-to-integer conversion scale.
+    #[inline]
+    pub fn scale(&self) -> P::Scalar {
+        self.adapter.dir_scale()
     }
 
     #[inline]
@@ -108,13 +121,6 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
     }
 }
 
-pub(crate) fn convert_shape<P: FloatPointCompatible, I: IntNumber>(
-    source: FloatCurveShape<P>,
-    adapter: &FloatPointAdapter<P, I>,
-) -> IntCurveShape<I> {
-    convert_resource(&source, adapter)
-}
-
 pub(crate) fn convert_resource<P, I, R>(source: &R, adapter: &FloatPointAdapter<P, I>) -> IntCurveShape<I>
 where
     P: FloatPointCompatible,
@@ -123,7 +129,7 @@ where
 {
     let contours = source
         .iter_paths()
-        .filter_map(|path| convert_path((*path).clone(), adapter))
+        .filter_map(|path| convert_path(path, adapter))
         .collect();
     IntCurveShape { contours }
 }
@@ -241,35 +247,35 @@ fn directed_sweep<F: FloatNumber>(start: F, end: F, direction: ArcDirection) -> 
 }
 
 fn convert_path<P: FloatPointCompatible, I: IntNumber>(
-    source: FloatCurvePath<P>,
+    source: &FloatCurvePath<P>,
     adapter: &FloatPointAdapter<P, I>,
 ) -> Option<IntCurvePath<I>> {
     let start = adapter.float_to_int(&source.start);
     let mut current = start;
     let mut segments = Vec::with_capacity(source.segments.len());
 
-    for segment in source.segments {
+    for segment in &source.segments {
         match segment {
             FloatCurveSegment::Line { to } => {
-                let to = adapter.float_to_int(&to);
+                let to = adapter.float_to_int(to);
                 segments.push(IntCurveSegment::Line { to });
                 current = to;
             }
             FloatCurveSegment::Quad { ctrl, to } => {
-                let ctrl = adapter.float_to_int(&ctrl);
-                let to = adapter.float_to_int(&to);
+                let ctrl = adapter.float_to_int(ctrl);
+                let to = adapter.float_to_int(to);
                 segments.push(IntCurveSegment::Quad { ctrl, to });
                 current = to;
             }
             FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => {
-                let ctrl0 = adapter.float_to_int(&ctrl0);
-                let ctrl1 = adapter.float_to_int(&ctrl1);
-                let to = adapter.float_to_int(&to);
+                let ctrl0 = adapter.float_to_int(ctrl0);
+                let ctrl1 = adapter.float_to_int(ctrl1);
+                let to = adapter.float_to_int(to);
                 segments.push(IntCurveSegment::Cubic { ctrl0, ctrl1, to });
                 current = to;
             }
             FloatCurveSegment::Arc { arc } => {
-                current = append_rational_arc(arc, current, adapter, &mut segments);
+                current = append_rational_arc(*arc, current, adapter, &mut segments);
             }
         }
     }
@@ -494,7 +500,7 @@ mod tests {
 
     #[test]
     fn automatically_selects_adapter_and_converts_all_points() -> Result<(), CurveError> {
-        let converter = CurveConverter::<_, i32>::new(float_shape()?);
+        let converter = CurveConverter::<_, i32>::new(&float_shape()?);
         let shape = converter.shape();
 
         assert_eq!(shape.contours.len(), 1);
@@ -510,23 +516,23 @@ mod tests {
     #[test]
     fn automatic_adapter_reserves_six_coordinate_bits() -> Result<(), CurveError> {
         let source = float_shape()?;
-        let i16_converter = CurveConverter::<_, i16>::new(source.clone());
-        let i32_converter = CurveConverter::<_, i32>::new(source.clone());
-        let i64_converter = CurveConverter::<_, i64>::new(source);
+        let i16_converter = CurveConverter::<_, i16>::new(&source);
+        let i32_converter = CurveConverter::<_, i32>::new(&source);
+        let i64_converter = CurveConverter::<_, i64>::new(&source);
 
-        assert_eq!(i16_converter.adapter().dir_scale(), 2_f64.powi(7));
-        assert_eq!(i32_converter.adapter().dir_scale(), 2_f64.powi(23));
-        assert_eq!(i64_converter.adapter().dir_scale(), 2_f64.powi(55));
+        assert_eq!(i16_converter.scale(), 2_f64.powi(7));
+        assert_eq!(i32_converter.scale(), 2_f64.powi(23));
+        assert_eq!(i64_converter.scale(), 2_f64.powi(55));
         Ok(())
     }
 
     #[test]
     fn requested_scale_is_used_for_conversion() -> Result<(), CurveError> {
         let converter =
-            CurveConverter::<_, i32>::try_with_scale(float_shape()?, 10.0).expect("scale must fit");
+            CurveConverter::<_, i32>::try_with_scale(&float_shape()?, 10.0).expect("scale must fit");
         let shape = converter.shape();
 
-        assert_eq!(converter.adapter().dir_scale(), 10.0);
+        assert_eq!(converter.scale(), 10.0);
         assert_eq!(shape.contours[0].start, IntPoint::new(-50, -50));
         match shape.contours[0].segments[0] {
             IntCurveSegment::Quad { ctrl, to } => {
@@ -540,7 +546,7 @@ mod tests {
 
     #[test]
     fn requested_scale_respects_curve_coordinate_bits() -> Result<(), CurveError> {
-        let error = match CurveConverter::<_, i32>::try_with_scale(float_shape()?, 2_f64.powi(24)) {
+        let error = match CurveConverter::<_, i32>::try_with_scale(&float_shape()?, 2_f64.powi(24)) {
             Ok(_) => panic!("scale above the 26-bit curve range must fail"),
             Err(error) => error,
         };
@@ -551,14 +557,14 @@ mod tests {
 
     #[test]
     fn requested_scale_reports_adapter_errors() -> Result<(), CurveError> {
-        let error = match CurveConverter::<_, i32>::try_with_scale(float_shape()?, 0.0) {
+        let error = match CurveConverter::<_, i32>::try_with_scale(&float_shape()?, 0.0) {
             Ok(_) => panic!("zero scale must fail"),
             Err(error) => error,
         };
 
         assert_eq!(error, CurveConversionError::ScaleNonPositive);
 
-        let error = match CurveConverter::<_, i32>::try_with_scale(float_shape()?, 1.0e20) {
+        let error = match CurveConverter::<_, i32>::try_with_scale(&float_shape()?, 1.0e20) {
             Ok(_) => panic!("unsafe scale must fail"),
             Err(error) => error,
         };
@@ -568,7 +574,7 @@ mod tests {
 
     #[test]
     fn into_parts_preserves_adapter_and_shape() -> Result<(), CurveError> {
-        let converter = CurveConverter::<_, i32>::new(float_shape()?);
+        let converter = CurveConverter::<_, i32>::new(&float_shape()?);
         let (adapter, shape) = converter.into_parts();
 
         assert_eq!(shape.contours.len(), 1);
@@ -579,7 +585,7 @@ mod tests {
     #[test]
     fn full_circle_is_split_at_four_extrema() -> Result<(), CurveError> {
         let converter = CurveConverter::<_, i32>::try_with_scale(
-            arc_shape(10.0, 10.0, 0.0, 0.0, core::f64::consts::TAU)?,
+            &arc_shape(10.0, 10.0, 0.0, 0.0, core::f64::consts::TAU)?,
             1.0,
         )
         .expect("scale must fit");
@@ -627,7 +633,7 @@ mod tests {
     #[test]
     fn partial_arc_is_split_only_at_internal_extrema() -> Result<(), CurveError> {
         let converter = CurveConverter::<_, i32>::try_with_scale(
-            arc_shape(
+            &arc_shape(
                 10.0,
                 10.0,
                 0.0,
@@ -651,7 +657,7 @@ mod tests {
     #[test]
     fn clockwise_circle_preserves_direction_and_order() -> Result<(), CurveError> {
         let converter = CurveConverter::<_, i32>::try_with_scale(
-            arc_shape(10.0, 10.0, 0.0, 0.0, -core::f64::consts::TAU)?,
+            &arc_shape(10.0, 10.0, 0.0, 0.0, -core::f64::consts::TAU)?,
             1.0,
         )
         .expect("scale must fit");
@@ -677,7 +683,7 @@ mod tests {
     #[test]
     fn rotated_ellipse_frame_is_converted_as_vectors() -> Result<(), CurveError> {
         let converter = CurveConverter::<_, i32>::try_with_scale(
-            arc_shape(
+            &arc_shape(
                 10.0,
                 5.0,
                 core::f64::consts::FRAC_PI_2,
@@ -709,7 +715,7 @@ mod tests {
         let rotation = 0.4;
         let scale = 100.0;
         let converter = CurveConverter::<_, i32>::try_with_scale(
-            arc_shape(radius_x, radius_y, rotation, 0.2, core::f64::consts::TAU)?,
+            &arc_shape(radius_x, radius_y, rotation, 0.2, core::f64::consts::TAU)?,
             scale,
         )
         .expect("scale must fit");
@@ -740,7 +746,7 @@ mod tests {
     #[test]
     fn collapsed_ellipse_frame_falls_back_to_lines() -> Result<(), CurveError> {
         let converter = CurveConverter::<_, i32>::try_with_scale(
-            arc_shape(10.0, 0.1, 0.0, 0.0, core::f64::consts::TAU)?,
+            &arc_shape(10.0, 0.1, 0.0, 0.0, core::f64::consts::TAU)?,
             1.0,
         )
         .expect("scale must fit");
@@ -758,7 +764,7 @@ mod tests {
     #[test]
     fn fully_collapsed_arc_contour_is_removed() -> Result<(), CurveError> {
         let converter = CurveConverter::<_, i32>::try_with_scale(
-            arc_shape(0.1, 0.1, 0.0, 0.0, core::f64::consts::TAU)?,
+            &arc_shape(0.1, 0.1, 0.0, 0.0, core::f64::consts::TAU)?,
             1.0,
         )
         .expect("scale must fit");
@@ -782,7 +788,7 @@ mod tests {
                             for direction in [-1.0, 1.0] {
                                 let shape =
                                     arc_shape(radius_x, radius_y, rotation, start, direction * sweep)?;
-                                let converter = CurveConverter::<_, i32>::new(shape);
+                                let converter = CurveConverter::<_, i32>::new(&shape);
                                 assert!(!converter.shape().contours[0].segments.is_empty());
                                 assert_arc_control_polygons_are_monotone(converter.shape());
                             }
@@ -812,7 +818,7 @@ mod tests {
             .arc_to(arc)?
             .close_contour()?
             .build()?;
-        let converter = CurveConverter::<_, i32>::new(shape);
+        let converter = CurveConverter::<_, i32>::new(&shape);
         let arc_count = converter.shape().contours[0]
             .segments
             .iter()
@@ -826,9 +832,9 @@ mod tests {
     #[test]
     fn converts_arc_for_all_integer_widths() -> Result<(), CurveError> {
         let source = arc_shape(10.0, 5.0, 0.37, 0.21, core::f64::consts::TAU)?;
-        let i16_shape = CurveConverter::<_, i16>::new(source.clone());
-        let i32_shape = CurveConverter::<_, i32>::new(source.clone());
-        let i64_shape = CurveConverter::<_, i64>::new(source);
+        let i16_shape = CurveConverter::<_, i16>::new(&source);
+        let i32_shape = CurveConverter::<_, i32>::new(&source);
+        let i64_shape = CurveConverter::<_, i64>::new(&source);
 
         assert!(!i16_shape.shape().contours[0].segments.is_empty());
         assert!(!i32_shape.shape().contours[0].segments.is_empty());
@@ -860,7 +866,7 @@ mod tests {
             .line_to(start)?
             .build()?;
 
-        let converter = CurveConverter::<_, i32>::try_with_scale(shape, 100.0).expect("scale must fit");
+        let converter = CurveConverter::<_, i32>::try_with_scale(&shape, 100.0).expect("scale must fit");
         let IntCurveSegment::Arc { arc } = &converter.shape().contours[0].segments[0] else {
             panic!("expected rational arc");
         };

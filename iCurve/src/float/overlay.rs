@@ -1,7 +1,7 @@
 use crate::float::curve::converter::{convert_resource, convert_shapes_to_float};
 use crate::float::curve::path::CurvePath;
 use crate::float::curve::shape::CurveShape;
-use crate::float::resource::CurveResource;
+use crate::float::resource::{CurveResource, resource_bounds};
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
 use crate::int::{CurveInt, CurveOverlayOptions, CurveOverlayOptionsError, IntCurveOverlay};
 use crate::{CurveConversionError, FillRule, OverlayRule, Solver};
@@ -408,17 +408,6 @@ where
     {
         FloatCurveOverlay::<P, I>::new(self, clip).overlay(overlay_rule, fill_rule)
     }
-}
-
-fn resource_bounds<P, R>(resource: &R) -> Option<FloatRect<P::Scalar>>
-where
-    P: FloatPointCompatible,
-    R: CurveResource<P> + ?Sized,
-{
-    resource
-        .iter_paths()
-        .map(CurvePath::bounds)
-        .reduce(FloatRect::with_rects)
 }
 
 fn combined_bounds<P, R0, R1>(subject: &R0, clip: &R1) -> FloatRect<P::Scalar>
