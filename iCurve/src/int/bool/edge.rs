@@ -1,4 +1,4 @@
-use crate::int::bool::slice::CurveId;
+use crate::int::bool::source::CurveId;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::segment::Segment;
 use i_overlay::i_float::int::number::int::IntNumber;

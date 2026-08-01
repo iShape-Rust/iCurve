@@ -1,9 +1,8 @@
-mod chord_refine;
+mod approximate;
 mod data;
 mod edge;
 pub mod overlay;
 mod planarize;
 mod recompose;
-mod slice;
-mod snap_radius;
+mod source;
 mod split;

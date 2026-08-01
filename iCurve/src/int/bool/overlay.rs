@@ -1,10 +1,10 @@
-use crate::int::bool::chord_refine::{ChordTopologyRefiner, RefineOutcome};
-use crate::int::bool::data::{CurveEdgeData, CurveEdgeDataStore};
+use crate::int::CURVE_COORDINATE_SAFETY_BITS;
+use crate::int::bool::approximate::CurveApproximator;
+use crate::int::bool::data::{CurveEdgeData, CurveEdgeDataStore, CurveSourceSpan};
 use crate::int::bool::edge::CurveEdge;
 use crate::int::bool::planarize::CurvePlanarizer;
 use crate::int::bool::recompose::CurveRecomposer;
-use crate::int::bool::slice::{CurveId, CurveMark, CurveSlice};
-use crate::int::bool::snap_radius::SnapRadius;
+use crate::int::bool::source::{CurveId, CurveSource};
 use crate::int::curve::shape::CurveShape;
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::normalization::canonical::{PushCanonicalSimpleParametricSegment, PushSimpleSegment};
@@ -16,12 +16,36 @@ use i_overlay::core::overlay::ShapeType;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::core::solver::Solver;
 use i_overlay::i_float::int::number::int::IntNumber;
+use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::vector::edge::DataVectorShape;
 use i_tree::{Expiration, LayoutNumber};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CurveOverlayOptions {
+    /// Chords shorter than `2^min_chord_length_power` are accepted without
+    /// further approximation subdivision.
+    pub min_chord_length_power: u32,
+    /// A segment is accepted when its endpoint handles are collinear with its
+    /// chord within a sine tolerance of approximately `2^-angle_tolerance_power`.
+    pub angle_tolerance_power: u32,
+    /// Hard safety limit for local approximation subdivision.
+    pub max_approximation_depth: u32,
+}
+
+impl Default for CurveOverlayOptions {
+    fn default() -> Self {
+        Self {
+            min_chord_length_power: 4,
+            angle_tolerance_power: 3,
+            max_approximation_depth: 16,
+        }
+    }
+}
+
 pub struct IntCurveOverlay<I: IntNumber> {
     pub solver: Solver,
-    pub(crate) curve_slices: Vec<CurveSlice<I>>,
+    pub options: CurveOverlayOptions,
+    pub(crate) curve_sources: Vec<CurveSource<I>>,
     pub(crate) curve_edges: Vec<CurveEdge<I>>,
 }
 
@@ -29,7 +53,8 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
     pub fn new(capacity: usize) -> Self {
         Self {
             solver: Solver::default(),
-            curve_slices: Vec::with_capacity(capacity),
+            options: CurveOverlayOptions::default(),
+            curve_sources: Vec::with_capacity(capacity),
             curve_edges: Vec::with_capacity(capacity),
         }
     }
@@ -38,7 +63,18 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
     pub fn with_solver(capacity: usize, solver: Solver) -> Self {
         Self {
             solver,
-            curve_slices: Vec::with_capacity(capacity),
+            options: CurveOverlayOptions::default(),
+            curve_sources: Vec::with_capacity(capacity),
+            curve_edges: Vec::with_capacity(capacity),
+        }
+    }
+
+    /// Creates an overlay with explicit curve approximation and polygon solver options.
+    pub fn with_options(capacity: usize, solver: Solver, options: CurveOverlayOptions) -> Self {
+        Self {
+            solver,
+            options,
+            curve_sources: Vec::with_capacity(capacity),
             curve_edges: Vec::with_capacity(capacity),
         }
     }
@@ -56,23 +92,12 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
                 simple_curves.push_simple(curve);
 
                 for simple_curve in simple_curves.drain(..) {
-                    let curve_id = CurveId(self.curve_slices.len());
+                    let curve_id = CurveId(self.curve_sources.len());
                     canonical_curves.clear();
                     canonical_curves.push_canonical_simple_parametric(simple_curve);
 
-                    let mut curve_slice = CurveSlice::new(simple_curve, shape_type);
-                    for canonical in &canonical_curves {
-                        let chord = canonical.curve.chord();
-                        curve_slice.add_mark(CurveMark {
-                            point: chord.a,
-                            param: canonical.start,
-                        });
-                        curve_slice.add_mark(CurveMark {
-                            point: chord.b,
-                            param: canonical.end,
-                        });
-                    }
-                    self.curve_slices.push(curve_slice);
+                    self.curve_sources
+                        .push(CurveSource::new(simple_curve, shape_type));
 
                     self.curve_edges
                         .extend(canonical_curves.drain(..).map(|canonical| {
@@ -86,33 +111,20 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
     }
 
     fn prepare(&mut self) {
-        // Split curves until their chords preserve the planar curve topology.
+        // Build a bounded local chord approximation first, then run exactly one
+        // curve-aware planarization pass for nearby/intersecting curve pieces.
+        CurveApproximator::new().approximate(&mut self.curve_edges, self.options);
+
         let mut planarizer = CurvePlanarizer::new();
-        let mut chord_refiner = ChordTopologyRefiner::new();
-        let mut snap_radius = SnapRadius::new::<I>(self.solver.precision);
+        let cross_radius = self.initial_snap_radius();
+        planarizer.planarize(&mut self.curve_edges, cross_radius);
+    }
 
-        loop {
-            let cross_radius = snap_radius.radius::<I>();
-            planarizer.planarize(&mut self.curve_edges, &mut self.curve_slices, cross_radius);
-
-            match chord_refiner.refine(&mut self.curve_edges, &mut self.curve_slices, cross_radius) {
-                RefineOutcome::PlanarityPreserved => break,
-                RefineOutcome::Replanarize {
-                    escaped_marks,
-                    crossed_chords,
-                } => {
-                    #[cfg(all(debug_assertions, feature = "std"))]
-                    std::eprintln!(
-                        "ChordTopologyRefiner: {escaped_marks} marks escaped their source hull and {crossed_chords} chord crossings were refined at squared snap radius {cross_radius}; running CurvePlanarizer again"
-                    );
-
-                    #[cfg(not(all(debug_assertions, feature = "std")))]
-                    let _ = (escaped_marks, crossed_chords);
-
-                    snap_radius.increment();
-                }
-            }
-        }
+    #[inline]
+    fn initial_snap_radius(&self) -> I::Wide {
+        let coordinate_bits = I::BITS - CURVE_COORDINATE_SAFETY_BITS;
+        let max_exponent = 2 * coordinate_bits;
+        I::Wide::ONE << (self.solver.precision.start as u32).min(max_exponent)
     }
 
     fn build_vector_shapes(
@@ -128,14 +140,14 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
 
         for edge in &self.curve_edges {
             let chord = edge.curve.chord();
-            let curve_slice = &self.curve_slices[edge.curve_id.0];
+            let curve_source = &self.curve_sources[edge.curve_id.0];
             edge_overlay.add_edge(
                 InputEdge {
                     a: chord.a,
                     b: chord.b,
-                    data: CurveEdgeData::Single(edge.curve_id),
+                    data: CurveEdgeData::Single(CurveSourceSpan::from_edge(*edge)),
                 },
-                curve_slice.shape_type,
+                curve_source.shape_type,
             );
         }
 
@@ -155,8 +167,8 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
         // Resolve the boolean topology while preserving CurveId provenance.
         let (vector_shapes, data_store) = self.build_vector_shapes(overlay_rule, fill_rule);
 
-        // Restore maximal runs from their source curve slices.
-        CurveRecomposer::new().recompose(vector_shapes, &data_store, &self.curve_slices)
+        // Restore maximal runs from their source curves and parameter spans.
+        CurveRecomposer::new().recompose(vector_shapes, &data_store, &self.curve_sources)
     }
 }
 
@@ -231,17 +243,18 @@ mod tests {
         };
         let mut overlay = IntCurveOverlay {
             solver: Solver::default(),
-            curve_slices: Vec::new(),
+            options: CurveOverlayOptions::default(),
+            curve_sources: Vec::new(),
             curve_edges: Vec::new(),
         };
 
         overlay.add_shape(shape, ShapeType::Subject);
 
-        assert_eq!(overlay.curve_slices.len(), 2);
+        assert_eq!(overlay.curve_sources.len(), 2);
         assert_eq!(overlay.curve_edges.len(), 2);
         assert_eq!(overlay.curve_edges[0].curve_id, CurveId(0));
         assert_eq!(overlay.curve_edges[1].curve_id, CurveId(1));
-        assert_eq!(overlay.curve_slices[0].shape_type, ShapeType::Subject);
+        assert_eq!(overlay.curve_sources[0].shape_type, ShapeType::Subject);
         match overlay.curve_edges[0].curve {
             Segment::Line(line) => assert_eq!(line.control_points, [p0, p1]),
             _ => panic!("expected line segment"),
@@ -271,16 +284,17 @@ mod tests {
         };
         let mut overlay = IntCurveOverlay {
             solver: Solver::default(),
-            curve_slices: Vec::new(),
+            options: CurveOverlayOptions::default(),
+            curve_sources: Vec::new(),
             curve_edges: Vec::new(),
         };
 
         overlay.add_shape(shape, ShapeType::Clip);
 
-        assert_eq!(overlay.curve_slices.len(), 2);
+        assert_eq!(overlay.curve_sources.len(), 2);
         assert_eq!(overlay.curve_edges.len(), 2);
         for edge in &overlay.curve_edges {
-            assert_eq!(overlay.curve_slices[edge.curve_id.0].shape_type, ShapeType::Clip);
+            assert_eq!(overlay.curve_sources[edge.curve_id.0].shape_type, ShapeType::Clip);
             assert!(matches!(edge.curve, Segment::Line(_)));
         }
     }
@@ -303,13 +317,14 @@ mod tests {
         };
         let mut overlay = IntCurveOverlay {
             solver: Solver::default(),
-            curve_slices: Vec::new(),
+            options: CurveOverlayOptions::default(),
+            curve_sources: Vec::new(),
             curve_edges: Vec::new(),
         };
 
         overlay.add_shape(shape, ShapeType::Subject);
 
-        assert_eq!(overlay.curve_slices.len(), 2);
+        assert_eq!(overlay.curve_sources.len(), 2);
         let quad_edges: Vec<_> = overlay
             .curve_edges
             .iter()
@@ -321,12 +336,12 @@ mod tests {
                 .iter()
                 .all(|edge| matches!(edge.curve, Segment::Quad(_)))
         );
-        assert_eq!(overlay.curve_slices[0].marks.len(), 3);
-        for edge in quad_edges {
-            let chord = edge.curve.chord();
-            assert!(overlay.curve_slices[0].param_at(chord.a).is_some());
-            assert!(overlay.curve_slices[0].param_at(chord.b).is_some());
-        }
+        assert_eq!(quad_edges[0].start_param.value(), 0_i64);
+        assert!(quad_edges[0].end_param.value() <= quad_edges[1].start_param.value());
+        assert_eq!(
+            quad_edges[1].end_param.value(),
+            crate::kernel::int::curve::param::SegmentParam::<i32>::DENOMINATOR
+        );
         assert_eq!(overlay.curve_edges.last().unwrap().curve_id, CurveId(1));
     }
 
@@ -349,17 +364,18 @@ mod tests {
         };
         let mut overlay = IntCurveOverlay {
             solver: Solver::default(),
-            curve_slices: Vec::new(),
+            options: CurveOverlayOptions::default(),
+            curve_sources: Vec::new(),
             curve_edges: Vec::new(),
         };
 
         overlay.add_shape(shape, ShapeType::Subject);
 
-        assert_eq!(overlay.curve_slices.len(), 3);
-        assert!(matches!(overlay.curve_slices[0].curve, Segment::Cubic(_)));
-        assert!(matches!(overlay.curve_slices[1].curve, Segment::Cubic(_)));
-        assert!(matches!(overlay.curve_slices[2].curve, Segment::Line(_)));
-        for id in 0..overlay.curve_slices.len() {
+        assert_eq!(overlay.curve_sources.len(), 3);
+        assert!(matches!(overlay.curve_sources[0].curve, Segment::Cubic(_)));
+        assert!(matches!(overlay.curve_sources[1].curve, Segment::Cubic(_)));
+        assert!(matches!(overlay.curve_sources[2].curve, Segment::Line(_)));
+        for id in 0..overlay.curve_sources.len() {
             assert!(
                 overlay
                     .curve_edges
@@ -388,15 +404,16 @@ mod tests {
         };
         let mut overlay = IntCurveOverlay {
             solver: Solver::default(),
-            curve_slices: Vec::new(),
+            options: CurveOverlayOptions::default(),
+            curve_sources: Vec::new(),
             curve_edges: Vec::new(),
         };
 
         overlay.add_shape(shape, ShapeType::Clip);
 
-        assert_eq!(overlay.curve_slices.len(), 3);
-        assert!(matches!(overlay.curve_slices[2].curve, Segment::Line(_)));
-        for id in 0..overlay.curve_slices.len() {
+        assert_eq!(overlay.curve_sources.len(), 3);
+        assert!(matches!(overlay.curve_sources[2].curve, Segment::Line(_)));
+        for id in 0..overlay.curve_sources.len() {
             assert!(
                 overlay
                     .curve_edges
@@ -458,19 +475,13 @@ mod tests {
 
         let mut overlay = IntCurveOverlay {
             solver: Solver::default(),
-            curve_slices: Vec::new(),
+            options: CurveOverlayOptions::default(),
+            curve_sources: Vec::new(),
             curve_edges: Vec::new(),
         };
         overlay.add_shape(square(), ShapeType::Subject);
         overlay.add_shape(square(), ShapeType::Clip);
         overlay.prepare();
-
-        for edge in &overlay.curve_edges {
-            let chord = edge.curve.chord();
-            let slice = &overlay.curve_slices[edge.curve_id.0];
-            assert!(slice.param_at(chord.a).is_some());
-            assert!(slice.param_at(chord.b).is_some());
-        }
 
         let (shapes, store) = overlay.build_vector_shapes(OverlayRule::Intersect, FillRule::NonZero);
 
@@ -478,18 +489,18 @@ mod tests {
         assert_eq!(shapes[0].len(), 1);
         assert_eq!(shapes[0][0].len(), 4);
 
-        let mut ids = Vec::new();
+        let mut spans = Vec::new();
         for edge in &shapes[0][0] {
-            store.curve_ids(edge.data, &mut ids);
-            assert_eq!(ids.len(), 2);
-            assert_ne!(ids[0], ids[1]);
+            store.spans(edge.data, &mut spans);
+            assert_eq!(spans.len(), 2);
+            assert_ne!(spans[0].curve_id, spans[1].curve_id);
 
-            let first_type = overlay.curve_slices[ids[0].0].shape_type;
-            let second_type = overlay.curve_slices[ids[1].0].shape_type;
+            let first_type = overlay.curve_sources[spans[0].curve_id.0].shape_type;
+            let second_type = overlay.curve_sources[spans[1].curve_id.0].shape_type;
             assert_ne!(first_type, second_type);
         }
 
-        let result = CurveRecomposer::new().recompose(shapes, &store, &overlay.curve_slices);
+        let result = CurveRecomposer::new().recompose(shapes, &store, &overlay.curve_sources);
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].contours.len(), 1);
         assert_eq!(result[0].contours[0].segments.len(), 4);
@@ -546,6 +557,20 @@ mod tests {
 
         assert_eq!(overlay.solver.precision, Precision::LOW);
         assert_eq!(overlay.curve_edges.capacity(), 16);
-        assert_eq!(overlay.curve_slices.capacity(), 16);
+        assert_eq!(overlay.curve_sources.capacity(), 16);
+    }
+
+    #[test]
+    fn with_options_preserves_approximation_settings() {
+        let options = CurveOverlayOptions {
+            min_chord_length_power: 6,
+            angle_tolerance_power: 5,
+            max_approximation_depth: 12,
+        };
+
+        let overlay = IntCurveOverlay::<i32>::with_options(4, Solver::default(), options);
+
+        assert_eq!(overlay.options, options);
+        assert_eq!(overlay.curve_edges.capacity(), 4);
     }
 }

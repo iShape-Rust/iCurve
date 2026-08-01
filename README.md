@@ -89,10 +89,11 @@ let result = overlay.overlay(OverlayRule::Intersect, FillRule::NonZero);
 assert!(!result.is_empty());
 ```
 
-For difficult inputs, the snapping radius used while splitting curves grows
-between topology-refinement rounds according to the selected `Precision`.
-The value is compared with squared endpoint distance, matching `iOverlay`.
-Use `with_solver` to select a different starting radius or progression:
+Curves are first approximated by parameterized chords and receive one
+curve-aware planarization pass. The complete `Solver` is then forwarded to
+`iOverlay`, which may split and snap those chords while their source parameter
+ranges are updated alongside the geometry. Use `with_solver` to select the
+polygon overlay precision:
 
 ```rust
 use i_curve::int::bool::overlay::IntCurveOverlay;
@@ -102,12 +103,10 @@ let solver = Solver::with_precision(Precision::MEDIUM);
 let mut overlay = IntCurveOverlay::<i32>::with_solver(8, solver);
 ```
 
-`Precision` also accepts custom `start` and `progression` exponents. `start`
-remains an absolute squared-radius exponent in the integer grid. Because the
-progression presets were originally tuned for an `i32` solver, iCurve scales
-every non-zero progression by the integer width: `i16` uses steps `1/1/2`,
-`i32` uses `1/2/3`, and `i64` uses `2/4/6` for high/medium/low precision. The
-complete solver is forwarded to the final polygon overlay.
+`CurveOverlayOptions` controls the chord approximation length, angle tolerance,
+and maximum subdivision depth. Use `IntCurveOverlay::with_options` when the
+defaults are not appropriate for the integer coordinate scale.
+
 `IntCurveOverlay::new` uses `Solver::default()`.
 
 The result is a `Vec<CurveShape<I>>`. The first contour of each shape is its
@@ -251,12 +250,12 @@ without reconstructing its endpoints or weights from ellipse metadata.
 
 1. Float input is quantized into a shared integer coordinate system.
 2. Curves are decomposed into simple canonical pieces.
-3. Intersections split the curves until their chords preserve the same planar
-   topology as the curved geometry.
-4. The chords are processed by `iOverlay`, together with provenance identifying
-   their source curves.
-5. Consecutive output edges with common provenance are recomposed into maximal
-   line, Bezier, or rational-arc runs.
+3. Each piece is locally approximated by chords using configurable length and
+   angle criteria, followed by one curve-aware planarization pass.
+4. The chords are processed by `iOverlay`. Source curve and parameter ranges
+   are split, merged, and reversed together with the chord data.
+5. Consecutive output edges with compatible source ranges are recomposed into
+   maximal line, Bezier, or rational-arc runs.
 
 The polygon topology is therefore resolved by the robust integer overlay
 engine, while the output boundary retains curved segments instead of being

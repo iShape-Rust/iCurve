@@ -210,7 +210,6 @@ mod tests {
 
     /// Minimized from randomized stress case 1. This must complete without runaway refinement.
     #[test]
-    #[ignore = "known pathological chord refinement exceeds 90 seconds"]
     fn randomized_case_1_minimized_pathological_refinement() {
         let clip = CurveShape {
             contours: vec![CurvePath {

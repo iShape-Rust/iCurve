@@ -15,7 +15,7 @@ pub(super) struct Split<I: IntNumber> {
 }
 
 impl<I: IntNumber> Segment<I> {
-    pub(super) fn is_nearly_linear(&self, sin_angle_neg_pow2: u32) -> bool {
+    pub(crate) fn is_nearly_linear(&self, sin_angle_neg_pow2: u32) -> bool {
         let chord = self.chord();
         let chord_vector = chord.vector();
         if chord_vector.sqr_length() == I::Wide::ZERO {

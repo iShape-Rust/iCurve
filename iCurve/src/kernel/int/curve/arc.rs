@@ -78,7 +78,7 @@ pub struct EllipseFrame<I: IntNumber> {
 ///
 /// `ellipse`, phases, and `direction` preserve the semantic identity of the
 /// source arc. `control_points` and `weights` are the authoritative geometry
-/// used by kernel algorithms. Topology refinement may snap a shared endpoint,
+/// used by kernel algorithms. Boolean overlay processing may snap a shared endpoint,
 /// so the rational endpoints are not required to lie exactly on `ellipse`
 /// after every operation.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
@@ -303,7 +303,7 @@ impl<I: IntNumber> ArcSegment<I> {
     /// Checks the structural invariants available before arc math is enabled.
     ///
     /// Geometric agreement between the rational curve and `ellipse` is not
-    /// asserted here because topology refinement is allowed to snap endpoints.
+    /// asserted here because boolean overlay processing may snap endpoints.
     #[inline]
     pub(crate) fn debug_assert_invariants(&self) {
         self.ellipse.debug_assert_invariants();
