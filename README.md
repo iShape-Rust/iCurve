@@ -26,9 +26,6 @@ result is then reconstructed and returned through the float curve API.
 i_curve = "0.1"
 ```
 
-The crate is `no_std` and requires `alloc`. The minimum supported Rust version
-is 1.88.
-
 ## Float quick start
 
 Build each closed shape with `CurveBuilder`, then call `overlay` on the subject.
