@@ -320,7 +320,7 @@ impl<P: FloatPointCompatible> CurvePath<P> {
 ///
 /// [`CurveShape`] and [`CurvePath`] provide the same methods directly. Import
 /// this trait when the subject is a slice, array, `Vec`, or another resource.
-pub trait SingleFloatCurveOverlay<P: FloatPointCompatible>: CurveResource<P> {
+pub trait CurveResourceOverlayExt<P: FloatPointCompatible>: CurveResource<P> {
     /// Uses the default internal engine and returns float curves.
     fn overlay(
         &self,
@@ -340,7 +340,7 @@ pub trait SingleFloatCurveOverlay<P: FloatPointCompatible>: CurveResource<P> {
         I: IntNumber + Expiration + LayoutNumber + SortKey;
 }
 
-impl<P, R> SingleFloatCurveOverlay<P> for R
+impl<P, R> CurveResourceOverlayExt<P> for R
 where
     P: FloatPointCompatible,
     R: CurveResource<P> + ?Sized,

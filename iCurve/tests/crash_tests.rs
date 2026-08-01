@@ -1,10 +1,9 @@
 #[cfg(test)]
 mod tests {
+    use i_curve::float::CurveConverter;
     use i_curve::float::arc::{Ellipse, EllipticArc};
-    use i_curve::int::{CurvePath, CurveSegment, CurveShape};
-    use i_curve::{
-        CurveBuilder, CurveConverter, FillRule, IntCurveOverlay, IntPoint, OverlayRule, ShapeType,
-    };
+    use i_curve::int::{CurvePath, CurveSegment, CurveShape, IntCurveOverlay, IntPoint, ShapeType};
+    use i_curve::{CurveBuilder, FillRule, OverlayRule};
 
     #[test]
     fn test_00() {

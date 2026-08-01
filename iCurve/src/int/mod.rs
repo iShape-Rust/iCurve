@@ -12,6 +12,9 @@ pub use bool::overlay::{CurveInputError, CurveOverlayOptions, IntCurveOverlay, o
 pub use curve::path::CurvePath;
 pub use curve::segment::CurveSegment;
 pub use curve::shape::CurveShape;
+pub use i_overlay::core::overlay::ShapeType;
+pub use i_overlay::i_float::int::number::int::IntNumber;
+pub use i_overlay::i_shape::int::IntPoint;
 
 /// Bits reserved for intermediate polynomial coefficient growth.
 pub(crate) const CURVE_COORDINATE_SAFETY_BITS: u32 = 6;

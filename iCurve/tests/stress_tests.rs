@@ -1,5 +1,5 @@
-use i_curve::int::{CurvePath, CurveSegment, CurveShape};
-use i_curve::{FillRule, IntCurveOverlay, IntPoint, OverlayRule, Precision, ShapeType, Solver};
+use i_curve::int::{CurvePath, CurveSegment, CurveShape, IntCurveOverlay, IntPoint, ShapeType};
+use i_curve::{FillRule, OverlayRule, Precision, Solver};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use std::any::Any;

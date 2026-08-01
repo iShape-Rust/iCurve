@@ -166,11 +166,11 @@ used by the input. A result can contain multiple shapes, each containing one or
 more closed contours.
 
 `FloatCurvePath` also provides `overlay` directly. For a slice, array, `Vec`,
-or another `CurveResource`, import `SingleFloatCurveOverlay`. Every path in one
+or another `CurveResource`, import `CurveResourceOverlayExt`. Every path in one
 resource belongs to the same subject or clip operand:
 
 ```rust
-use i_curve::{FillRule, OverlayRule, SingleFloatCurveOverlay};
+use i_curve::{CurveResourceOverlayExt, FillRule, OverlayRule};
 
 # fn example(
 #     subjects: &[i_curve::FloatCurveShape<[f64; 2]>],
@@ -352,9 +352,9 @@ need reproducible quantization.
 ## Advanced integer API
 
 Applications that already store validated fixed-point geometry can use
-`IntCurveShape`, `IntCurveOverlay`, and the extended types under
-`i_curve::int`. `CurveConverter` and `FloatPointAdapter` are available for
-manual conversion workflows.
+`CurveShape`, `IntCurveOverlay`, and the extended types under `i_curve::int`.
+`CurveConverter` and `FloatPointAdapter` are available under `i_curve::float`
+for manual conversion workflows.
 
 The integer layer is not required for ordinary `f32`/`f64` use. Its coordinate
 limits and approximation options are documented in the

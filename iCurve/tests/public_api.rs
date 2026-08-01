@@ -1,7 +1,10 @@
-use i_curve::int::{CurvePath, CurveSegment, CurveShape, overlay};
+use i_curve::int::{
+    CurveInputError, CurveOverlayOptions, CurvePath, CurveSegment, CurveShape, IntCurveOverlay, IntPoint,
+    overlay,
+};
 use i_curve::{
-    CurveBuilder, CurveInputError, CurveOverlayOptions, CurveResource, FillRule, FloatCurveOverlay,
-    FloatCurveOverlayOptions, IntCurveOverlay, IntPoint, OverlayRule, Precision, Solver,
+    CurveBuilder, CurveResource, FillRule, FloatCurveOverlay, FloatCurveOverlayOptions, OverlayRule,
+    Precision, Solver,
 };
 
 fn rectangle(x0: i32, y0: i32, x1: i32, y1: i32) -> CurveShape<i32> {
@@ -88,7 +91,7 @@ fn options_are_configured_without_public_overlay_fields() {
 }
 
 #[test]
-fn float_builder_and_converter_are_available_at_top_level() {
+fn float_builder_is_at_top_level_and_converter_is_scoped() {
     let source = CurveBuilder::new()
         .move_to([0.0_f64, 0.0])
         .unwrap()
@@ -99,8 +102,12 @@ fn float_builder_and_converter_are_available_at_top_level() {
         .build()
         .unwrap();
 
-    let converter = i_curve::CurveConverter::<_, i32>::new(source);
+    let converter = i_curve::float::CurveConverter::<_, i32>::new(source);
+    let _: &i_curve::float::FloatPointAdapter<[f64; 2], i32> = converter.adapter();
     assert!(converter.shape().contours[0].is_closed());
+
+    fn assert_int_number<I: i_curve::int::IntNumber>() {}
+    assert_int_number::<i64>();
 
     let _: i_curve::int::arc::RationalArc<i32> = Default::default();
 }
@@ -143,7 +150,7 @@ fn top_level_float_overlay_hides_integer_conversion() {
 
 #[test]
 fn float_curve_resources_accept_shape_collections_and_paths() {
-    use i_curve::SingleFloatCurveOverlay as _;
+    use i_curve::CurveResourceOverlayExt as _;
 
     let subjects = [
         float_rectangle(0.0, 0.0, 2.0, 2.0),
