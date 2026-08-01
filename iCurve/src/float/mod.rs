@@ -15,7 +15,10 @@ pub mod arc {
 }
 
 pub use curve::builder::{CurveBuilder, CurveError as CurveBuildError};
-pub use curve::converter::{CurveConversionError, CurveConversionReport, CurveConverter};
+pub use curve::converter::{
+    CurveConversionError, CurveConversionReport, CurveConverter, CurveToFloatError,
+    try_convert_shape_to_float,
+};
 pub use curve::path::CurvePath;
 pub use curve::segment::CurveSegment;
 pub use curve::shape::CurveShape;

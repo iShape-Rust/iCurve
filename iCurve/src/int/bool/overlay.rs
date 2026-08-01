@@ -376,7 +376,7 @@ fn segment_count<I: CurveInt>(shape: &CurveShape<I>) -> usize {
     shape.contours.iter().map(|contour| contour.segments.len()).sum()
 }
 
-fn validate_shape<I: CurveInt>(shape: &CurveShape<I>) -> Result<(), CurveInputError> {
+pub(crate) fn validate_shape<I: CurveInt>(shape: &CurveShape<I>) -> Result<(), CurveInputError> {
     if shape.contours.is_empty() {
         return Err(CurveInputError::EmptyShape);
     }

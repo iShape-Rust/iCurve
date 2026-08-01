@@ -319,6 +319,38 @@ fn float_curve_resources_accept_shape_collections_and_paths() {
 }
 
 #[test]
+fn manual_integer_overlay_round_trips_through_one_adapter() {
+    let subject = float_rectangle(0.0, 0.0, 10.0, 10.0);
+    let clip = float_rectangle(4.0, 2.0, 12.0, 8.0);
+    let combined = [&subject, &clip];
+    let adapter = i_curve::float::CurveConverter::<_, i64>::new(&combined)
+        .adapter()
+        .clone();
+    let integer_subject = i_curve::float::CurveConverter::<_, i64>::try_with_adapter(&subject, &adapter)
+        .unwrap()
+        .into_shape();
+    let integer_clip = i_curve::float::CurveConverter::<_, i64>::try_with_adapter(&clip, &adapter)
+        .unwrap()
+        .into_shape();
+
+    let integer_result = overlay(
+        integer_subject,
+        integer_clip,
+        OverlayRule::Intersect,
+        FillRule::NonZero,
+    )
+    .unwrap();
+    let float_result = integer_result
+        .into_iter()
+        .map(|shape| i_curve::float::try_convert_shape_to_float(shape, &adapter))
+        .collect::<Result<Vec<_>, i_curve::float::CurveToFloatError>>()
+        .unwrap();
+
+    assert_eq!(float_result.len(), 1);
+    assert_eq!(float_result[0].contours().len(), 1);
+}
+
+#[test]
 fn float_overlay_supports_explicit_i64_solver() {
     let subject = float_rectangle(0.0, 0.0, 10.0, 10.0);
     let clip = float_rectangle(5.0, 2.0, 12.0, 8.0);

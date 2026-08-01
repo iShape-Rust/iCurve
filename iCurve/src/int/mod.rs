@@ -20,6 +20,7 @@ pub mod arc {
     pub use crate::kernel::int::curve::param::SegmentParam as CurveParameter;
 }
 
+pub(crate) use bool::overlay::validate_shape;
 pub use bool::overlay::{
     CurveInputError, CurveOverlayOptions, CurveOverlayOptionsError, IntCurveOverlay, overlay,
 };

@@ -1,11 +1,13 @@
 use crate::float::curve::arc::{Ellipse, RationalArc};
+use crate::float::curve::builder::CurveError as CurveBuildError;
 use crate::float::curve::path::CurvePath as FloatCurvePath;
 use crate::float::curve::segment::CurveSegment as FloatCurveSegment;
 use crate::float::curve::shape::CurveShape as FloatCurveShape;
 use crate::float::resource::{CurveResource, resource_bounds};
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
 use crate::int::{
-    CurveInt, CurvePath as IntCurvePath, CurveSegment as IntCurveSegment, CurveShape as IntCurveShape,
+    CurveInputError, CurveInt, CurvePath as IntCurvePath, CurveSegment as IntCurveSegment,
+    CurveShape as IntCurveShape, validate_shape,
 };
 use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcSegment, ArcVector, EllipseFrame};
 use alloc::vec::Vec;
@@ -60,7 +62,7 @@ impl CurveConversionReport {
     }
 }
 
-/// Invalid explicit scale requested for float-to-integer conversion.
+/// Invalid configuration requested for float-to-integer conversion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum CurveConversionError {
@@ -70,6 +72,8 @@ pub enum CurveConversionError {
     ScaleNonPositive,
     /// Requested scale is NaN or infinite.
     ScaleNotFinite,
+    /// The supplied adapter does not cover all source geometry.
+    ResourceOutsideAdapter,
 }
 
 impl From<FloatPointAdapterScaleError> for CurveConversionError {
@@ -88,11 +92,44 @@ impl core::fmt::Display for CurveConversionError {
             Self::ScaleTooLarge => formatter.write_str("conversion scale exceeds the safe coordinate range"),
             Self::ScaleNonPositive => formatter.write_str("conversion scale must be positive"),
             Self::ScaleNotFinite => formatter.write_str("conversion scale must be finite"),
+            Self::ResourceOutsideAdapter => {
+                formatter.write_str("curve resource lies outside the conversion adapter bounds")
+            }
         }
     }
 }
 
 impl core::error::Error for CurveConversionError {}
+
+/// Invalid integer shape or float result encountered during reverse conversion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum CurveToFloatError {
+    /// The integer shape violates curve input invariants.
+    InvalidIntegerShape(CurveInputError),
+    /// Converting through the adapter produced invalid float geometry.
+    InvalidFloatShape(CurveBuildError),
+}
+
+impl core::fmt::Display for CurveToFloatError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::InvalidIntegerShape(_) => formatter.write_str("invalid integer curve shape"),
+            Self::InvalidFloatShape(_) => {
+                formatter.write_str("integer curve cannot be represented as a float shape")
+            }
+        }
+    }
+}
+
+impl core::error::Error for CurveToFloatError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::InvalidIntegerShape(error) => Some(error),
+            Self::InvalidFloatShape(error) => Some(error),
+        }
+    }
+}
 
 impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
     /// Coordinate magnitude bound used by the integer curve kernel.
@@ -134,6 +171,34 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
         })
     }
 
+    /// Converts a curve resource through an existing coordinate adapter.
+    ///
+    /// Use this when several operands must share exactly the same integer
+    /// coordinate space. The adapter is cloned into the returned converter.
+    pub fn try_with_adapter<R>(
+        source: &R,
+        adapter: &FloatPointAdapter<P, I>,
+    ) -> Result<Self, CurveConversionError>
+    where
+        R: CurveResource<P> + ?Sized,
+    {
+        FloatPointAdapter::<P, I>::try_with_scale_and_coordinate_bits(
+            *adapter.rect(),
+            adapter.dir_scale(),
+            Self::COORDINATE_BITS,
+        )?;
+        if resource_bounds(source).is_some_and(|bounds| !adapter_contains_bounds(adapter, bounds)) {
+            return Err(CurveConversionError::ResourceOutsideAdapter);
+        }
+
+        let (shape, report) = convert_resource(source, adapter);
+        Ok(Self {
+            adapter: adapter.clone(),
+            shape,
+            report,
+        })
+    }
+
     /// Returns the effective float-to-integer conversion scale.
     #[inline]
     pub fn scale(&self) -> P::Scalar {
@@ -170,6 +235,46 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
     pub fn into_parts(self) -> (FloatPointAdapter<P, I>, IntCurveShape<I>, CurveConversionReport) {
         (self.adapter, self.shape, self.report)
     }
+}
+
+/// Converts one integer curve shape back into float coordinates.
+///
+/// `adapter` must describe the coordinate space used to create `source`.
+/// Integer shape invariants and the reconstructed float geometry are validated
+/// before the result is returned.
+pub fn try_convert_shape_to_float<P: FloatPointCompatible, I: CurveInt>(
+    source: IntCurveShape<I>,
+    adapter: &FloatPointAdapter<P, I>,
+) -> Result<FloatCurveShape<P>, CurveToFloatError> {
+    validate_shape(&source).map_err(CurveToFloatError::InvalidIntegerShape)?;
+
+    let contours = source
+        .contours
+        .into_iter()
+        .map(|path| {
+            let start = int_point_to_float(&path.start, adapter);
+            let segments = path
+                .segments
+                .into_iter()
+                .map(|segment| convert_segment_to_float(segment, adapter))
+                .collect();
+            FloatCurvePath::try_new(start, segments)
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(CurveToFloatError::InvalidFloatShape)?;
+
+    FloatCurveShape::try_new(contours).map_err(CurveToFloatError::InvalidFloatShape)
+}
+
+fn adapter_contains_bounds<P: FloatPointCompatible, I: CurveInt>(
+    adapter: &FloatPointAdapter<P, I>,
+    bounds: FloatRect<P::Scalar>,
+) -> bool {
+    let rect = adapter.rect();
+    rect.min_x <= bounds.min_x
+        && bounds.max_x <= rect.max_x
+        && rect.min_y <= bounds.min_y
+        && bounds.max_y <= rect.max_y
 }
 
 pub(crate) fn convert_resource<P, I, R>(
@@ -215,7 +320,7 @@ fn convert_path_to_float<P: FloatPointCompatible, I: CurveInt>(
     source: IntCurvePath<I>,
     adapter: &FloatPointAdapter<P, I>,
 ) -> FloatCurvePath<P> {
-    let start = adapter.int_to_float(&source.start);
+    let start = int_point_to_float(&source.start, adapter);
     let segments = source
         .segments
         .into_iter()
@@ -230,16 +335,16 @@ fn convert_segment_to_float<P: FloatPointCompatible, I: CurveInt>(
 ) -> FloatCurveSegment<P> {
     match source {
         IntCurveSegment::Line { to } => FloatCurveSegment::Line {
-            to: adapter.int_to_float(&to),
+            to: int_point_to_float(&to, adapter),
         },
         IntCurveSegment::Quad { ctrl, to } => FloatCurveSegment::Quad {
-            ctrl: adapter.int_to_float(&ctrl),
-            to: adapter.int_to_float(&to),
+            ctrl: int_point_to_float(&ctrl, adapter),
+            to: int_point_to_float(&to, adapter),
         },
         IntCurveSegment::Cubic { ctrl0, ctrl1, to } => FloatCurveSegment::Cubic {
-            ctrl0: adapter.int_to_float(&ctrl0),
-            ctrl1: adapter.int_to_float(&ctrl1),
-            to: adapter.int_to_float(&to),
+            ctrl0: int_point_to_float(&ctrl0, adapter),
+            ctrl1: int_point_to_float(&ctrl1, adapter),
+            to: int_point_to_float(&to, adapter),
         },
         IntCurveSegment::Arc { arc } => FloatCurveSegment::Arc {
             arc: convert_arc_to_float(arc, adapter),
@@ -262,18 +367,29 @@ fn convert_arc_to_float<P: FloatPointCompatible, I: CurveInt>(
 
     RationalArc {
         ellipse: Ellipse {
-            center: adapter.int_to_float(&source.ellipse.center),
+            center: int_point_to_float(&source.ellipse.center, adapter),
             radius_x: (axis_x_x * axis_x_x + axis_x_y * axis_x_y).sqrt(),
             radius_y: (axis_y_x * axis_y_x + axis_y_y * axis_y_y).sqrt(),
             rotation: vector_angle(axis_x_x, axis_x_y),
         },
-        control_points: source.control_points.map(|point| adapter.int_to_float(&point)),
+        control_points: source
+            .control_points
+            .map(|point| int_point_to_float(&point, adapter)),
         weights: source
             .weights
             .map(|weight| P::Scalar::from_int(weight) / denominator),
         start_angle,
         sweep_angle,
     }
+}
+
+fn int_point_to_float<P: FloatPointCompatible, I: CurveInt>(
+    point: &IntPoint<I>,
+    adapter: &FloatPointAdapter<P, I>,
+) -> P {
+    let x = P::Scalar::from_int(point.x) * adapter.inv_scale() + adapter.offset().x();
+    let y = P::Scalar::from_int(point.y) * adapter.inv_scale() + adapter.offset().y();
+    P::from_xy(x, y)
 }
 
 fn phase_angle<F: FloatNumber, I: CurveInt>(phase: ArcPhase<I>) -> F {
@@ -666,6 +782,82 @@ mod tests {
         assert_eq!(report.contour_count, 1);
         assert!(!report.has_degeneracies());
         Ok(())
+    }
+
+    #[test]
+    fn existing_adapter_converts_resources_in_one_coordinate_space() -> Result<(), CurveError> {
+        let subject = float_shape()?;
+        let clip = CurveBuilder::new()
+            .move_to([20.0, 0.0])?
+            .line_to([30.0, 0.0])?
+            .line_to([20.0, 0.0])?
+            .build()?;
+        let combined = [&subject, &clip];
+        let adapter = CurveConverter::<_, i32>::new(&combined).adapter().clone();
+
+        let subject_converter =
+            CurveConverter::<_, i32>::try_with_adapter(&subject, &adapter).expect("subject must fit");
+        let clip_converter =
+            CurveConverter::<_, i32>::try_with_adapter(&clip, &adapter).expect("clip must fit");
+
+        assert_eq!(subject_converter.scale(), adapter.dir_scale());
+        assert_eq!(subject_converter.adapter().offset(), adapter.offset());
+        assert_eq!(clip_converter.scale(), adapter.dir_scale());
+        assert_eq!(clip_converter.adapter().offset(), adapter.offset());
+        assert_eq!(subject_converter.report().contour_count, 1);
+        assert_eq!(clip_converter.report().contour_count, 1);
+
+        let unsafe_adapter = FloatPointAdapter::<_, i32>::new(*adapter.rect());
+        let error = match CurveConverter::<_, i32>::try_with_adapter(&subject, &unsafe_adapter) {
+            Ok(_) => panic!("adapter exceeding the curve coordinate range must fail"),
+            Err(error) => error,
+        };
+        assert_eq!(error, CurveConversionError::ScaleTooLarge);
+
+        let outside = CurveBuilder::new()
+            .move_to([40.0, 0.0])?
+            .line_to([50.0, 0.0])?
+            .line_to([40.0, 0.0])?
+            .build()?;
+        let error = match CurveConverter::<_, i32>::try_with_adapter(&outside, &adapter) {
+            Ok(_) => panic!("resource outside the shared bounds must fail"),
+            Err(error) => error,
+        };
+        assert_eq!(error, CurveConversionError::ResourceOutsideAdapter);
+        Ok(())
+    }
+
+    #[test]
+    fn integer_shape_converts_back_to_validated_float_shape() -> Result<(), CurveError> {
+        let source = float_shape()?;
+        let (adapter, integer, _) = CurveConverter::<_, i32>::new(&source).into_parts();
+
+        let restored = try_convert_shape_to_float(integer, &adapter).expect("shape must convert");
+
+        assert_eq!(restored, source);
+
+        let arc_source = arc_shape(10.0, 5.0, 0.25, 0.0, core::f64::consts::FRAC_PI_2)?;
+        let (adapter, integer, _) = CurveConverter::<_, i64>::new(&arc_source).into_parts();
+        let restored = try_convert_shape_to_float(integer, &adapter).expect("arc shape must convert");
+        assert!(matches!(
+            restored.contours()[0].segments()[0],
+            FloatCurveSegment::Arc { .. }
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn reverse_conversion_reports_invalid_integer_shape() {
+        let source = float_shape().expect("test shape must be valid");
+        let adapter = CurveConverter::<_, i32>::new(&source).adapter().clone();
+        let error = try_convert_shape_to_float(IntCurveShape::new(Vec::new()), &adapter)
+            .expect_err("empty integer shape must fail");
+
+        assert_eq!(
+            error,
+            CurveToFloatError::InvalidIntegerShape(CurveInputError::EmptyShape)
+        );
+        assert!(core::error::Error::source(&error).is_some());
     }
 
     #[test]

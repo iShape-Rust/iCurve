@@ -306,10 +306,11 @@ for shape in result {
 # }
 ```
 
-Float shapes, paths, segments, and arcs implement `Debug`. Shapes and paths
-also provide `len`, `is_empty`, `iter`, `AsRef`, and owned or borrowed
-`IntoIterator` implementations. Use `into_contours()` or `into_parts()` to
-take a result apart without cloning, then `try_new` to validate and rebuild it:
+Float shapes, paths, segments, and arcs implement `Debug`. Validated shapes and
+paths are always non-empty, so they provide `len`, `iter`, `AsRef`, and owned or
+borrowed `IntoIterator` implementations without a redundant `is_empty` method.
+Use `into_contours()` or `into_parts()` to take a result apart without cloning,
+then `try_new` to validate and rebuild it:
 
 ```rust
 use i_curve::{FloatCurvePath, FloatCurveShape};
@@ -390,6 +391,12 @@ for manual conversion workflows. Engine-generic APIs use the sealed
 `CurveConverter::new(&resource)` accepts the same paths, shapes, and collections
 as the float overlay API. It flattens their paths into one integer shape;
 contours that collapse completely on the selected grid are omitted.
+
+For a manual Boolean round trip, first create one converter from a resource
+containing all operands and clone its adapter. Convert each operand with
+`CurveConverter::try_with_adapter`, run the integer operation, then map each
+result through `i_curve::float::try_convert_shape_to_float`. Reusing the adapter
+keeps every operand and the reconstructed result in one coordinate space.
 
 Integer `RationalArc` values expose [`validate`](https://docs.rs/i_curve/latest/i_curve/int/arc/struct.RationalArc.html#method.validate).
 `IntCurveOverlay` applies the same validation when a shape is added and reports
