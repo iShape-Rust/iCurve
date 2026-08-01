@@ -3,14 +3,119 @@ use crate::float::curve::path::CurvePath;
 use crate::float::curve::shape::CurveShape;
 use crate::float::resource::CurveResource;
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
-use crate::int::IntCurveOverlay;
+use crate::int::{CurveOverlayOptions, IntCurveOverlay};
 use crate::{CurveConversionError, FillRule, OverlayRule, Solver};
 use i_key_sort::sort::key::SortKey;
 use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
+use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_tree::{Expiration, LayoutNumber};
+
+/// Curve approximation options expressed in float input coordinates.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FloatCurveOverlayOptions<F: FloatNumber> {
+    /// Absolute chord length below which a curve segment is accepted without
+    /// further subdivision.
+    ///
+    /// `None` preserves the scale-relative default used by the integer engine.
+    pub min_chord_length: Option<F>,
+    /// Maximum dimensionless sine deviation used to classify a curve segment
+    /// as nearly linear. The value must be finite and in the range `(0, 1]`.
+    pub angle_tolerance: F,
+    /// Hard safety limit for local approximation subdivision.
+    pub max_approximation_depth: u32,
+}
+
+impl<F: FloatNumber> Default for FloatCurveOverlayOptions<F> {
+    fn default() -> Self {
+        Self {
+            min_chord_length: None,
+            angle_tolerance: F::from_float(0.125_f64),
+            max_approximation_depth: CurveOverlayOptions::default().max_approximation_depth,
+        }
+    }
+}
+
+/// Invalid [`FloatCurveOverlayOptions`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FloatCurveOverlayOptionsError {
+    /// The requested minimum chord length is zero or negative.
+    MinChordLengthNonPositive,
+    /// The requested minimum chord length is NaN or infinite.
+    MinChordLengthNotFinite,
+    /// The requested angle tolerance is NaN or infinite.
+    AngleToleranceNotFinite,
+    /// The requested angle tolerance is outside `(0, 1]`.
+    AngleToleranceOutOfRange,
+}
+
+impl core::fmt::Display for FloatCurveOverlayOptionsError {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::MinChordLengthNonPositive => formatter.write_str("minimum chord length must be positive"),
+            Self::MinChordLengthNotFinite => formatter.write_str("minimum chord length must be finite"),
+            Self::AngleToleranceNotFinite => formatter.write_str("angle tolerance must be finite"),
+            Self::AngleToleranceOutOfRange => {
+                formatter.write_str("angle tolerance must be in the range (0, 1]")
+            }
+        }
+    }
+}
+
+impl core::error::Error for FloatCurveOverlayOptionsError {}
+
+impl<F: FloatNumber> FloatCurveOverlayOptions<F> {
+    fn to_int<P, I>(
+        self,
+        adapter: &FloatPointAdapter<P, I>,
+    ) -> Result<CurveOverlayOptions, FloatCurveOverlayOptionsError>
+    where
+        P: FloatPointCompatible<Scalar = F>,
+        I: IntNumber,
+    {
+        let min_chord_length_power = match self.min_chord_length {
+            Some(length) => {
+                if !length.to_f64().is_finite() {
+                    return Err(FloatCurveOverlayOptionsError::MinChordLengthNotFinite);
+                }
+                if length <= F::ZERO {
+                    return Err(FloatCurveOverlayOptionsError::MinChordLengthNonPositive);
+                }
+
+                let grid_log2 = length.log2() + adapter.dir_scale().log2();
+                if grid_log2 <= F::ZERO {
+                    0
+                } else {
+                    grid_log2.to_i32() as u32
+                }
+            }
+            None => CurveOverlayOptions::default().min_chord_length_power,
+        };
+
+        if !self.angle_tolerance.to_f64().is_finite() {
+            return Err(FloatCurveOverlayOptionsError::AngleToleranceNotFinite);
+        }
+        if self.angle_tolerance <= F::ZERO || self.angle_tolerance > F::ONE {
+            return Err(FloatCurveOverlayOptionsError::AngleToleranceOutOfRange);
+        }
+
+        let angle_power = -self.angle_tolerance.log2();
+        let truncated_power = angle_power.to_i32();
+        let angle_tolerance_power = if F::from_int(truncated_power) < angle_power {
+            truncated_power + 1
+        } else {
+            truncated_power
+        } as u32;
+
+        Ok(CurveOverlayOptions {
+            min_chord_length_power,
+            angle_tolerance_power,
+            max_approximation_depth: self.max_approximation_depth,
+        })
+    }
+}
 
 /// Boolean overlay for float curve shapes.
 ///
@@ -114,6 +219,21 @@ where
     pub fn with_solver(mut self, solver: Solver) -> Self {
         self.overlay = self.overlay.with_solver(solver);
         self
+    }
+
+    /// Sets curve approximation options expressed in float input coordinates.
+    pub fn try_with_options(
+        mut self,
+        options: FloatCurveOverlayOptions<P::Scalar>,
+    ) -> Result<Self, FloatCurveOverlayOptionsError> {
+        self.overlay = self.overlay.with_options(options.to_int(&self.adapter)?);
+        Ok(self)
+    }
+
+    /// Returns the effective float-to-integer conversion scale.
+    #[inline]
+    pub fn scale(&self) -> P::Scalar {
+        self.adapter.dir_scale()
     }
 
     /// Performs the Boolean operation and returns float curve shapes.
@@ -361,6 +481,71 @@ mod tests {
             .overlay(OverlayRule::Union, FillRule::NonZero);
 
         assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn float_options_are_converted_with_the_effective_scale() {
+        let subject = rectangle(0.0, 0.0, 10.0, 10.0);
+        let clip = rectangle(5.0, 2.0, 12.0, 8.0);
+        let options = FloatCurveOverlayOptions {
+            min_chord_length: Some(0.25),
+            angle_tolerance: 0.2,
+            max_approximation_depth: 12,
+        };
+
+        let overlay = FloatCurveOverlay::<_, i32>::try_with_scale(&subject, &clip, 1_024.0)
+            .unwrap()
+            .try_with_options(options)
+            .unwrap();
+
+        assert_eq!(overlay.scale(), 1_024.0);
+        assert_eq!(
+            overlay.overlay.options(),
+            CurveOverlayOptions {
+                min_chord_length_power: 8,
+                angle_tolerance_power: 3,
+                max_approximation_depth: 12,
+            }
+        );
+    }
+
+    #[test]
+    fn float_options_reject_invalid_tolerances() {
+        let subject = rectangle(0.0, 0.0, 10.0, 10.0);
+        let clip = rectangle(5.0, 2.0, 12.0, 8.0);
+
+        let error = FloatCurveOverlay::<_, i32>::new(&subject, &clip)
+            .try_with_options(FloatCurveOverlayOptions {
+                min_chord_length: Some(0.0),
+                ..Default::default()
+            })
+            .err();
+        assert_eq!(
+            error,
+            Some(FloatCurveOverlayOptionsError::MinChordLengthNonPositive)
+        );
+
+        let error = FloatCurveOverlay::<_, i32>::new(&subject, &clip)
+            .try_with_options(FloatCurveOverlayOptions {
+                angle_tolerance: f64::NAN,
+                ..Default::default()
+            })
+            .err();
+        assert_eq!(
+            error,
+            Some(FloatCurveOverlayOptionsError::AngleToleranceNotFinite)
+        );
+
+        let error = FloatCurveOverlay::<_, i32>::new(&subject, &clip)
+            .try_with_options(FloatCurveOverlayOptions {
+                angle_tolerance: 1.1,
+                ..Default::default()
+            })
+            .err();
+        assert_eq!(
+            error,
+            Some(FloatCurveOverlayOptionsError::AngleToleranceOutOfRange)
+        );
     }
 
     #[test]

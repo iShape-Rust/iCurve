@@ -185,12 +185,13 @@ let result = subjects.overlay(
 # }
 ```
 
-Use `FloatCurveOverlay` when you need to configure the conversion scale or the
-topology solver:
+Use `FloatCurveOverlay` when you need to configure the conversion scale, curve
+approximation, or topology solver:
 
 ```rust
 use i_curve::{
-    CurveBuilder, FillRule, FloatCurveOverlay, OverlayRule, Precision, Solver,
+    CurveBuilder, FillRule, FloatCurveOverlay, FloatCurveOverlayOptions,
+    OverlayRule, Precision, Solver,
 };
 
 let subject = CurveBuilder::new()
@@ -211,6 +212,11 @@ let result = FloatCurveOverlay::<_, i32>::try_with_scale(
     &clip,
     10_000.0,
 )?
+.try_with_options(FloatCurveOverlayOptions {
+    min_chord_length: Some(0.001),
+    angle_tolerance: 0.125,
+    max_approximation_depth: 16,
+})?
 .with_solver(Solver::with_precision(Precision::MEDIUM))
 .overlay(OverlayRule::Difference, FillRule::NonZero);
 
@@ -224,6 +230,11 @@ is useful when several independent operations must share the same grid
 resolution. A larger scale preserves smaller features but reduces the safe
 coordinate range; unsafe, non-positive, and non-finite scales return
 `CurveConversionError`.
+
+`FloatCurveOverlayOptions` expresses the minimum chord length in input
+coordinates. Leaving it as `None` preserves the scale-relative default. The
+fallible `try_with_options` rejects non-finite or out-of-range tolerances. Use
+`scale()` to inspect the effective float-to-integer conversion scale.
 
 The direct `FloatCurveOverlay` API makes the integer engine explicit: use
 `FloatCurveOverlay::<_, i32>` for the standard engine or

@@ -11,7 +11,7 @@ mod kernel;
 pub use float::{
     CurveBuildError, CurveBuilder, CurveConversionError, CurveConverter, CurvePath as FloatCurvePath,
     CurveResource, CurveSegment as FloatCurveSegment, CurveShape as FloatCurveShape, FloatCurveOverlay,
-    SingleFloatCurveOverlay,
+    FloatCurveOverlayOptions, FloatCurveOverlayOptionsError, SingleFloatCurveOverlay,
 };
 pub use i_overlay::core::fill_rule::FillRule;
 pub use i_overlay::core::overlay::ShapeType;

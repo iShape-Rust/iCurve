@@ -11,5 +11,7 @@ pub use curve::converter::{CurveConversionError, CurveConverter};
 pub use curve::path::CurvePath;
 pub use curve::segment::CurveSegment;
 pub use curve::shape::CurveShape;
-pub use overlay::{FloatCurveOverlay, SingleFloatCurveOverlay};
+pub use overlay::{
+    FloatCurveOverlay, FloatCurveOverlayOptions, FloatCurveOverlayOptionsError, SingleFloatCurveOverlay,
+};
 pub use resource::CurveResource;

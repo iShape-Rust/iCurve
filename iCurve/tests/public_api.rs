@@ -1,7 +1,7 @@
 use i_curve::int::{CurvePath, CurveSegment, CurveShape, overlay};
 use i_curve::{
     CurveBuilder, CurveInputError, CurveOverlayOptions, CurveResource, FillRule, FloatCurveOverlay,
-    IntCurveOverlay, IntPoint, OverlayRule, Precision, Solver,
+    FloatCurveOverlayOptions, IntCurveOverlay, IntPoint, OverlayRule, Precision, Solver,
 };
 
 fn rectangle(x0: i32, y0: i32, x1: i32, y1: i32) -> CurveShape<i32> {
@@ -175,9 +175,18 @@ fn float_overlay_supports_explicit_i64_solver() {
     let subject = float_rectangle(0.0, 0.0, 10.0, 10.0);
     let clip = float_rectangle(5.0, 2.0, 12.0, 8.0);
 
-    let result = FloatCurveOverlay::<_, i64>::new(&subject, &clip)
-        .with_solver(Solver::with_precision(Precision::MEDIUM))
-        .overlay(OverlayRule::Intersect, FillRule::NonZero);
+    let overlay = FloatCurveOverlay::<_, i64>::new(&subject, &clip)
+        .try_with_options(FloatCurveOverlayOptions {
+            min_chord_length: Some(0.001),
+            ..Default::default()
+        })
+        .unwrap()
+        .with_solver(Solver::with_precision(Precision::MEDIUM));
+
+    assert!(overlay.scale().is_finite());
+    assert!(overlay.scale() > 0.0);
+
+    let result = overlay.overlay(OverlayRule::Intersect, FillRule::NonZero);
 
     assert_eq!(result.len(), 1);
 }
