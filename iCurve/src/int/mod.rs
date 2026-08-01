@@ -1,6 +1,14 @@
+//! Advanced integer-coordinate curve API.
+//!
+//! Integer paths and shapes are plain structural containers. [`IntCurveOverlay`]
+//! validates that inputs are non-empty, closed, and have connected arcs when
+//! they are added. Most applications should prefer the crate-level float API,
+//! which selects and applies an integer conversion scale automatically.
+
 mod bool;
 mod curve;
 
+/// Fixed-point rational arcs and their supporting ellipse representation.
 pub mod arc {
     pub use crate::kernel::int::curve::arc::{
         ArcDirection, ArcPhase, ArcSegment as RationalArc, ArcVector, EllipseFrame,

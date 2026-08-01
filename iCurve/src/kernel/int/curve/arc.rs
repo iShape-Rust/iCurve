@@ -40,12 +40,15 @@ pub struct ArcPhase<I: IntNumber> {
 /// must be decomposed before constructing [`ArcSegment`].
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum ArcDirection {
+    /// Traverses decreasing ellipse phase.
     Clockwise,
+    /// Traverses increasing ellipse phase.
     #[default]
     CounterClockwise,
 }
 
 impl ArcDirection {
+    /// Returns the opposite traversal direction.
     #[inline]
     pub fn reversed(self) -> Self {
         match self {

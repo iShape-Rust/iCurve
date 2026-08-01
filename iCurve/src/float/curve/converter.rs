@@ -29,6 +29,7 @@ pub struct CurveConverter<P: FloatPointCompatible, I: CurveInt> {
     shape: IntCurveShape<I>,
 }
 
+/// Invalid explicit scale requested for float-to-integer conversion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum CurveConversionError {
@@ -100,21 +101,25 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
         self.adapter.dir_scale()
     }
 
+    /// Returns the adapter used to translate between float and integer coordinates.
     #[inline]
     pub fn adapter(&self) -> &FloatPointAdapter<P, I> {
         &self.adapter
     }
 
+    /// Returns the converted integer shape without consuming this converter.
     #[inline]
     pub fn shape(&self) -> &IntCurveShape<I> {
         &self.shape
     }
 
+    /// Consumes this converter and returns the converted integer shape.
     #[inline]
     pub fn into_shape(self) -> IntCurveShape<I> {
         self.shape
     }
 
+    /// Consumes this converter and returns its adapter and integer shape.
     #[inline]
     pub fn into_parts(self) -> (FloatPointAdapter<P, I>, IntCurveShape<I>) {
         (self.adapter, self.shape)

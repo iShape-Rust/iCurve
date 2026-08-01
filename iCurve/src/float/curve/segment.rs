@@ -1,12 +1,38 @@
 use crate::float::curve::arc::RationalArc;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 
+/// Segment of a float [`CurvePath`](crate::float::CurvePath).
+///
+/// The containing path supplies the start point; each variant stores its
+/// remaining control data and endpoint.
 #[derive(Clone, PartialEq)]
 pub enum CurveSegment<P: FloatPointCompatible> {
-    Line { to: P },
-    Quad { ctrl: P, to: P },
-    Cubic { ctrl0: P, ctrl1: P, to: P },
-    Arc { arc: RationalArc<P> },
+    /// Straight segment.
+    Line {
+        /// Endpoint.
+        to: P,
+    },
+    /// Quadratic Bézier segment.
+    Quad {
+        /// Quadratic control point.
+        ctrl: P,
+        /// Endpoint.
+        to: P,
+    },
+    /// Cubic Bézier segment.
+    Cubic {
+        /// First cubic control point.
+        ctrl0: P,
+        /// Second cubic control point.
+        ctrl1: P,
+        /// Endpoint.
+        to: P,
+    },
+    /// Authoritative rational quadratic elliptic arc.
+    Arc {
+        /// Rational arc data, including its own start and end points.
+        arc: RationalArc<P>,
+    },
 }
 
 impl<P> core::fmt::Debug for CurveSegment<P>
@@ -34,6 +60,7 @@ where
 }
 
 impl<P: FloatPointCompatible> CurveSegment<P> {
+    /// Returns this segment's endpoint.
     #[inline]
     pub fn end_point(&self) -> P {
         match self {

@@ -9,9 +9,13 @@ use i_overlay::i_float::float::rect::FloatRect;
 /// measured before this rotation is applied.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ellipse<P: FloatPointCompatible> {
+    /// Center in input coordinates.
     pub center: P,
+    /// Positive semi-axis radius along the ellipse's local X axis.
     pub radius_x: P::Scalar,
+    /// Positive semi-axis radius along the ellipse's local Y axis.
     pub radius_y: P::Scalar,
+    /// Counter-clockwise rotation of the local axes, in radians.
     pub rotation: P::Scalar,
 }
 
@@ -22,8 +26,11 @@ pub struct Ellipse<P: FloatPointCompatible> {
 /// single arc may span at most one full revolution.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EllipticArc<P: FloatPointCompatible> {
+    /// Supporting ellipse.
     pub ellipse: Ellipse<P>,
+    /// Parametric start angle on the supporting ellipse, in radians.
     pub start_angle: P::Scalar,
+    /// Signed angular traversal in radians; positive is counter-clockwise.
     pub sweep_angle: P::Scalar,
 }
 
@@ -35,29 +42,45 @@ pub struct EllipticArc<P: FloatPointCompatible> {
 /// exactly on that ellipse.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RationalArc<P: FloatPointCompatible> {
+    /// Supporting ellipse retained as semantic metadata.
     pub ellipse: Ellipse<P>,
+    /// Authoritative rational quadratic points: start, control, and end.
     pub control_points: [P; 3],
+    /// Positive rational weights corresponding to [`control_points`](Self::control_points).
     pub weights: [P::Scalar; 3],
+    /// Parametric start angle on the supporting ellipse, in radians.
     pub start_angle: P::Scalar,
+    /// Signed angular traversal in radians; positive is counter-clockwise.
     pub sweep_angle: P::Scalar,
 }
 
+/// Reason an [`EllipticArc`] cannot be materialized as rational pieces.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum EllipticArcError {
+    /// An ellipse coordinate, radius, rotation, or arc angle is not finite.
     NonFinite,
+    /// At least one ellipse radius is zero or negative.
     NonPositiveRadius,
+    /// The requested sweep angle is zero.
     ZeroSweep,
+    /// The absolute sweep exceeds one full revolution.
     SweepTooLarge,
+    /// A rational quadratic piece would require a non-finite representation.
     DegeneratePiece,
 }
 
+/// Invalid authoritative data in a [`RationalArc`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum RationalArcError {
+    /// The supporting elliptic-arc metadata is invalid.
     Elliptic(EllipticArcError),
+    /// At least one authoritative control point is not finite.
     NonFiniteControlPoint,
+    /// At least one rational weight is NaN or infinite.
     NonFiniteWeight,
+    /// At least one rational weight is zero or negative.
     NonPositiveWeight,
 }
 
@@ -103,6 +126,7 @@ impl core::error::Error for RationalArcError {
 }
 
 impl<P: FloatPointCompatible> Ellipse<P> {
+    /// Evaluates the ellipse at a parametric angle in radians.
     #[inline]
     pub fn point_at(&self, angle: P::Scalar) -> P {
         let (phase_sin, phase_cos) = angle.sin_cos();
@@ -149,11 +173,15 @@ impl<P: FloatPointCompatible> Ellipse<P> {
 }
 
 impl<P: FloatPointCompatible> EllipticArc<P> {
+    /// Returns the point at [`start_angle`](Self::start_angle).
     #[inline]
     pub fn start_point(&self) -> P {
         self.ellipse.point_at(self.start_angle)
     }
 
+    /// Returns the point at the end of the signed sweep.
+    ///
+    /// A full revolution returns exactly [`start_point`](Self::start_point).
     #[inline]
     pub fn end_point(&self) -> P {
         if self.is_full_turn() {
@@ -241,11 +269,13 @@ impl<P: FloatPointCompatible> EllipticArc<P> {
 }
 
 impl<P: FloatPointCompatible> RationalArc<P> {
+    /// Returns the authoritative start control point.
     #[inline]
     pub fn start_point(&self) -> P {
         self.control_points[0]
     }
 
+    /// Returns the authoritative end control point.
     #[inline]
     pub fn end_point(&self) -> P {
         self.control_points[2]

@@ -26,11 +26,22 @@ pub enum CurveInputError {
     /// A shape has no contours.
     EmptyShape,
     /// A contour has no segments.
-    EmptyContour { contour: usize },
+    EmptyContour {
+        /// Zero-based contour index within the rejected shape.
+        contour: usize,
+    },
     /// The last endpoint of a contour does not equal its start point.
-    UnclosedContour { contour: usize },
+    UnclosedContour {
+        /// Zero-based contour index within the rejected shape.
+        contour: usize,
+    },
     /// A rational arc does not start at the preceding segment endpoint.
-    DisconnectedArc { contour: usize, segment: usize },
+    DisconnectedArc {
+        /// Zero-based contour index within the rejected shape.
+        contour: usize,
+        /// Zero-based segment index within the rejected contour.
+        segment: usize,
+    },
 }
 
 impl core::fmt::Display for CurveInputError {
@@ -149,6 +160,12 @@ impl CurveOverlayOptions {
     }
 }
 
+/// Incremental Boolean overlay for integer curve shapes.
+///
+/// Shapes are validated when passed to [`add_subject`](Self::add_subject),
+/// [`add_clip`](Self::add_clip), or [`add_shape`](Self::add_shape). Add any
+/// number of inputs, configure the solver and approximation, then consume the
+/// builder with [`overlay`](Self::overlay).
 pub struct IntCurveOverlay<I: CurveInt> {
     solver: Solver,
     options: CurveOverlayOptions,
@@ -292,6 +309,7 @@ impl<I: CurveInt> IntCurveOverlay<I> {
         (shapes, data_store)
     }
 
+    /// Resolves the configured Boolean operation and returns reconstructed curves.
     #[inline]
     pub fn overlay(mut self, overlay_rule: OverlayRule, fill_rule: FillRule) -> Vec<CurveShape<I>> {
         self.prepare();

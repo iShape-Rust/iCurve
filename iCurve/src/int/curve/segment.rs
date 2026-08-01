@@ -6,21 +6,35 @@ use crate::kernel::int::curve::segment::Segment;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
+/// Segment of an integer [`CurvePath`](crate::int::CurvePath).
+///
+/// The containing path supplies the start point for line and Bézier variants.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CurveSegment<I: IntNumber> {
+    /// Straight segment.
     Line {
+        /// Endpoint.
         to: IntPoint<I>,
     },
+    /// Quadratic Bézier segment.
     Quad {
+        /// Quadratic control point.
         ctrl: IntPoint<I>,
+        /// Endpoint.
         to: IntPoint<I>,
     },
+    /// Cubic Bézier segment.
     Cubic {
+        /// First cubic control point.
         ctrl0: IntPoint<I>,
+        /// Second cubic control point.
         ctrl1: IntPoint<I>,
+        /// Endpoint.
         to: IntPoint<I>,
     },
+    /// Rational quadratic elliptic arc.
     Arc {
+        /// Authoritative rational geometry and supporting ellipse metadata.
         arc: RationalArc<I>,
     },
 }

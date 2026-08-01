@@ -50,17 +50,27 @@ impl<P: FloatPointCompatible> PathDraft<P> {
     }
 }
 
+/// Error produced while constructing or validating a float curve.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum CurveError {
+    /// A segment command was issued before [`CurveBuilder::move_to`].
     MissingMoveTo,
+    /// A contour contains no segments.
     EmptyPath,
+    /// The final segment endpoint does not exactly equal the contour start.
     UnclosedContour,
+    /// A shape contains no contours.
     NoContours,
+    /// A point coordinate is NaN or infinite.
     NonFinitePoint,
+    /// Computing the complete curve bounds produced a non-finite value.
     NonFiniteBounds,
+    /// An elliptic arc could not be materialized.
     Arc(EllipticArcError),
+    /// An authoritative rational arc is invalid.
     RationalArc(RationalArcError),
+    /// A rational arc's start point differs from the preceding endpoint.
     DisconnectedArc,
 }
 

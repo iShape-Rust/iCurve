@@ -3,9 +3,16 @@ use alloc::vec::Vec;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
+/// Integer curve contour represented by a start point and ordered segments.
+///
+/// Construction does not validate the contour. Boolean input requires at
+/// least one segment, exact closure, and connected rational arcs; these
+/// conditions are checked by [`IntCurveOverlay`](crate::int::IntCurveOverlay).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CurvePath<I: IntNumber> {
+    /// First point of the contour and implicit start point of its first segment.
     pub start: IntPoint<I>,
+    /// Ordered segments whose endpoints advance around the contour.
     pub segments: Vec<CurveSegment<I>>,
 }
 
