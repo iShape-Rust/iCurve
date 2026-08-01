@@ -207,4 +207,32 @@ mod tests {
         let result = overlay.overlay(OverlayRule::Union, FillRule::NonZero);
         dbg!(result);
     }
+
+    /// Minimized from randomized stress case 1. This must complete without runaway refinement.
+    #[test]
+    #[ignore = "known pathological chord refinement exceeds 90 seconds"]
+    fn randomized_case_1_minimized_pathological_refinement() {
+        let clip = CurveShape {
+            contours: vec![CurvePath {
+                start: IntPoint::new(-475_301, -855_672),
+                segments: vec![
+                    CurveSegment::Cubic {
+                        ctrl0: IntPoint::new(-475_301, -855_672),
+                        ctrl1: IntPoint::new(5, -2),
+                        to: IntPoint::new(-475_303, -855_675),
+                    },
+                    CurveSegment::Quad {
+                        ctrl: IntPoint::new(1, 1),
+                        to: IntPoint::new(-475_301, -855_672),
+                    },
+                ],
+            }],
+        };
+
+        let mut overlay = IntCurveOverlay::new(2);
+        overlay.add_shape(clip, ShapeType::Clip);
+
+        let result = overlay.overlay(OverlayRule::Clip, FillRule::NonZero);
+        assert!(!result.is_empty());
+    }
 }
