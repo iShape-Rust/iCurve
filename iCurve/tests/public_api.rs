@@ -80,11 +80,10 @@ fn extended_builder_validates_before_adding_input() {
 
 #[test]
 fn options_are_configured_without_public_overlay_fields() {
-    let options = CurveOverlayOptions {
-        min_chord_length_power: 5,
-        angle_tolerance_power: 4,
-        max_approximation_depth: 12,
-    };
+    let options = CurveOverlayOptions::default()
+        .with_min_chord_length_power(5)
+        .with_angle_tolerance_power(4)
+        .with_max_approximation_depth(12);
     let curves = IntCurveOverlay::<i32>::new().with_options(options);
 
     assert_eq!(curves.options(), options);
@@ -108,6 +107,11 @@ fn float_builder_is_at_top_level_and_converter_is_scoped() {
 
     fn assert_int_number<I: i_curve::int::IntNumber>() {}
     assert_int_number::<i64>();
+
+    fn assert_curve_int<I: i_curve::int::CurveInt>() {}
+    assert_curve_int::<i16>();
+    assert_curve_int::<i32>();
+    assert_curve_int::<i64>();
 
     let _: i_curve::int::arc::RationalArc<i32> = Default::default();
 }
@@ -183,10 +187,7 @@ fn float_overlay_supports_explicit_i64_solver() {
     let clip = float_rectangle(5.0, 2.0, 12.0, 8.0);
 
     let overlay = FloatCurveOverlay::<_, i64>::new(&subject, &clip)
-        .try_with_options(FloatCurveOverlayOptions {
-            min_chord_length: Some(0.001),
-            ..Default::default()
-        })
+        .try_with_options(FloatCurveOverlayOptions::default().with_min_chord_length(0.001))
         .unwrap()
         .with_solver(Solver::with_precision(Precision::MEDIUM));
 

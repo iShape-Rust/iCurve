@@ -1,4 +1,5 @@
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
+use crate::int::CurveInt;
 use crate::int::bool::approximate::CurveApproximator;
 use crate::int::bool::data::{CurveEdgeData, CurveEdgeDataStore, CurveSourceSpan};
 use crate::int::bool::edge::CurveEdge;
@@ -9,7 +10,6 @@ use crate::int::curve::shape::CurveShape;
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::normalization::canonical::{PushCanonicalSimpleParametricSegment, PushSimpleSegment};
 use alloc::vec::Vec;
-use i_key_sort::sort::key::SortKey;
 use i_overlay::core::edge_overlay::{EdgeOverlay, InputEdge};
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay::ShapeType;
@@ -18,10 +18,10 @@ use i_overlay::core::solver::Solver;
 use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::vector::edge::DataVectorShape;
-use i_tree::{Expiration, LayoutNumber};
 
 /// Structural error in an integer curve input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CurveInputError {
     /// A shape has no contours.
     EmptyShape,
@@ -58,7 +58,11 @@ impl core::error::Error for CurveInputError {}
 /// These values are expressed in the integer coordinate system. The default
 /// is intended for general-purpose input; change it only after selecting the
 /// integer or float conversion scale deliberately.
+///
+/// Construct this non-exhaustive configuration from [`Default`] and override
+/// only the values your application needs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct CurveOverlayOptions {
     /// Chords shorter than `2^min_chord_length_power` are accepted without
     /// further approximation subdivision.
@@ -80,14 +84,37 @@ impl Default for CurveOverlayOptions {
     }
 }
 
-pub struct IntCurveOverlay<I: IntNumber> {
+impl CurveOverlayOptions {
+    /// Sets the minimum accepted chord length power.
+    #[must_use]
+    pub const fn with_min_chord_length_power(mut self, power: u32) -> Self {
+        self.min_chord_length_power = power;
+        self
+    }
+
+    /// Sets the angle tolerance power.
+    #[must_use]
+    pub const fn with_angle_tolerance_power(mut self, power: u32) -> Self {
+        self.angle_tolerance_power = power;
+        self
+    }
+
+    /// Sets the local approximation subdivision limit.
+    #[must_use]
+    pub const fn with_max_approximation_depth(mut self, depth: u32) -> Self {
+        self.max_approximation_depth = depth;
+        self
+    }
+}
+
+pub struct IntCurveOverlay<I: CurveInt> {
     solver: Solver,
     options: CurveOverlayOptions,
     pub(crate) curve_sources: Vec<CurveSource<I>>,
     pub(crate) curve_edges: Vec<CurveEdge<I>>,
 }
 
-impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
+impl<I: CurveInt> IntCurveOverlay<I> {
     /// Creates an empty overlay.
     pub fn new() -> Self {
         Self::with_capacity(0)
@@ -197,10 +224,7 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
         &self,
         overlay_rule: OverlayRule,
         fill_rule: FillRule,
-    ) -> (Vec<DataVectorShape<I, CurveEdgeData>>, CurveEdgeDataStore)
-    where
-        I: Expiration + LayoutNumber + SortKey,
-    {
+    ) -> (Vec<DataVectorShape<I, CurveEdgeData>>, CurveEdgeDataStore) {
         let mut edge_overlay = EdgeOverlay::new(self.curve_edges.len());
         edge_overlay.solver = self.solver;
 
@@ -224,10 +248,7 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
     }
 
     #[inline]
-    pub fn overlay(mut self, overlay_rule: OverlayRule, fill_rule: FillRule) -> Vec<CurveShape<I>>
-    where
-        I: Expiration + LayoutNumber + SortKey,
-    {
+    pub fn overlay(mut self, overlay_rule: OverlayRule, fill_rule: FillRule) -> Vec<CurveShape<I>> {
         self.prepare();
 
         // Resolve the boolean topology while preserving CurveId provenance.
@@ -238,7 +259,7 @@ impl<I: IntNumber + i_key_sort::sort::key::SortKey> IntCurveOverlay<I> {
     }
 }
 
-impl<I: IntNumber + SortKey> Default for IntCurveOverlay<I> {
+impl<I: CurveInt> Default for IntCurveOverlay<I> {
     fn default() -> Self {
         Self::new()
     }
@@ -255,7 +276,7 @@ pub fn overlay<I>(
     fill_rule: FillRule,
 ) -> Result<Vec<CurveShape<I>>, CurveInputError>
 where
-    I: IntNumber + Expiration + LayoutNumber + SortKey,
+    I: CurveInt,
 {
     let capacity = segment_count(&subject).saturating_add(segment_count(&clip));
     let mut overlay = IntCurveOverlay::with_capacity(capacity);

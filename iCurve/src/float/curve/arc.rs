@@ -43,6 +43,7 @@ pub struct RationalArc<P: FloatPointCompatible> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EllipticArcError {
     NonFinite,
     NonPositiveRadius,
@@ -52,6 +53,7 @@ pub enum EllipticArcError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RationalArcError {
     Elliptic(EllipticArcError),
     NonFiniteControlPoint,

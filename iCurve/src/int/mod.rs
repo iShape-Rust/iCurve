@@ -12,6 +12,10 @@ pub use bool::overlay::{CurveInputError, CurveOverlayOptions, IntCurveOverlay, o
 pub use curve::path::CurvePath;
 pub use curve::segment::CurveSegment;
 pub use curve::shape::CurveShape;
+/// Integer engine supported by curve conversion and Boolean operations.
+///
+/// This trait is sealed and implemented for `i16`, `i32`, and `i64`.
+pub use i_overlay::core::integer::OverlayInt as CurveInt;
 pub use i_overlay::core::overlay::ShapeType;
 pub use i_overlay::i_float::int::number::int::IntNumber;
 pub use i_overlay::i_shape::int::IntPoint;

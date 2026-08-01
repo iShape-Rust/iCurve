@@ -212,11 +212,12 @@ let result = FloatCurveOverlay::<_, i32>::try_with_scale(
     &clip,
     10_000.0,
 )?
-.try_with_options(FloatCurveOverlayOptions {
-    min_chord_length: Some(0.001),
-    angle_tolerance: 0.125,
-    max_approximation_depth: 16,
-})?
+.try_with_options(
+    FloatCurveOverlayOptions::default()
+        .with_min_chord_length(0.001)
+        .with_angle_tolerance(0.125)
+        .with_max_approximation_depth(16),
+)?
 .with_solver(Solver::with_precision(Precision::MEDIUM))
 .overlay(OverlayRule::Difference, FillRule::NonZero);
 
@@ -358,11 +359,19 @@ need reproducible quantization.
 Applications that already store validated fixed-point geometry can use
 `CurveShape`, `IntCurveOverlay`, and the extended types under `i_curve::int`.
 `CurveConverter` and `FloatPointAdapter` are available under `i_curve::float`
-for manual conversion workflows.
+for manual conversion workflows. Engine-generic APIs use the sealed
+`i_curve::int::CurveInt` trait, implemented for `i16`, `i32`, and `i64`.
 
 The integer layer is not required for ordinary `f32`/`f64` use. Its coordinate
 limits and approximation options are documented in the
 [`int` module](https://docs.rs/i_curve/latest/i_curve/int/index.html).
+
+## API evolution
+
+Public options structs and error enums are non-exhaustive so that new settings
+and diagnostics can be added without a major release. Construct options from
+`Default` and override values through `with_*` methods. When matching an error,
+include a wildcard arm for variants introduced by future versions.
 
 ## Current limitations
 

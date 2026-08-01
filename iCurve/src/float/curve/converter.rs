@@ -4,7 +4,9 @@ use crate::float::curve::segment::CurveSegment as FloatCurveSegment;
 use crate::float::curve::shape::CurveShape as FloatCurveShape;
 use crate::float::resource::CurveResource;
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
-use crate::int::{CurvePath as IntCurvePath, CurveSegment as IntCurveSegment, CurveShape as IntCurveShape};
+use crate::int::{
+    CurveInt, CurvePath as IntCurvePath, CurveSegment as IntCurveSegment, CurveShape as IntCurveShape,
+};
 use crate::kernel::int::curve::arc::{ArcDirection, ArcPhase, ArcSegment, ArcVector, EllipseFrame};
 use alloc::vec::Vec;
 use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterScaleError};
@@ -17,12 +19,13 @@ use i_overlay::i_shape::int::IntPoint;
 
 /// Converted integer contours together with the adapter that defines their
 /// coordinate system.
-pub struct CurveConverter<P: FloatPointCompatible, I: IntNumber> {
+pub struct CurveConverter<P: FloatPointCompatible, I: CurveInt> {
     adapter: FloatPointAdapter<P, I>,
     shape: IntCurveShape<I>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CurveConversionError {
     /// Requested scale would exceed the safe integer coordinate range.
     ScaleTooLarge,
@@ -54,7 +57,7 @@ impl core::fmt::Display for CurveConversionError {
 
 impl core::error::Error for CurveConversionError {}
 
-impl<P: FloatPointCompatible, I: IntNumber> CurveConverter<P, I> {
+impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
     /// Coordinate magnitude bound used by the integer curve kernel.
     ///
     /// Six reserved bits cover the constant growth of cubic polynomial

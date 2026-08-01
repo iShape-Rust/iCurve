@@ -3,18 +3,20 @@ use crate::float::curve::path::CurvePath;
 use crate::float::curve::shape::CurveShape;
 use crate::float::resource::CurveResource;
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
-use crate::int::{CurveOverlayOptions, IntCurveOverlay};
+use crate::int::{CurveInt, CurveOverlayOptions, IntCurveOverlay};
 use crate::{CurveConversionError, FillRule, OverlayRule, Solver};
-use i_key_sort::sort::key::SortKey;
 use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::int::IntNumber;
-use i_tree::{Expiration, LayoutNumber};
 
 /// Curve approximation options expressed in float input coordinates.
+///
+/// Construct this non-exhaustive configuration from [`Default`] and override
+/// only the values your application needs.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub struct FloatCurveOverlayOptions<F: FloatNumber> {
     /// Absolute chord length below which a curve segment is accepted without
     /// further subdivision.
@@ -40,6 +42,7 @@ impl<F: FloatNumber> Default for FloatCurveOverlayOptions<F> {
 
 /// Invalid [`FloatCurveOverlayOptions`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum FloatCurveOverlayOptionsError {
     /// The requested minimum chord length is zero or negative.
     MinChordLengthNonPositive,
@@ -67,6 +70,27 @@ impl core::fmt::Display for FloatCurveOverlayOptionsError {
 impl core::error::Error for FloatCurveOverlayOptionsError {}
 
 impl<F: FloatNumber> FloatCurveOverlayOptions<F> {
+    /// Sets the absolute minimum accepted chord length.
+    #[must_use]
+    pub fn with_min_chord_length(mut self, length: F) -> Self {
+        self.min_chord_length = Some(length);
+        self
+    }
+
+    /// Sets the maximum sine deviation used for near-linear classification.
+    #[must_use]
+    pub fn with_angle_tolerance(mut self, tolerance: F) -> Self {
+        self.angle_tolerance = tolerance;
+        self
+    }
+
+    /// Sets the local approximation subdivision limit.
+    #[must_use]
+    pub fn with_max_approximation_depth(mut self, depth: u32) -> Self {
+        self.max_approximation_depth = depth;
+        self
+    }
+
     fn to_int<P, I>(
         self,
         adapter: &FloatPointAdapter<P, I>,
@@ -144,7 +168,7 @@ impl<F: FloatNumber> FloatCurveOverlayOptions<F> {
 /// assert!(!result.is_empty());
 /// # Ok::<(), i_curve::CurveBuildError>(())
 /// ```
-pub struct FloatCurveOverlay<P: FloatPointCompatible, I: IntNumber + Expiration> {
+pub struct FloatCurveOverlay<P: FloatPointCompatible, I: CurveInt> {
     adapter: FloatPointAdapter<P, I>,
     overlay: IntCurveOverlay<I>,
 }
@@ -152,7 +176,7 @@ pub struct FloatCurveOverlay<P: FloatPointCompatible, I: IntNumber + Expiration>
 impl<P, I> FloatCurveOverlay<P, I>
 where
     P: FloatPointCompatible,
-    I: IntNumber + Expiration + LayoutNumber + SortKey,
+    I: CurveInt,
 {
     const COORDINATE_BITS: u32 = I::BITS - CURVE_COORDINATE_SAFETY_BITS;
 
@@ -250,7 +274,7 @@ fn add_converted_resource<P, I, R>(
     is_subject: bool,
 ) where
     P: FloatPointCompatible,
-    I: IntNumber + Expiration + LayoutNumber + SortKey,
+    I: CurveInt,
     R: CurveResource<P> + ?Sized,
 {
     let shape = convert_resource(source, adapter);
@@ -285,7 +309,7 @@ impl<P: FloatPointCompatible> CurveShape<P> {
         fill_rule: FillRule,
     ) -> alloc::vec::Vec<Self>
     where
-        I: IntNumber + Expiration + LayoutNumber + SortKey,
+        I: CurveInt,
     {
         FloatCurveOverlay::<P, I>::new(self, clip).overlay(overlay_rule, fill_rule)
     }
@@ -310,7 +334,7 @@ impl<P: FloatPointCompatible> CurvePath<P> {
         fill_rule: FillRule,
     ) -> alloc::vec::Vec<CurveShape<P>>
     where
-        I: IntNumber + Expiration + LayoutNumber + SortKey,
+        I: CurveInt,
     {
         FloatCurveOverlay::<P, I>::new(self, clip).overlay(overlay_rule, fill_rule)
     }
@@ -337,7 +361,7 @@ pub trait CurveResourceOverlayExt<P: FloatPointCompatible>: CurveResource<P> {
         fill_rule: FillRule,
     ) -> alloc::vec::Vec<CurveShape<P>>
     where
-        I: IntNumber + Expiration + LayoutNumber + SortKey;
+        I: CurveInt;
 }
 
 impl<P, R> CurveResourceOverlayExt<P> for R
@@ -363,7 +387,7 @@ where
         fill_rule: FillRule,
     ) -> alloc::vec::Vec<CurveShape<P>>
     where
-        I: IntNumber + Expiration + LayoutNumber + SortKey,
+        I: CurveInt,
     {
         FloatCurveOverlay::<P, I>::new(self, clip).overlay(overlay_rule, fill_rule)
     }
