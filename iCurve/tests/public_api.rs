@@ -1,7 +1,7 @@
 use i_curve::int::{CurvePath, CurveSegment, CurveShape};
 use i_curve::{
     CurveBuilder, CurveInputError, CurveOverlayOptions, FillRule, IntCurveOverlay, IntPoint, OverlayRule,
-    overlay,
+    SingleFloatCurveOverlay, overlay,
 };
 
 fn rectangle(x0: i32, y0: i32, x1: i32, y1: i32) -> CurveShape<i32> {
@@ -103,4 +103,36 @@ fn float_builder_and_converter_are_available_at_top_level() {
     assert!(converter.shape().contours[0].is_closed());
 
     let _: i_curve::int::arc::RationalArc<i32> = Default::default();
+}
+
+fn float_rectangle(x0: f64, y0: f64, x1: f64, y1: f64) -> i_curve::FloatCurveShape<[f64; 2]> {
+    CurveBuilder::new()
+        .move_to([x0, y0])
+        .unwrap()
+        .line_to([x1, y0])
+        .unwrap()
+        .line_to([x1, y1])
+        .unwrap()
+        .line_to([x0, y1])
+        .unwrap()
+        .close_contour()
+        .unwrap()
+        .build()
+        .unwrap()
+}
+
+#[test]
+fn top_level_float_overlay_hides_integer_conversion() {
+    let subject = float_rectangle(0.0, 0.0, 10.0, 10.0);
+    let clip = float_rectangle(4.0, 2.0, 12.0, 8.0);
+
+    let result = subject.overlay(&clip, OverlayRule::Difference, FillRule::NonZero);
+
+    let _: &[i_curve::FloatCurvePath<[f64; 2]>] = result[0].contours();
+    assert!(
+        result
+            .iter()
+            .flat_map(|shape| shape.contours())
+            .all(|path| path.is_closed())
+    );
 }

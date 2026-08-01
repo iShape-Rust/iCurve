@@ -16,6 +16,11 @@ impl<P: FloatPointCompatible> CurveShape<P> {
         &self.contours
     }
 
+    /// Returns the total number of curve segments in the shape.
+    pub fn segment_count(&self) -> usize {
+        self.contours.iter().map(|path| path.segments.len()).sum()
+    }
+
     pub(crate) fn bounds(&self) -> FloatRect<P::Scalar> {
         let mut bounds = None;
 
@@ -39,6 +44,9 @@ impl<P: FloatPointCompatible> CurveShape<P> {
                             Some(bounds) => FloatRect::with_rects(bounds, ellipse_bounds),
                             None => ellipse_bounds,
                         });
+                        for point in arc.control_points {
+                            add_point(&mut bounds, point);
+                        }
                     }
                 }
             }

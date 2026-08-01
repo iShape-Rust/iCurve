@@ -10,78 +10,68 @@ through a shared fixed-point adapter, and `no_std` environments with `alloc`.
 
 ## Quick start
 
-The common integer case needs only top-level imports. A `CurveShape` contains
-one or more closed contours; output shapes contain an outer contour followed
-by any holes.
+The common API accepts and returns float curves. `CurveBuilder` validates each
+closed input path, and `SingleFloatCurveOverlay` provides the same concise
+two-input operation style as iOverlay. Integer conversion, one shared grid for
+both inputs, and conversion of the resulting curves back to float are handled
+internally.
 
 ```rust
 use i_curve::{
-    overlay, FillRule, IntCurvePath, IntCurveSegment, IntCurveShape, IntPoint,
-    OverlayRule,
+    CurveBuilder, FillRule, OverlayRule, SingleFloatCurveOverlay,
 };
 
-fn rectangle(x0: i32, y0: i32, x1: i32, y1: i32) -> IntCurveShape<i32> {
-    let start = IntPoint::new(x0, y0);
-    IntCurveShape::from_path(IntCurvePath::new(
-        start,
-        vec![
-            IntCurveSegment::Line { to: IntPoint::new(x1, y0) },
-            IntCurveSegment::Line { to: IntPoint::new(x1, y1) },
-            IntCurveSegment::Line { to: IntPoint::new(x0, y1) },
-            IntCurveSegment::Line { to: start },
-        ],
-    ))
+fn rectangle(x0: f64, y0: f64, x1: f64, y1: f64) -> Result<i_curve::FloatCurveShape<[f64; 2]>, i_curve::CurveBuildError> {
+    CurveBuilder::new()
+        .move_to([x0, y0])?
+        .line_to([x1, y0])?
+        .line_to([x1, y1])?
+        .line_to([x0, y1])?
+        .close_contour()?
+        .build()
 }
 
-let result = overlay(
-    rectangle(0, 0, 100, 100),
-    rectangle(50, 20, 140, 80),
-    OverlayRule::Intersect,
-    FillRule::NonZero,
-)?;
+let subject = rectangle(0.0, 0.0, 100.0, 100.0)?;
+let clip = rectangle(50.0, 20.0, 140.0, 80.0)?;
+let result = subject.overlay(&clip, OverlayRule::Intersect, FillRule::NonZero);
 assert_eq!(result.len(), 1);
-# Ok::<(), i_curve::CurveInputError>(())
+# Ok::<(), i_curve::CurveBuildError>(())
 ```
 
-For multiple inputs or custom precision, use `IntCurveOverlay`:
+For a configured float operation use `FloatCurveOverlay`. Automatic scaling
+uses the largest safe power-of-two scale for the combined bounds. An explicit
+scale, when required for reproducible application-level tolerances, is still
+specified entirely in float units:
 
 ```rust
 use i_curve::{
-    CurveOverlayOptions, FillRule, IntCurveOverlay, IntCurvePath,
-    IntCurveSegment, IntCurveShape, IntPoint, OverlayRule, Precision, Solver,
+    CurveBuilder, FillRule, FloatCurveOverlay, OverlayRule, Precision, Solver,
 };
 
-let start = IntPoint::new(0_i32, 0);
-let shape = IntCurveShape::from_path(IntCurvePath::new(
-    start,
-    vec![
-        IntCurveSegment::Quad {
-            ctrl: IntPoint::new(50, -40),
-            to: IntPoint::new(100, 0),
-        },
-        IntCurveSegment::Line { to: start },
-    ],
-));
+let subject = CurveBuilder::new()
+    .move_to([0.0_f64, 0.0])?
+    .quad_to([50.0, -40.0], [100.0, 0.0])?
+    .close_contour()?
+    .build()?;
+let clip = CurveBuilder::new()
+    .move_to([30.0_f64, -10.0])?
+    .line_to([80.0, -10.0])?
+    .line_to([80.0, 10.0])?
+    .close_contour()?
+    .build()?;
 
-let mut curves = IntCurveOverlay::with_capacity(shape.segment_count())
-    .with_solver(Solver::with_precision(Precision::MEDIUM))
-    .with_options(CurveOverlayOptions::default());
-curves.add_subject(shape)?;
-let result = curves.overlay(OverlayRule::Subject, FillRule::NonZero);
+let curves = FloatCurveOverlay::try_with_subj_and_clip_scale(&subject, &clip, 10_000.0)?
+    .with_solver(Solver::with_precision(Precision::MEDIUM));
+let result = curves.overlay(OverlayRule::Difference, FillRule::NonZero);
 assert!(!result.is_empty());
-# Ok::<(), i_curve::CurveInputError>(())
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-`add_subject`, `add_clip`, and `add_shape` consume their input and validate
-that every contour is non-empty, connected, and closed. `overlay` consumes the
-overlay builder because its prepared edge storage is a one-operation value.
+## Integer and conversion API
 
-## Float input
-
-`CurveBuilder` validates float paths without quantizing them. `CurveConverter`
-then chooses one safe power-of-two integer scale for the complete source shape,
-or validates an explicit scale. All contours taking part in one operation must
-be converted together so that they share an adapter and grid.
+The integer API remains available for applications that already own safe
+fixed-point data. This is an advanced layer; ordinary float callers do not
+need `IntPoint`, `CurveConverter`, or `FloatPointAdapter`.
 
 ```rust
 use i_curve::{
@@ -120,10 +110,9 @@ assert!(first[0].is_finite());
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-For a fixed grid, use
-`CurveConverter::<_, i32>::try_with_scale(source, scale)`. A larger scale keeps
-smaller details but reduces the available source-coordinate range. Keep the
-returned `FloatPointAdapter` for mapping result points back to float space.
+`add_subject`, `add_clip`, and `add_shape` consume their input and validate
+that every contour is non-empty, connected, and closed. `overlay` consumes the
+overlay builder because its prepared edge storage is a one-operation value.
 
 ## Elliptic and rational arcs
 
@@ -230,8 +219,8 @@ crate rather than in the geometry kernel.
 - Inputs must be closed paths; open-path clipping and stroking are out of scope.
 - Topology follows the documented discrete approximation, not exact symbolic
   curve intersection.
-- Float boolean results remain in the shared integer coordinate system;
-  callers map result points through the returned adapter.
+- Automatic float scaling is bounds-dependent; use an explicit float scale
+  when separate operations must use exactly the same grid resolution.
 - Rational arcs may no longer match their supporting ellipse after snapping.
 
 ## License

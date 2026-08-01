@@ -104,7 +104,7 @@ impl<P: FloatPointCompatible, I: IntNumber> CurveConverter<P, I> {
     }
 }
 
-fn convert_shape<P: FloatPointCompatible, I: IntNumber>(
+pub(crate) fn convert_shape<P: FloatPointCompatible, I: IntNumber>(
     source: FloatCurveShape<P>,
     adapter: &FloatPointAdapter<P, I>,
 ) -> IntCurveShape<I> {
@@ -114,6 +114,118 @@ fn convert_shape<P: FloatPointCompatible, I: IntNumber>(
         .filter_map(|path| convert_path(path, adapter))
         .collect();
     IntCurveShape { contours }
+}
+
+pub(crate) fn convert_shapes_to_float<P: FloatPointCompatible, I: IntNumber>(
+    source: Vec<IntCurveShape<I>>,
+    adapter: &FloatPointAdapter<P, I>,
+) -> Vec<FloatCurveShape<P>> {
+    source
+        .into_iter()
+        .map(|shape| FloatCurveShape {
+            contours: shape
+                .contours
+                .into_iter()
+                .map(|path| convert_path_to_float(path, adapter))
+                .collect(),
+        })
+        .collect()
+}
+
+fn convert_path_to_float<P: FloatPointCompatible, I: IntNumber>(
+    source: IntCurvePath<I>,
+    adapter: &FloatPointAdapter<P, I>,
+) -> FloatCurvePath<P> {
+    FloatCurvePath {
+        start: adapter.int_to_float(&source.start),
+        segments: source
+            .segments
+            .into_iter()
+            .map(|segment| convert_segment_to_float(segment, adapter))
+            .collect(),
+    }
+}
+
+fn convert_segment_to_float<P: FloatPointCompatible, I: IntNumber>(
+    source: IntCurveSegment<I>,
+    adapter: &FloatPointAdapter<P, I>,
+) -> FloatCurveSegment<P> {
+    match source {
+        IntCurveSegment::Line { to } => FloatCurveSegment::Line {
+            to: adapter.int_to_float(&to),
+        },
+        IntCurveSegment::Quad { ctrl, to } => FloatCurveSegment::Quad {
+            ctrl: adapter.int_to_float(&ctrl),
+            to: adapter.int_to_float(&to),
+        },
+        IntCurveSegment::Cubic { ctrl0, ctrl1, to } => FloatCurveSegment::Cubic {
+            ctrl0: adapter.int_to_float(&ctrl0),
+            ctrl1: adapter.int_to_float(&ctrl1),
+            to: adapter.int_to_float(&to),
+        },
+        IntCurveSegment::Arc { arc } => FloatCurveSegment::Arc {
+            arc: convert_arc_to_float(arc, adapter),
+        },
+    }
+}
+
+fn convert_arc_to_float<P: FloatPointCompatible, I: IntNumber>(
+    source: ArcSegment<I>,
+    adapter: &FloatPointAdapter<P, I>,
+) -> RationalArc<P> {
+    let axis_x_x = adapter.len_to_float(source.ellipse.axis_x.x);
+    let axis_x_y = adapter.len_to_float(source.ellipse.axis_x.y);
+    let axis_y_x = adapter.len_to_float(source.ellipse.axis_y.x);
+    let axis_y_y = adapter.len_to_float(source.ellipse.axis_y.y);
+    let start_angle = phase_angle::<P::Scalar, I>(source.start_phase);
+    let end_angle = phase_angle::<P::Scalar, I>(source.end_phase);
+    let sweep_angle = directed_sweep(start_angle, end_angle, source.direction);
+    let denominator = P::Scalar::from_wide_int(FixedScale::<I>::DENOMINATOR);
+
+    RationalArc {
+        ellipse: Ellipse {
+            center: adapter.int_to_float(&source.ellipse.center),
+            radius_x: (axis_x_x * axis_x_x + axis_x_y * axis_x_y).sqrt(),
+            radius_y: (axis_y_x * axis_y_x + axis_y_y * axis_y_y).sqrt(),
+            rotation: vector_angle(axis_x_x, axis_x_y),
+        },
+        control_points: source.control_points.map(|point| adapter.int_to_float(&point)),
+        weights: source
+            .weights
+            .map(|weight| P::Scalar::from_int(weight) / denominator),
+        start_angle,
+        sweep_angle,
+    }
+}
+
+fn phase_angle<F: FloatNumber, I: IntNumber>(phase: ArcPhase<I>) -> F {
+    vector_angle(F::from_int(phase.cos), F::from_int(phase.sin))
+}
+
+fn vector_angle<F: FloatNumber>(x: F, y: F) -> F {
+    let length = (x * x + y * y).sqrt();
+    let cosine = (x / length).max(-F::ONE).min(F::ONE);
+    let angle = cosine.acos();
+    if y < F::ZERO { -angle } else { angle }
+}
+
+fn directed_sweep<F: FloatNumber>(start: F, end: F, direction: ArcDirection) -> F {
+    let pi = (-F::ONE).acos();
+    let turn = pi * F::TWO;
+    let mut sweep = end - start;
+    match direction {
+        ArcDirection::CounterClockwise => {
+            if sweep <= F::ZERO {
+                sweep = sweep + turn;
+            }
+        }
+        ArcDirection::Clockwise => {
+            if sweep >= F::ZERO {
+                sweep = sweep - turn;
+            }
+        }
+    }
+    sweep
 }
 
 fn convert_path<P: FloatPointCompatible, I: IntNumber>(
