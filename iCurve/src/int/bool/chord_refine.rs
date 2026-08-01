@@ -154,29 +154,50 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
             return 0;
         }
 
-        if let Some(ChordCross::Point(point)) = first_chord.cross(&second_chord, cross_radius) {
-            let snap_to_endpoint = point == first_chord.a
-                || point == first_chord.b
-                || point == second_chord.a
-                || point == second_chord.b;
-            let first_split = self.collect_chord_cross_mark(
-                first.edge_index,
-                first_edge.curve,
-                first_chord,
-                point,
-                snap_to_endpoint,
-            );
-            let second_split = self.collect_chord_cross_mark(
-                second.edge_index,
-                second_edge.curve,
-                second_chord,
-                point,
-                snap_to_endpoint,
-            );
+        match first_chord.cross(&second_chord, cross_radius) {
+            Some(ChordCross::Point(point)) => {
+                let snap_to_endpoint = point == first_chord.a
+                    || point == first_chord.b
+                    || point == second_chord.a
+                    || point == second_chord.b;
+                let first_split = self.collect_chord_cross_mark(
+                    first.edge_index,
+                    first_edge.curve,
+                    first_chord,
+                    point,
+                    snap_to_endpoint,
+                );
+                let second_split = self.collect_chord_cross_mark(
+                    second.edge_index,
+                    second_edge.curve,
+                    second_chord,
+                    point,
+                    snap_to_endpoint,
+                );
 
-            if first_split || second_split {
-                return 1;
+                if first_split || second_split {
+                    return 1;
+                }
             }
+            Some(ChordCross::Overlay) => {
+                // Align both overlap boundaries exactly. Collinear subdivision
+                // preserves planarity, so these marks do not require another
+                // planarization round.
+                self.collect_chord_overlap_marks(
+                    first.edge_index,
+                    first_edge.curve,
+                    first_chord,
+                    second_chord,
+                );
+                self.collect_chord_overlap_marks(
+                    second.edge_index,
+                    second_edge.curve,
+                    second_chord,
+                    first_chord,
+                );
+                return 0;
+            }
+            None => {}
         }
 
         self.collect_endpoint_mark(second.edge_index, second_edge.curve, second.rect, first_chord.a);
@@ -185,6 +206,17 @@ impl<I: IntNumber> ChordTopologyRefiner<I> {
         self.collect_endpoint_mark(first.edge_index, first_edge.curve, first.rect, second_chord.b);
 
         0
+    }
+
+    fn collect_chord_overlap_marks(
+        &mut self,
+        edge_index: usize,
+        curve: Segment<I>,
+        chord: SegmentChord<I>,
+        other: SegmentChord<I>,
+    ) {
+        self.collect_chord_cross_mark(edge_index, curve, chord, other.a, true);
+        self.collect_chord_cross_mark(edge_index, curve, chord, other.b, true);
     }
 
     fn collect_chord_cross_mark(
@@ -570,6 +602,15 @@ mod tests {
             .collect()
     }
 
+    fn assert_edge_endpoints_have_marks(edges: &[CurveEdge<i32>], slices: &[CurveSlice<i32>]) {
+        for edge in edges {
+            let chord = edge.curve.chord();
+            let slice = &slices[edge.curve_id.0];
+            assert!(slice.param_at(chord.a).is_some());
+            assert!(slice.param_at(chord.b).is_some());
+        }
+    }
+
     #[test]
     fn splits_curve_when_other_chord_endpoint_is_inside_its_hull() {
         let mut edges = vec![quad(0, [[0, 0], [5, 10], [10, 0]]), line(1, [5, 8], [9, 8])];
@@ -769,6 +810,93 @@ mod tests {
         );
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(1)).count(), 2);
+    }
+
+    #[test]
+    fn splits_both_chords_at_partial_collinear_overlap_boundaries() {
+        let mut edges = vec![line(0, [0, 0], [10, 0]), line(1, [5, 0], [15, 0])];
+        let mut slices = slices(&edges);
+        let mut refiner = ChordTopologyRefiner::new();
+
+        let outcome = refiner.refine(&mut edges, &mut slices, 0_i64);
+
+        assert_eq!(outcome, RefineOutcome::PlanarityPreserved);
+        assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
+        assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(1)).count(), 2);
+        assert_eq!(
+            slices[0].param_at(IntPoint::new(5, 0)),
+            Some(SegmentParam::half())
+        );
+        assert_eq!(
+            slices[1].param_at(IntPoint::new(10, 0)),
+            Some(SegmentParam::half())
+        );
+        assert_edge_endpoints_have_marks(&edges, &slices);
+    }
+
+    #[test]
+    fn splits_containing_chord_at_both_overlap_boundaries() {
+        let mut edges = vec![line(0, [0, 0], [20, 0]), line(1, [5, 0], [15, 0])];
+        let mut slices = slices(&edges);
+        let mut refiner = ChordTopologyRefiner::new();
+
+        let outcome = refiner.refine(&mut edges, &mut slices, 0_i64);
+
+        assert_eq!(outcome, RefineOutcome::PlanarityPreserved);
+        assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 3);
+        assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(1)).count(), 1);
+        assert!(slices[0].param_at(IntPoint::new(5, 0)).is_some());
+        assert!(slices[0].param_at(IntPoint::new(15, 0)).is_some());
+        assert_edge_endpoints_have_marks(&edges, &slices);
+    }
+
+    #[test]
+    fn splits_reversed_chord_at_partial_collinear_overlap_boundaries() {
+        let mut edges = vec![line(0, [0, 0], [10, 0]), line(1, [15, 0], [5, 0])];
+        let mut slices = slices(&edges);
+        let mut refiner = ChordTopologyRefiner::new();
+
+        let outcome = refiner.refine(&mut edges, &mut slices, 0_i64);
+
+        assert_eq!(outcome, RefineOutcome::PlanarityPreserved);
+        assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
+        assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(1)).count(), 2);
+        assert_edge_endpoints_have_marks(&edges, &slices);
+    }
+
+    #[test]
+    fn splits_vertical_chords_at_partial_collinear_overlap_boundaries() {
+        let mut edges = vec![line(0, [0, 0], [0, 10]), line(1, [0, 5], [0, 15])];
+        let mut slices = slices(&edges);
+        let mut refiner = ChordTopologyRefiner::new();
+
+        let outcome = refiner.refine(&mut edges, &mut slices, 0_i64);
+
+        assert_eq!(outcome, RefineOutcome::PlanarityPreserved);
+        assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
+        assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(1)).count(), 2);
+        assert_eq!(
+            slices[0].param_at(IntPoint::new(0, 5)),
+            Some(SegmentParam::half())
+        );
+        assert_eq!(
+            slices[1].param_at(IntPoint::new(0, 10)),
+            Some(SegmentParam::half())
+        );
+        assert_edge_endpoints_have_marks(&edges, &slices);
+    }
+
+    #[test]
+    fn keeps_disjoint_parallel_chords_unsplit() {
+        let mut edges = vec![line(0, [0, 0], [10, 0]), line(1, [0, 5], [10, 5])];
+        let mut slices = slices(&edges);
+        let mut refiner = ChordTopologyRefiner::new();
+
+        let outcome = refiner.refine(&mut edges, &mut slices, 0_i64);
+
+        assert_eq!(outcome, RefineOutcome::PlanarityPreserved);
+        assert_eq!(edges.len(), 2);
+        assert_edge_endpoints_have_marks(&edges, &slices);
     }
 
     #[test]
