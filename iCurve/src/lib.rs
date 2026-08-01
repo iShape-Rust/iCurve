@@ -14,7 +14,7 @@ pub use float::{
     CurveBuildError, CurveBuilder, CurveConversionError, CurveConversionReport, CurvePath as FloatCurvePath,
     CurveResource, CurveResourceOverlayExt, CurveSegment as FloatCurveSegment, CurveShape as FloatCurveShape,
     FloatCurveOverlay, FloatCurveOverlayConversionReport, FloatCurveOverlayOptions,
-    FloatCurveOverlayOptionsError, FloatPointCompatible,
+    FloatCurveOverlayOptionsError,
 };
 pub use i_overlay::core::fill_rule::FillRule;
 pub use i_overlay::core::overlay_rule::OverlayRule;

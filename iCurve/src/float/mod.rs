@@ -7,7 +7,7 @@
 
 mod curve;
 mod overlay;
-pub mod resource;
+mod resource;
 
 /// Ellipses and elliptic-arc representations in float coordinates.
 pub mod arc {

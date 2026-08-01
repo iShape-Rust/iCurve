@@ -415,7 +415,7 @@ impl<P: FloatPointCompatible> CurvePath<P> {
 /// [`CurveShape`] and [`CurvePath`] provide the same methods directly. Import
 /// this trait when the subject is a slice, array, `Vec`, or another resource.
 pub trait CurveResourceOverlayExt<P: FloatPointCompatible>: CurveResource<P> {
-    /// Uses the default internal engine and returns float curves.
+    /// Uses the standard `i32` engine and returns float curves.
     fn overlay(
         &self,
         clip: &(impl CurveResource<P> + ?Sized),
@@ -423,7 +423,7 @@ pub trait CurveResourceOverlayExt<P: FloatPointCompatible>: CurveResource<P> {
         fill_rule: FillRule,
     ) -> alloc::vec::Vec<CurveShape<P>>;
 
-    /// Uses an explicitly selected internal engine and returns float curves.
+    /// Uses the selected integer engine and returns float curves.
     fn overlay_as<I>(
         &self,
         clip: &(impl CurveResource<P> + ?Sized),

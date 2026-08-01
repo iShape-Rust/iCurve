@@ -170,6 +170,10 @@ fn float_builder_is_at_top_level_and_converter_is_scoped() {
     assert_eq!(source.contours().len(), 1);
     let _: CurveConversionReport = converter.report();
 
+    fn assert_float_point<P: i_curve::float::FloatPointCompatible>() {}
+    assert_float_point::<[f32; 2]>();
+    assert_float_point::<[f64; 2]>();
+
     fn assert_curve_int<I: i_curve::int::CurveInt>() {}
     assert_curve_int::<i16>();
     assert_curve_int::<i32>();

@@ -223,7 +223,7 @@ assert!(!result.is_empty());
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-The default convenience API automatically chooses the largest safe
+The convenience `overlay` methods automatically choose the largest safe
 power-of-two scale from the combined bounds of both inputs. An explicit scale
 is useful when several independent operations must share the same grid
 resolution. A larger scale preserves smaller features but reduces the safe
@@ -259,13 +259,13 @@ The direct `FloatCurveOverlay` API makes the integer engine explicit: use
 `FloatCurveOverlay::<_, i32>` for the standard engine or
 `FloatCurveOverlay::<_, i64>` for the wider one.
 
-For subject-only resolution with a reproducible grid, use
+To resolve a subject without a clip on a reproducible grid, use
 `FloatCurveOverlay::try_from_subject_with_scale(&subject, scale)` and resolve it
 with `OverlayRule::Subject`.
 
 ## Reading the result
 
-The float result is exposed through three top-level aliases:
+The float result is exposed through three top-level types:
 
 - `FloatCurveShape<P>` contains contours;
 - `FloatCurvePath<P>` has a start point and segments;
