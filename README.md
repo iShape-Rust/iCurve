@@ -236,6 +236,25 @@ fallible `try_with_options` rejects non-finite or out-of-range tolerances and
 subdivision depths above `CurveOverlayOptions::MAX_APPROXIMATION_DEPTH` (16).
 Use `scale()` to inspect the effective float-to-integer conversion scale.
 
+Use `conversion_report()` before consuming a `FloatCurveOverlay` when an empty
+or simplified result needs diagnosis. It returns separate subject and clip
+reports with counts for collapsed contours, collapsed segments, and arcs
+replaced by lines. Manual conversion exposes the same information through
+`CurveConverter::report()`:
+
+```rust
+use i_curve::float::CurveConverter;
+
+# fn inspect(shape: &i_curve::FloatCurveShape<[f64; 2]>) {
+let converter = CurveConverter::<_, i32>::new(shape);
+let report = converter.report();
+
+if report.has_degeneracies() {
+    // Increase the explicit scale or inspect the affected source geometry.
+}
+# }
+```
+
 The direct `FloatCurveOverlay` API makes the integer engine explicit: use
 `FloatCurveOverlay::<_, i32>` for the standard engine or
 `FloatCurveOverlay::<_, i64>` for the wider one.

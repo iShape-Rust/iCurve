@@ -4,7 +4,8 @@ use i_curve::int::{
     IntCurveOverlay, IntPoint, overlay,
 };
 use i_curve::{
-    CurveBuilder, FillRule, FloatCurveOverlay, FloatCurveOverlayOptions, OverlayRule, Precision, Solver,
+    CurveBuilder, CurveConversionReport, FillRule, FloatCurveOverlay, FloatCurveOverlayConversionReport,
+    FloatCurveOverlayOptions, OverlayRule, Precision, Solver,
 };
 
 fn rectangle(x0: i32, y0: i32, x1: i32, y1: i32) -> CurveShape<i32> {
@@ -167,6 +168,7 @@ fn float_builder_is_at_top_level_and_converter_is_scoped() {
     assert!(converter.scale() > 0.0);
     assert!(converter.shape().contours[0].is_closed());
     assert_eq!(source.contours().len(), 1);
+    let _: CurveConversionReport = converter.report();
 
     fn assert_int_number<I: i_curve::int::IntNumber>() {}
     assert_int_number::<i64>();
@@ -246,8 +248,11 @@ fn float_curve_resources_accept_shape_collections_and_paths() {
     let empty: [i_curve::FloatCurveShape<[f64; 2]>; 0] = [];
     let converted = i_curve::float::CurveConverter::<_, i32>::new(&empty);
     assert!(converted.shape().contours.is_empty());
-    let result =
-        FloatCurveOverlay::<_, i32>::new(&empty, &clip).overlay(OverlayRule::Clip, FillRule::NonZero);
+    let overlay = FloatCurveOverlay::<_, i32>::new(&empty, &clip);
+    let report: FloatCurveOverlayConversionReport = overlay.conversion_report();
+    assert_eq!(report.subject.contour_count, 0);
+    assert_eq!(report.clip.expect("clip report").contour_count, 1);
+    let result = overlay.overlay(OverlayRule::Clip, FillRule::NonZero);
     assert_eq!(result.len(), 1);
 }
 

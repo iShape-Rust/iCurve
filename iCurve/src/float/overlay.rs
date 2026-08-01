@@ -1,4 +1,4 @@
-use crate::float::curve::converter::{convert_resource, convert_shapes_to_float};
+use crate::float::curve::converter::{CurveConversionReport, convert_resource, convert_shapes_to_float};
 use crate::float::curve::path::CurvePath;
 use crate::float::curve::shape::CurveShape;
 use crate::float::resource::{CurveResource, resource_bounds};
@@ -185,9 +185,32 @@ impl<F: FloatNumber> FloatCurveOverlayOptions<F> {
 /// assert!(!result.is_empty());
 /// # Ok::<(), i_curve::CurveBuildError>(())
 /// ```
+///
+/// Inspect [`conversion_report`](Self::conversion_report) before consuming the
+/// overlay when grid-induced geometry loss must be diagnosed.
 pub struct FloatCurveOverlay<P: FloatPointCompatible, I: CurveInt> {
     adapter: FloatPointAdapter<P, I>,
     overlay: IntCurveOverlay<I>,
+    conversion_report: FloatCurveOverlayConversionReport,
+}
+
+/// Per-operand float-to-integer conversion diagnostics for an overlay.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct FloatCurveOverlayConversionReport {
+    /// Conversion diagnostics for the subject operand.
+    pub subject: CurveConversionReport,
+    /// Conversion diagnostics for the clip operand, or `None` for an overlay
+    /// created with [`FloatCurveOverlay::from_subject`].
+    pub clip: Option<CurveConversionReport>,
+}
+
+impl FloatCurveOverlayConversionReport {
+    /// Returns whether either operand lost geometry or linearized an arc.
+    #[inline]
+    pub fn has_degeneracies(&self) -> bool {
+        self.subject.has_degeneracies() || self.clip.is_some_and(|report| report.has_degeneracies())
+    }
 }
 
 impl<P, I> FloatCurveOverlay<P, I>
@@ -248,11 +271,17 @@ where
     {
         let capacity = resource_segment_count(subject) + clip.map_or(0, resource_segment_count);
         let mut overlay = IntCurveOverlay::with_capacity(capacity);
-        add_converted_resource(&mut overlay, subject, &adapter, true);
-        if let Some(clip) = clip {
-            add_converted_resource(&mut overlay, clip, &adapter, false);
+        let subject_report = add_converted_resource(&mut overlay, subject, &adapter, true);
+        let clip_report = clip.map(|clip| add_converted_resource(&mut overlay, clip, &adapter, false));
+        let conversion_report = FloatCurveOverlayConversionReport {
+            subject: subject_report,
+            clip: clip_report,
+        };
+        Self {
+            adapter,
+            overlay,
+            conversion_report,
         }
-        Self { adapter, overlay }
     }
 
     /// Sets the topology solver configuration.
@@ -277,6 +306,12 @@ where
         self.adapter.dir_scale()
     }
 
+    /// Returns topology changes observed while converting each operand.
+    #[inline]
+    pub fn conversion_report(&self) -> FloatCurveOverlayConversionReport {
+        self.conversion_report
+    }
+
     /// Performs the Boolean operation and returns float curve shapes.
     pub fn overlay(self, overlay_rule: OverlayRule, fill_rule: FillRule) -> alloc::vec::Vec<CurveShape<P>> {
         let shapes = self.overlay.overlay(overlay_rule, fill_rule);
@@ -289,14 +324,15 @@ fn add_converted_resource<P, I, R>(
     source: &R,
     adapter: &FloatPointAdapter<P, I>,
     is_subject: bool,
-) where
+) -> CurveConversionReport
+where
     P: FloatPointCompatible,
     I: CurveInt,
     R: CurveResource<P> + ?Sized,
 {
-    let shape = convert_resource(source, adapter);
+    let (shape, report) = convert_resource(source, adapter);
     if shape.contours.is_empty() {
-        return;
+        return report;
     }
 
     let result = if is_subject {
@@ -305,6 +341,7 @@ fn add_converted_resource<P, I, R>(
         overlay.add_clip(shape)
     };
     assert!(result.is_ok(), "float conversion produced invalid curve topology");
+    report
 }
 
 impl<P: FloatPointCompatible> CurveShape<P> {
@@ -612,7 +649,16 @@ mod tests {
         let subject = rectangle(0.0, 0.0, 10.0, 10.0);
         let clip = rectangle(5.0, 5.0, 5.0 + 1.0e-12, 5.0 + 1.0e-12);
 
-        let intersection = subject.overlay(&clip, OverlayRule::Intersect, FillRule::NonZero);
+        let overlay = FloatCurveOverlay::<_, i32>::new(&subject, &clip);
+        let report = overlay.conversion_report();
+        assert!(!report.subject.has_degeneracies());
+        let clip_report = report.clip.expect("clip report");
+        assert_eq!(clip_report.contour_count, 1);
+        assert_eq!(clip_report.collapsed_contour_count, 1);
+        assert_eq!(clip_report.collapsed_segment_count, 4);
+        assert!(report.has_degeneracies());
+
+        let intersection = overlay.overlay(OverlayRule::Intersect, FillRule::NonZero);
         let union = subject.overlay(&clip, OverlayRule::Union, FillRule::NonZero);
 
         assert!(intersection.is_empty());

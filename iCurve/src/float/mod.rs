@@ -15,13 +15,14 @@ pub mod arc {
 }
 
 pub use curve::builder::{CurveBuilder, CurveError as CurveBuildError};
-pub use curve::converter::{CurveConversionError, CurveConverter};
+pub use curve::converter::{CurveConversionError, CurveConversionReport, CurveConverter};
 pub use curve::path::CurvePath;
 pub use curve::segment::CurveSegment;
 pub use curve::shape::CurveShape;
 pub use i_overlay::i_float::adapter::FloatPointAdapter;
 pub use i_overlay::i_float::float::compatible::FloatPointCompatible;
 pub use overlay::{
-    CurveResourceOverlayExt, FloatCurveOverlay, FloatCurveOverlayOptions, FloatCurveOverlayOptionsError,
+    CurveResourceOverlayExt, FloatCurveOverlay, FloatCurveOverlayConversionReport, FloatCurveOverlayOptions,
+    FloatCurveOverlayOptionsError,
 };
 pub use resource::CurveResource;

@@ -11,9 +11,10 @@ pub mod int;
 mod kernel;
 
 pub use float::{
-    CurveBuildError, CurveBuilder, CurveConversionError, CurvePath as FloatCurvePath, CurveResource,
-    CurveResourceOverlayExt, CurveSegment as FloatCurveSegment, CurveShape as FloatCurveShape,
-    FloatCurveOverlay, FloatCurveOverlayOptions, FloatCurveOverlayOptionsError, FloatPointCompatible,
+    CurveBuildError, CurveBuilder, CurveConversionError, CurveConversionReport, CurvePath as FloatCurvePath,
+    CurveResource, CurveResourceOverlayExt, CurveSegment as FloatCurveSegment, CurveShape as FloatCurveShape,
+    FloatCurveOverlay, FloatCurveOverlayConversionReport, FloatCurveOverlayOptions,
+    FloatCurveOverlayOptionsError, FloatPointCompatible,
 };
 pub use i_overlay::core::fill_rule::FillRule;
 pub use i_overlay::core::overlay_rule::OverlayRule;

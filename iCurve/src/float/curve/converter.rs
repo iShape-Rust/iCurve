@@ -27,6 +27,38 @@ use i_overlay::i_shape::int::IntPoint;
 pub struct CurveConverter<P: FloatPointCompatible, I: CurveInt> {
     adapter: FloatPointAdapter<P, I>,
     shape: IntCurveShape<I>,
+    report: CurveConversionReport,
+}
+
+/// Observable topology changes made during float-to-integer conversion.
+///
+/// Coordinate rounding happens for every conversion and is not counted here.
+/// This report records only source geometry that disappears or changes segment
+/// kind because it cannot be represented on the selected integer grid.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct CurveConversionReport {
+    /// Number of source contours examined.
+    pub contour_count: usize,
+    /// Number of source contours omitted because none of their segments
+    /// survived conversion.
+    pub collapsed_contour_count: usize,
+    /// Number of source segments omitted after snapping reduced them to empty
+    /// integer geometry.
+    pub collapsed_segment_count: usize,
+    /// Number of rational arcs replaced by straight lines because their
+    /// ellipse, weights, or direction collapsed on the integer grid.
+    pub linearized_arc_count: usize,
+}
+
+impl CurveConversionReport {
+    /// Returns whether conversion omitted geometry or changed an arc to a line.
+    #[inline]
+    pub fn has_degeneracies(&self) -> bool {
+        self.collapsed_contour_count != 0
+            || self.collapsed_segment_count != 0
+            || self.linearized_arc_count != 0
+    }
 }
 
 /// Invalid explicit scale requested for float-to-integer conversion.
@@ -79,8 +111,12 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
     {
         let bounds = resource_bounds(source).unwrap_or_else(FloatRect::zero);
         let adapter = FloatPointAdapter::with_coordinate_bits(bounds, Self::COORDINATE_BITS);
-        let shape = convert_resource(source, &adapter);
-        Self { adapter, shape }
+        let (shape, report) = convert_resource(source, &adapter);
+        Self {
+            adapter,
+            shape,
+            report,
+        }
     }
 
     /// Converts all paths in a curve resource with an explicitly requested scale.
@@ -91,8 +127,12 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
         let bounds = resource_bounds(source).unwrap_or_else(FloatRect::zero);
         let adapter =
             FloatPointAdapter::try_with_scale_and_coordinate_bits(bounds, scale, Self::COORDINATE_BITS)?;
-        let shape = convert_resource(source, &adapter);
-        Ok(Self { adapter, shape })
+        let (shape, report) = convert_resource(source, &adapter);
+        Ok(Self {
+            adapter,
+            shape,
+            report,
+        })
     }
 
     /// Returns the effective float-to-integer conversion scale.
@@ -113,6 +153,12 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
         &self.shape
     }
 
+    /// Returns topology changes observed during conversion.
+    #[inline]
+    pub fn report(&self) -> CurveConversionReport {
+        self.report
+    }
+
     /// Consumes this converter and returns the converted integer shape.
     #[inline]
     pub fn into_shape(self) -> IntCurveShape<I> {
@@ -126,17 +172,26 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
     }
 }
 
-pub(crate) fn convert_resource<P, I, R>(source: &R, adapter: &FloatPointAdapter<P, I>) -> IntCurveShape<I>
+pub(crate) fn convert_resource<P, I, R>(
+    source: &R,
+    adapter: &FloatPointAdapter<P, I>,
+) -> (IntCurveShape<I>, CurveConversionReport)
 where
     P: FloatPointCompatible,
     I: IntNumber,
     R: CurveResource<P> + ?Sized,
 {
-    let contours = source
-        .iter_paths()
-        .filter_map(|path| convert_path(path, adapter))
-        .collect();
-    IntCurveShape { contours }
+    let mut report = CurveConversionReport::default();
+    let mut contours = Vec::new();
+    for path in source.iter_paths() {
+        report.contour_count += 1;
+        if let Some(path) = convert_path(path, adapter, &mut report) {
+            contours.push(path);
+        } else {
+            report.collapsed_contour_count += 1;
+        }
+    }
+    (IntCurveShape { contours }, report)
 }
 
 pub(crate) fn convert_shapes_to_float<P: FloatPointCompatible, I: IntNumber>(
@@ -254,6 +309,7 @@ fn directed_sweep<F: FloatNumber>(start: F, end: F, direction: ArcDirection) -> 
 fn convert_path<P: FloatPointCompatible, I: IntNumber>(
     source: &FloatCurvePath<P>,
     adapter: &FloatPointAdapter<P, I>,
+    report: &mut CurveConversionReport,
 ) -> Option<IntCurvePath<I>> {
     let start = adapter.float_to_int(&source.start);
     let mut current = start;
@@ -263,24 +319,37 @@ fn convert_path<P: FloatPointCompatible, I: IntNumber>(
         match segment {
             FloatCurveSegment::Line { to } => {
                 let to = adapter.float_to_int(to);
-                segments.push(IntCurveSegment::Line { to });
+                if current == to {
+                    report.collapsed_segment_count += 1;
+                } else {
+                    segments.push(IntCurveSegment::Line { to });
+                }
                 current = to;
             }
             FloatCurveSegment::Quad { ctrl, to } => {
                 let ctrl = adapter.float_to_int(ctrl);
                 let to = adapter.float_to_int(to);
-                segments.push(IntCurveSegment::Quad { ctrl, to });
+                if current == to {
+                    report.collapsed_segment_count += 1;
+                } else {
+                    segments.push(IntCurveSegment::Quad { ctrl, to });
+                }
                 current = to;
             }
             FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => {
                 let ctrl0 = adapter.float_to_int(ctrl0);
                 let ctrl1 = adapter.float_to_int(ctrl1);
                 let to = adapter.float_to_int(to);
-                segments.push(IntCurveSegment::Cubic { ctrl0, ctrl1, to });
+                let closed_spike = current == to && (current == ctrl0 || current == ctrl1 || ctrl0 == ctrl1);
+                if closed_spike {
+                    report.collapsed_segment_count += 1;
+                } else {
+                    segments.push(IntCurveSegment::Cubic { ctrl0, ctrl1, to });
+                }
                 current = to;
             }
             FloatCurveSegment::Arc { arc } => {
-                current = append_rational_arc(*arc, current, adapter, &mut segments);
+                current = append_rational_arc(*arc, current, adapter, &mut segments, report);
             }
         }
     }
@@ -297,6 +366,7 @@ fn append_rational_arc<P: FloatPointCompatible, I: IntNumber>(
     current: IntPoint<I>,
     adapter: &FloatPointAdapter<P, I>,
     output: &mut Vec<IntCurveSegment<I>>,
+    report: &mut CurveConversionReport,
 ) -> IntPoint<I> {
     let float_frame = FloatEllipseFrame::new(arc.ellipse);
     let ellipse = float_frame.to_int(adapter);
@@ -307,6 +377,7 @@ fn append_rational_arc<P: FloatPointCompatible, I: IntNumber>(
     };
     let end = adapter.float_to_int(&arc.control_points[2]);
     if current == end {
+        report.collapsed_segment_count += 1;
         return end;
     }
     let mut control_point = adapter.float_to_int(&arc.control_points[1]);
@@ -320,6 +391,7 @@ fn append_rational_arc<P: FloatPointCompatible, I: IntNumber>(
         || weights.iter().any(|weight| *weight <= I::ZERO)
         || !fixed_direction_is_valid(fixed_start, fixed_end, direction)
     {
+        report.linearized_arc_count += 1;
         output.push(IntCurveSegment::Line { to: end });
         return end;
     }
@@ -515,6 +587,13 @@ mod tests {
             shape.contours[0].segments[0],
             IntCurveSegment::Quad { .. }
         ));
+        assert_eq!(
+            converter.report(),
+            CurveConversionReport {
+                contour_count: 1,
+                ..Default::default()
+            }
+        );
         Ok(())
     }
 
@@ -763,6 +842,8 @@ mod tests {
                 .iter()
                 .all(|segment| matches!(segment, IntCurveSegment::Line { .. }))
         );
+        assert!(converter.report().linearized_arc_count > 0);
+        assert!(converter.report().has_degeneracies());
         Ok(())
     }
 
@@ -775,6 +856,10 @@ mod tests {
         .expect("scale must fit");
 
         assert!(converter.shape().contours.is_empty());
+        assert_eq!(converter.report().contour_count, 1);
+        assert_eq!(converter.report().collapsed_contour_count, 1);
+        assert!(converter.report().collapsed_segment_count > 0);
+        assert!(converter.report().has_degeneracies());
         Ok(())
     }
 
