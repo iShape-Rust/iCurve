@@ -5,6 +5,12 @@ use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::rect::FloatRect;
 
+/// A validated, non-empty collection of closed curve contours.
+///
+/// Every contour satisfies the [`CurvePath`] invariants and the combined
+/// bounds are finite. Contour orientation, nesting, and intersections are not
+/// constrained. Empty geometry is represented by an empty collection of
+/// shapes rather than an empty `CurveShape`.
 #[derive(Clone, PartialEq)]
 pub struct CurveShape<P: FloatPointCompatible> {
     pub(crate) contours: Vec<CurvePath<P>>,
@@ -26,9 +32,13 @@ where
 impl<P: FloatPointCompatible> CurveShape<P> {
     /// Creates a validated shape from closed contours.
     pub fn try_new(contours: Vec<CurvePath<P>>) -> Result<Self, CurveError> {
-        let shape = Self { contours };
-        shape.validate()?;
-        Ok(shape)
+        Self::validate_contours(&contours)?;
+        Ok(Self { contours })
+    }
+
+    pub(crate) fn from_validated_contours(contours: Vec<CurvePath<P>>) -> Self {
+        debug_assert!(Self::validate_contours(&contours).is_ok());
+        Self { contours }
     }
 
     /// Creates a shape containing one validated closed path.
@@ -53,14 +63,12 @@ impl<P: FloatPointCompatible> CurveShape<P> {
 
     /// Returns the number of contours in this shape.
     #[inline]
+    #[allow(
+        clippy::len_without_is_empty,
+        reason = "a validated curve shape is never empty"
+    )]
     pub fn len(&self) -> usize {
         self.contours.len()
-    }
-
-    /// Returns whether this shape contains no contours.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.contours.is_empty()
     }
 
     /// Consumes this shape and returns its contours without cloning.
@@ -82,14 +90,19 @@ impl<P: FloatPointCompatible> CurveShape<P> {
             .unwrap_or_else(FloatRect::zero)
     }
 
-    pub(crate) fn validate(&self) -> Result<(), CurveError> {
-        if self.contours.is_empty() {
+    pub(crate) fn validate_contours(contours: &[CurvePath<P>]) -> Result<(), CurveError> {
+        if contours.is_empty() {
             return Err(CurveError::NoContours);
         }
-        for contour in &self.contours {
+        for contour in contours {
             contour.validate()?;
         }
-        if !finite_rect(&self.bounds()) {
+        let bounds = contours
+            .iter()
+            .map(CurvePath::bounds)
+            .reduce(FloatRect::with_rects)
+            .unwrap_or_else(FloatRect::zero);
+        if !finite_rect(&bounds) {
             return Err(CurveError::NonFiniteBounds);
         }
         Ok(())

@@ -14,7 +14,40 @@ use i_overlay::i_float::float::compatible::FloatPointCompatible;
 /// resets the builder for reuse.
 pub struct CurveBuilder<P: FloatPointCompatible> {
     contours: Vec<CurvePath<P>>,
-    current: Option<CurvePath<P>>,
+    current: Option<PathDraft<P>>,
+}
+
+struct PathDraft<P: FloatPointCompatible> {
+    start: P,
+    segments: Vec<CurveSegment<P>>,
+}
+
+impl<P: FloatPointCompatible> PathDraft<P> {
+    #[inline]
+    fn from_path(path: CurvePath<P>) -> Self {
+        let (start, segments) = path.into_parts();
+        Self { start, segments }
+    }
+
+    #[inline]
+    fn current_point(&self) -> P {
+        self.segments
+            .last()
+            .map(CurveSegment::end_point)
+            .unwrap_or(self.start)
+    }
+
+    #[inline]
+    fn is_closed(&self) -> bool {
+        self.segments
+            .last()
+            .is_some_and(|segment| same_point(segment.end_point(), self.start))
+    }
+
+    #[inline]
+    fn validate(&self) -> Result<(), CurveError> {
+        CurvePath::validate_parts(self.start, &self.segments)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,7 +113,7 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
     pub fn move_to(&mut self, point: P) -> Result<&mut Self, CurveError> {
         validate_point(point)?;
         self.flush_current()?;
-        self.current = Some(CurvePath {
+        self.current = Some(PathDraft {
             start: point,
             segments: Vec::new(),
         });
@@ -155,17 +188,16 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
             return Err(CurveError::NoContours);
         }
 
-        let shape = CurveShape {
-            contours: core::mem::take(&mut self.contours),
-        };
-        if let Err(error) = shape.validate() {
-            self.contours = shape.contours;
+        if let Err(error) = CurveShape::validate_contours(&self.contours) {
             if had_current {
-                self.current = self.contours.pop();
+                let path = self.contours.pop().expect("current path was flushed above");
+                self.current = Some(PathDraft::from_path(path));
             }
             Err(error)
         } else {
-            Ok(shape)
+            Ok(CurveShape::from_validated_contours(core::mem::take(
+                &mut self.contours,
+            )))
         }
     }
 
@@ -173,7 +205,7 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
         match self.current.as_mut() {
             Some(path) => {
                 if let CurveSegment::Arc { arc } = &segment {
-                    let current = path.end_point().unwrap_or(path.start);
+                    let current = path.current_point();
                     if !same_point(current, arc.start_point()) {
                         return Err(CurveError::DisconnectedArc);
                     }
@@ -191,6 +223,7 @@ impl<P: FloatPointCompatible> CurveBuilder<P> {
         };
         path.validate()?;
         let path = self.current.take().expect("current path was validated above");
+        let path = CurvePath::from_validated_parts(path.start, path.segments);
         self.contours.push(path);
         Ok(())
     }
@@ -224,8 +257,6 @@ mod tests {
             .build()?;
 
         assert_eq!(shape.contours().len(), 2);
-        assert!(shape.contours()[0].is_closed());
-        assert!(shape.contours()[1].is_closed());
         assert_eq!(shape.contours()[0].start(), [0.25, 0.5]);
         assert_eq!(shape.contours()[0].segments().len(), 3);
         Ok(())

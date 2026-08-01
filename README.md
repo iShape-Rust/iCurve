@@ -67,12 +67,10 @@ let result = subject.overlay(
 );
 
 assert!(!result.is_empty());
-assert!(result
-    .iter()
-    .flat_map(|shape| shape.contours())
-    .all(|contour| contour.is_closed()));
 # Ok::<(), i_curve::CurveBuildError>(())
 ```
+
+Every returned `FloatCurvePath` is a validated, non-empty closed contour.
 
 `[f32; 2]` works the same way—use an `f32` literal when constructing the first
 point so Rust infers the desired scalar type:
@@ -329,7 +327,7 @@ let shape: FloatCurveShape<[f64; 2]> = CurveBuilder::new()
     .close_contour()?
     .build()?;
 
-assert!(shape.contours()[0].is_closed());
+assert_eq!(shape.contours().len(), 1);
 # Ok::<(), i_curve::CurveBuildError>(())
 ```
 

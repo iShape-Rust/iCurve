@@ -472,7 +472,6 @@ mod tests {
         let result = subject.overlay(&clip, OverlayRule::Intersect, FillRule::NonZero);
 
         assert_eq!(result.len(), 1);
-        assert!(result[0].contours().iter().all(|path| path.is_closed()));
         let start = result[0].contours()[0].start();
         assert!((start[0] - 5.0).abs() < 1.0e-6 || (start[0] - 10.0).abs() < 1.0e-6);
     }
@@ -503,7 +502,6 @@ mod tests {
             .overlay(OverlayRule::Subject, FillRule::NonZero);
 
         assert_eq!(result.len(), 1);
-        assert!(result[0].contours()[0].is_closed());
         assert!(
             result[0].contours()[0]
                 .segments()
@@ -619,6 +617,5 @@ mod tests {
 
         assert!(intersection.is_empty());
         assert_eq!(union.len(), 1);
-        assert!(union[0].contours()[0].is_closed());
     }
 }

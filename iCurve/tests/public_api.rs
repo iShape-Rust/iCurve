@@ -175,7 +175,7 @@ fn top_level_float_overlay_hides_integer_conversion() {
         result
             .iter()
             .flat_map(|shape| shape.contours())
-            .all(|path| path.is_closed())
+            .all(|path| !path.segments().is_empty())
     );
 }
 
@@ -230,7 +230,6 @@ fn float_results_support_debug_and_container_conversions() {
     let debug = format!("{shape:?}");
     assert!(debug.contains("CurveShape"));
     assert_eq!(shape.len(), shape.contours().len());
-    assert!(!shape.is_empty());
     let _: &[i_curve::FloatCurvePath<[f64; 2]>] = shape.as_ref();
 
     let borrowed_segment_count = (&shape).into_iter().flat_map(IntoIterator::into_iter).count();
@@ -242,7 +241,6 @@ fn float_results_support_debug_and_container_conversions() {
     let mut contours: Vec<_> = shape.into_iter().collect();
     let contour = contours.remove(0);
     assert_eq!(contour.len(), borrowed_segment_count);
-    assert!(!contour.is_empty());
     let _: &[i_curve::FloatCurveSegment<[f64; 2]>] = contour.as_ref();
 
     let owned_segments: Vec<_> = contour.clone().into_iter().collect();

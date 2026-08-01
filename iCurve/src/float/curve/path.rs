@@ -6,6 +6,11 @@ use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::rect::FloatRect;
 
+/// A validated, non-empty closed curve contour.
+///
+/// All coordinates and bounds are finite, rational arcs are connected to the
+/// preceding endpoint, and the final endpoint exactly equals [`start`](Self::start).
+/// Degenerate segments and self-intersections are allowed.
 #[derive(Clone, PartialEq)]
 pub struct CurvePath<P: FloatPointCompatible> {
     pub(crate) start: P,
@@ -29,9 +34,13 @@ where
 impl<P: FloatPointCompatible> CurvePath<P> {
     /// Creates a validated closed path from a start point and connected segments.
     pub fn try_new(start: P, segments: Vec<CurveSegment<P>>) -> Result<Self, CurveError> {
-        let path = Self { start, segments };
-        path.validate()?;
-        Ok(path)
+        Self::validate_parts(start, &segments)?;
+        Ok(Self { start, segments })
+    }
+
+    pub(crate) fn from_validated_parts(start: P, segments: Vec<CurveSegment<P>>) -> Self {
+        debug_assert!(Self::validate_parts(start, &segments).is_ok());
+        Self { start, segments }
     }
 
     /// Returns the first point of this path.
@@ -54,14 +63,12 @@ impl<P: FloatPointCompatible> CurvePath<P> {
 
     /// Returns the number of segments in this path.
     #[inline]
+    #[allow(
+        clippy::len_without_is_empty,
+        reason = "a validated curve path is never empty"
+    )]
     pub fn len(&self) -> usize {
         self.segments.len()
-    }
-
-    /// Returns whether this path contains no segments.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.segments.is_empty()
     }
 
     /// Consumes this path and returns its start point and segments.
@@ -76,22 +83,15 @@ impl<P: FloatPointCompatible> CurvePath<P> {
         self.segments
     }
 
-    #[inline]
-    pub fn end_point(&self) -> Option<P> {
-        self.segments.last().map(CurveSegment::end_point)
-    }
-
-    #[inline]
-    pub fn is_closed(&self) -> bool {
-        self.end_point()
-            .is_some_and(|end| end.x() == self.start.x() && end.y() == self.start.y())
-    }
-
     pub(crate) fn bounds(&self) -> FloatRect<P::Scalar> {
-        let mut bounds = None;
-        add_point(&mut bounds, self.start);
+        Self::bounds_for_parts(self.start, &self.segments)
+    }
 
-        for segment in &self.segments {
+    fn bounds_for_parts(start: P, segments: &[CurveSegment<P>]) -> FloatRect<P::Scalar> {
+        let mut bounds = None;
+        add_point(&mut bounds, start);
+
+        for segment in segments {
             match segment {
                 CurveSegment::Line { to } => add_point(&mut bounds, *to),
                 CurveSegment::Quad { ctrl, to } => {
@@ -120,13 +120,17 @@ impl<P: FloatPointCompatible> CurvePath<P> {
     }
 
     pub(crate) fn validate(&self) -> Result<(), CurveError> {
-        validate_point(self.start)?;
-        if self.segments.is_empty() {
+        Self::validate_parts(self.start, &self.segments)
+    }
+
+    pub(crate) fn validate_parts(start: P, segments: &[CurveSegment<P>]) -> Result<(), CurveError> {
+        validate_point(start)?;
+        if segments.is_empty() {
             return Err(CurveError::EmptyPath);
         }
 
-        let mut current = self.start;
-        for segment in &self.segments {
+        let mut current = start;
+        for segment in segments {
             match segment {
                 CurveSegment::Line { to } => validate_point(*to)?,
                 CurveSegment::Quad { ctrl, to } => {
@@ -148,10 +152,10 @@ impl<P: FloatPointCompatible> CurvePath<P> {
             current = segment.end_point();
         }
 
-        if !same_point(current, self.start) {
+        if !same_point(current, start) {
             return Err(CurveError::UnclosedContour);
         }
-        if !finite_rect(&self.bounds()) {
+        if !finite_rect(&Self::bounds_for_parts(start, segments)) {
             return Err(CurveError::NonFiniteBounds);
         }
         Ok(())

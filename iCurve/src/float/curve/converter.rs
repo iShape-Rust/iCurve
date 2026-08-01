@@ -134,12 +134,13 @@ pub(crate) fn convert_shapes_to_float<P: FloatPointCompatible, I: IntNumber>(
 ) -> Vec<FloatCurveShape<P>> {
     source
         .into_iter()
-        .map(|shape| FloatCurveShape {
-            contours: shape
+        .map(|shape| {
+            let contours = shape
                 .contours
                 .into_iter()
                 .map(|path| convert_path_to_float(path, adapter))
-                .collect(),
+                .collect();
+            FloatCurveShape::from_validated_contours(contours)
         })
         .collect()
 }
@@ -148,14 +149,13 @@ fn convert_path_to_float<P: FloatPointCompatible, I: IntNumber>(
     source: IntCurvePath<I>,
     adapter: &FloatPointAdapter<P, I>,
 ) -> FloatCurvePath<P> {
-    FloatCurvePath {
-        start: adapter.int_to_float(&source.start),
-        segments: source
-            .segments
-            .into_iter()
-            .map(|segment| convert_segment_to_float(segment, adapter))
-            .collect(),
-    }
+    let start = adapter.int_to_float(&source.start);
+    let segments = source
+        .segments
+        .into_iter()
+        .map(|segment| convert_segment_to_float(segment, adapter))
+        .collect();
+    FloatCurvePath::from_validated_parts(start, segments)
 }
 
 fn convert_segment_to_float<P: FloatPointCompatible, I: IntNumber>(
