@@ -10,30 +10,10 @@ use debug_ui::{
     grid::{Grid, paint_camera_readout},
 };
 use i_curve::{
-    float::curve::{
-        arc::RationalArc,
-        builder::{CurveBuilder, CurveError},
-        converter::CurveConverter,
-        path::CurvePath as FloatCurvePath,
-        segment::CurveSegment as FloatCurveSegment,
-        shape::CurveShape as FloatCurveShape,
-    },
-    int::{
-        bool::overlay::IntCurveOverlay,
-        curve::{
-            path::CurvePath as IntCurvePath, segment::CurveSegment as IntCurveSegment,
-            shape::CurveShape as IntCurveShape,
-        },
-    },
-    kernel::int::curve::param::SegmentParam,
-};
-use i_overlay::{
-    core::{fill_rule::FillRule, overlay::ShapeType, overlay_rule::OverlayRule},
-    i_float::adapter::FloatPointAdapter,
+    CurveBuildError as CurveError, CurveBuilder, FillRule, FloatCurveOverlay, FloatCurvePath,
+    FloatCurveSegment, FloatCurveShape, OverlayRule, float::arc::RationalArc,
 };
 use std::fmt::Write;
-
-const SCALE: f32 = 1.0;
 
 const OVERLAY_RULES: [OverlayRule; 5] = [
     OverlayRule::Intersect,
@@ -68,8 +48,7 @@ impl ShowMode {
 }
 
 struct OverlayResult {
-    shapes: Vec<IntCurveShape<i32>>,
-    adapter: FloatPointAdapter<CurvePoint, i32>,
+    shapes: Vec<FloatCurveShape<CurvePoint>>,
 }
 
 struct BoolApp {
@@ -181,7 +160,6 @@ impl eframe::App for BoolApp {
                 ui.separator();
 
                 let active = self.active_example();
-                ui.label(format!("Scale: {SCALE}"));
                 ui.label(format!("Subject shapes: {}", active.subject.len()));
                 ui.label(format!("Clip shapes: {}", active.clip.len()));
                 match &self.result {
@@ -189,7 +167,7 @@ impl eframe::App for BoolApp {
                         let contour_count = result
                             .shapes
                             .iter()
-                            .map(|shape| shape.contours.len())
+                            .map(|shape| shape.contours().len())
                             .sum::<usize>();
                         ui.label(format!("Result shapes: {}", result.shapes.len()));
                         ui.label(format!("Result contours: {contour_count}"));
@@ -262,12 +240,11 @@ impl eframe::App for BoolApp {
                 if matches!(self.show_mode, ShowMode::Result | ShowMode::Both)
                     && let Ok(result) = &self.result
                 {
-                    paint_int_shapes(
+                    paint_float_shapes(
                         &painter,
                         rect,
                         &camera,
                         &result.shapes,
-                        &result.adapter,
                         ShapeStyle {
                             fill: Color32::TRANSPARENT,
                             stroke: Stroke::new(3.0_f32, Color32::from_rgb(78, 180, 91)),
@@ -321,51 +298,23 @@ fn build_overlay_result(
     overlay_rule: OverlayRule,
     fill_rule: FillRule,
 ) -> Result<OverlayResult, String> {
-    let subject_contour_count = contour_count(&example.subject);
-    let total_contour_count = subject_contour_count + contour_count(&example.clip);
-    let source = combined_float_shape(example).map_err(|error| format!("Builder: {error:?}"))?;
-    let converter = CurveConverter::<_, i32>::try_with_scale(source, SCALE)
-        .map_err(|error| format!("Converter: {error:?}"))?;
-    let (adapter, int_shape) = converter.into_parts();
-
-    if int_shape.contours.len() != total_contour_count {
-        return Err(format!(
-            "Scale {SCALE} collapsed {} of {total_contour_count} contours",
-            total_contour_count - int_shape.contours.len()
-        ));
-    }
-
-    let capacity = int_shape
-        .contours
-        .iter()
-        .map(|contour| contour.segments.len())
-        .sum();
-    let mut overlay = IntCurveOverlay::new(capacity);
-
-    for (index, contour) in int_shape.contours.into_iter().enumerate() {
-        let shape_type = if index < subject_contour_count {
-            ShapeType::Subject
-        } else {
-            ShapeType::Clip
-        };
-        overlay.add_shape(
-            IntCurveShape {
-                contours: vec![contour],
-            },
-            shape_type,
-        );
-    }
+    let subject = combined_float_shape(&example.subject)
+        .map_err(|error| format!("Subject builder: {error:?}"))?;
+    let clip =
+        combined_float_shape(&example.clip).map_err(|error| format!("Clip builder: {error:?}"))?;
+    let overlay = FloatCurveOverlay::with_subj_and_clip(&subject, &clip);
 
     Ok(OverlayResult {
         shapes: overlay.overlay(overlay_rule, fill_rule),
-        adapter,
     })
 }
 
-fn combined_float_shape(example: &BoolExample) -> Result<FloatCurveShape<CurvePoint>, CurveError> {
+fn combined_float_shape(
+    shapes: &[FloatCurveShape<CurvePoint>],
+) -> Result<FloatCurveShape<CurvePoint>, CurveError> {
     let mut builder = CurveBuilder::new();
 
-    for shape in example.subject.iter().chain(&example.clip) {
+    for shape in shapes {
         for contour in shape.contours() {
             builder = append_float_contour(builder, contour)?;
         }
@@ -392,10 +341,6 @@ fn append_float_contour(
     Ok(builder)
 }
 
-fn contour_count(shapes: &[FloatCurveShape<CurvePoint>]) -> usize {
-    shapes.iter().map(|shape| shape.contours().len()).sum()
-}
-
 fn print_overlay_input(example: &BoolExample, overlay_rule: OverlayRule, fill_rule: FillRule) {
     println!("{}", overlay_input_source(example, overlay_rule, fill_rule));
 }
@@ -406,79 +351,37 @@ fn overlay_input_source(
     fill_rule: FillRule,
 ) -> String {
     let mut source = String::new();
-    let subject_contour_count = contour_count(&example.subject);
-    let total_contour_count = subject_contour_count + contour_count(&example.clip);
 
-    writeln!(source, "\n// IntCurveOverlay float input: {}", example.name).unwrap();
+    writeln!(source, "\n// FloatCurveOverlay input: {}", example.name).unwrap();
     writeln!(source, "#[test]").unwrap();
     writeln!(source, "fn reproduced_overlay_case() {{").unwrap();
     writeln!(
         source,
-        "    use i_curve::float::curve::{{arc::{{Ellipse, EllipticArc}}, builder::CurveBuilder, converter::CurveConverter}};"
+        "    use i_curve::{{CurveBuilder, FillRule, FloatCurveOverlay, OverlayRule}};"
     )
     .unwrap();
     writeln!(
         source,
-        "    use i_curve::int::{{bool::overlay::IntCurveOverlay, curve::shape::CurveShape}};"
-    )
-    .unwrap();
-    writeln!(
-        source,
-        "    use i_overlay::core::{{fill_rule::FillRule, overlay::ShapeType, overlay_rule::OverlayRule}};\n"
-    )
-    .unwrap();
-    writeln!(source, "    const SCALE: f32 = {SCALE:?};").unwrap();
-    writeln!(
-        source,
-        "    const SUBJECT_CONTOURS: usize = {subject_contour_count};\n"
+        "    use i_curve::float::arc::{{Ellipse, EllipticArc}};\n"
     )
     .unwrap();
 
-    writeln!(source, "    let input = CurveBuilder::new()").unwrap();
+    writeln!(source, "    let subject = CurveBuilder::new()").unwrap();
     write_float_shape_steps(&mut source, &example.subject);
+    writeln!(source, "        .build().unwrap();\n").unwrap();
+
+    writeln!(source, "    let clip = CurveBuilder::new()").unwrap();
     write_float_shape_steps(&mut source, &example.clip);
     writeln!(source, "        .build().unwrap();\n").unwrap();
 
     writeln!(
         source,
-        "    let converter = CurveConverter::<_, i32>::try_with_scale(input, SCALE).unwrap();"
-    )
-    .unwrap();
-    writeln!(source, "    let int_shape = converter.into_shape();").unwrap();
-    writeln!(
-        source,
-        "    assert_eq!(int_shape.contours.len(), {total_contour_count});"
+        "    let result = FloatCurveOverlay::with_subj_and_clip(&subject, &clip)"
     )
     .unwrap();
     writeln!(
         source,
-        "    let capacity = int_shape.contours.iter().map(|contour| contour.segments.len()).sum();"
-    )
-    .unwrap();
-    writeln!(
-        source,
-        "    let mut overlay = IntCurveOverlay::new(capacity);"
-    )
-    .unwrap();
-    writeln!(
-        source,
-        "    for (index, contour) in int_shape.contours.into_iter().enumerate() {{"
-    )
-    .unwrap();
-    writeln!(
-        source,
-        "        let shape_type = if index < SUBJECT_CONTOURS {{ ShapeType::Subject }} else {{ ShapeType::Clip }};"
-    )
-    .unwrap();
-    writeln!(
-        source,
-        "        overlay.add_shape(CurveShape {{ contours: vec![contour] }}, shape_type);"
-    )
-    .unwrap();
-    writeln!(source, "    }}").unwrap();
-    writeln!(
-        source,
-        "    let result = overlay.overlay(OverlayRule::{overlay_rule}, FillRule::{fill_rule});"
+        "        .overlay(OverlayRule::{overlay_rule}, FillRule::{fill_rule});"
     )
     .unwrap();
     writeln!(source, "    dbg!(result);").unwrap();
@@ -622,28 +525,6 @@ fn paint_float_shapes(
         for contour in shape.contours() {
             paint_sampled_path(painter, rect, camera, sample_float_contour(contour), style);
             paint_float_control_points(painter, rect, camera, contour, style.controls);
-        }
-    }
-}
-
-fn paint_int_shapes(
-    painter: &Painter,
-    rect: Rect,
-    camera: &Camera,
-    shapes: &[IntCurveShape<i32>],
-    adapter: &FloatPointAdapter<CurvePoint, i32>,
-    style: ShapeStyle,
-) {
-    for shape in shapes {
-        for contour in &shape.contours {
-            paint_sampled_path(
-                painter,
-                rect,
-                camera,
-                sample_int_contour(contour, adapter),
-                style,
-            );
-            paint_int_control_points(painter, rect, camera, contour, adapter, style.controls);
         }
     }
 }
@@ -1113,131 +994,6 @@ fn paint_float_control_points(
     }
 }
 
-fn paint_int_control_points(
-    painter: &Painter,
-    rect: Rect,
-    camera: &Camera,
-    contour: &IntCurvePath<i32>,
-    adapter: &FloatPointAdapter<CurvePoint, i32>,
-    style: ControlStyle,
-) {
-    let mut start = adapter.int_to_float(&contour.start);
-    paint_point(
-        painter,
-        rect,
-        camera,
-        start,
-        3.5,
-        style.anchor_fill,
-        style.point_stroke,
-    );
-
-    for segment in &contour.segments {
-        match segment {
-            IntCurveSegment::Line { to } => {
-                let to = adapter.int_to_float(to);
-                paint_point(
-                    painter,
-                    rect,
-                    camera,
-                    to,
-                    3.5,
-                    style.anchor_fill,
-                    style.point_stroke,
-                );
-                start = to;
-            }
-            IntCurveSegment::Quad { ctrl, to } => {
-                let ctrl = adapter.int_to_float(ctrl);
-                let to = adapter.int_to_float(to);
-                paint_polyline(painter, rect, camera, &[start, ctrl, to], style.arm_stroke);
-                paint_point(
-                    painter,
-                    rect,
-                    camera,
-                    ctrl,
-                    4.5,
-                    style.control_fill,
-                    style.point_stroke,
-                );
-                paint_point(
-                    painter,
-                    rect,
-                    camera,
-                    to,
-                    3.5,
-                    style.anchor_fill,
-                    style.point_stroke,
-                );
-                start = to;
-            }
-            IntCurveSegment::Cubic { ctrl0, ctrl1, to } => {
-                let ctrl0 = adapter.int_to_float(ctrl0);
-                let ctrl1 = adapter.int_to_float(ctrl1);
-                let to = adapter.int_to_float(to);
-                paint_polyline(
-                    painter,
-                    rect,
-                    camera,
-                    &[start, ctrl0, ctrl1, to],
-                    style.arm_stroke,
-                );
-                paint_point(
-                    painter,
-                    rect,
-                    camera,
-                    ctrl0,
-                    4.5,
-                    style.control_fill,
-                    style.point_stroke,
-                );
-                paint_point(
-                    painter,
-                    rect,
-                    camera,
-                    ctrl1,
-                    4.5,
-                    style.control_fill,
-                    style.point_stroke,
-                );
-                paint_point(
-                    painter,
-                    rect,
-                    camera,
-                    to,
-                    3.5,
-                    style.anchor_fill,
-                    style.point_stroke,
-                );
-                start = to;
-            }
-            IntCurveSegment::Arc { arc } => {
-                let points = arc.control_points.map(|point| adapter.int_to_float(&point));
-                paint_polyline(painter, rect, camera, &points, style.arm_stroke);
-                paint_point(
-                    painter,
-                    rect,
-                    camera,
-                    points[1],
-                    4.5,
-                    style.control_fill,
-                    style.point_stroke,
-                );
-                paint_point(
-                    painter,
-                    rect,
-                    camera,
-                    points[2],
-                    3.5,
-                    style.anchor_fill,
-                    style.point_stroke,
-                );
-                start = points[2];
-            }
-        }
-    }
-}
-
 fn paint_polyline(
     painter: &Painter,
     rect: Rect,
@@ -1341,48 +1097,6 @@ fn sample_float_contour(contour: &FloatCurvePath<CurvePoint>) -> Vec<CurvePoint>
     points
 }
 
-fn sample_int_contour(
-    contour: &IntCurvePath<i32>,
-    adapter: &FloatPointAdapter<CurvePoint, i32>,
-) -> Vec<CurvePoint> {
-    let mut points = vec![adapter.int_to_float(&contour.start)];
-    let mut start = points[0];
-
-    for segment in &contour.segments {
-        match segment {
-            IntCurveSegment::Line { to } => {
-                let end = adapter.int_to_float(to);
-                points.push(end);
-                start = end;
-            }
-            IntCurveSegment::Quad { ctrl, to } => {
-                let ctrl = adapter.int_to_float(ctrl);
-                let end = adapter.int_to_float(to);
-                push_samples(&mut points, 24, |t| quad_point(start, ctrl, end, t));
-                start = end;
-            }
-            IntCurveSegment::Cubic { ctrl0, ctrl1, to } => {
-                let ctrl0 = adapter.int_to_float(ctrl0);
-                let ctrl1 = adapter.int_to_float(ctrl1);
-                let end = adapter.int_to_float(to);
-                push_samples(&mut points, 32, |t| {
-                    cubic_point(start, ctrl0, ctrl1, end, t)
-                });
-                start = end;
-            }
-            IntCurveSegment::Arc { arc } => {
-                for index in 1..=48 {
-                    let param = SegmentParam::from_int(index, 48);
-                    points.push(adapter.int_to_float(&arc.point_at(param)));
-                }
-                start = adapter.int_to_float(&arc.control_points[2]);
-            }
-        }
-    }
-
-    points
-}
-
 fn push_samples(
     points: &mut Vec<CurvePoint>,
     sample_count: usize,
@@ -1420,6 +1134,21 @@ fn cubic_point(
     line_point(a, b, t)
 }
 
+fn main() -> eframe::Result<()> {
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_title("FloatCurveOverlay Boolean")
+            .with_inner_size(Vec2::new(1040.0, 760.0)),
+        ..eframe::NativeOptions::default()
+    };
+
+    eframe::run_native(
+        "FloatCurveOverlay Boolean",
+        native_options,
+        Box::new(|_cc| Ok(Box::new(BoolApp::default()))),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1436,7 +1165,7 @@ mod tests {
     }
 
     #[test]
-    fn console_input_uses_float_builder_arcs_and_scale_one() {
+    fn console_input_uses_float_overlay_api() {
         let example = load_examples()
             .into_iter()
             .find(|example| float_arc_count(example) > 0)
@@ -1445,31 +1174,10 @@ mod tests {
 
         assert!(source.contains("CurveBuilder::new()"));
         assert!(source.contains("EllipticArc"));
-        assert!(source.contains("const SCALE: f32 = 1.0"));
-        assert!(source.contains("CurveConverter::<_, i32>::try_with_scale(input, SCALE)"));
-        assert!(source.contains("overlay.overlay(OverlayRule::Difference, FillRule::EvenOdd)"));
-    }
-
-    #[test]
-    fn arc_examples_convert_to_integer_arcs_with_scale_one() {
-        for example in load_examples()
-            .into_iter()
-            .filter(|example| float_arc_count(example) > 0)
-        {
-            let source = combined_float_shape(&example).unwrap();
-            let converter =
-                CurveConverter::<_, i32>::try_with_scale(source, SCALE).expect("scale one");
-            let int_arc_count = converter
-                .shape()
-                .contours
-                .iter()
-                .flat_map(|contour| &contour.segments)
-                .filter(|segment| matches!(segment, IntCurveSegment::Arc { .. }))
-                .count();
-
-            assert_eq!(converter.adapter().dir_scale(), SCALE);
-            assert!(int_arc_count > 0, "{}", example.name);
-        }
+        assert!(source.contains("FloatCurveOverlay::with_subj_and_clip(&subject, &clip)"));
+        assert!(source.contains(".overlay(OverlayRule::Difference, FillRule::EvenOdd)"));
+        assert!(!source.contains("IntCurveOverlay"));
+        assert!(!source.contains("CurveConverter"));
     }
 
     #[test]
@@ -1544,19 +1252,4 @@ mod tests {
             }
         }
     }
-}
-
-fn main() -> eframe::Result<()> {
-    let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title("IntCurveOverlay Boolean")
-            .with_inner_size(Vec2::new(1040.0, 760.0)),
-        ..eframe::NativeOptions::default()
-    };
-
-    eframe::run_native(
-        "IntCurveOverlay Boolean",
-        native_options,
-        Box::new(|_cc| Ok(Box::new(BoolApp::default()))),
-    )
 }
