@@ -1,47 +1,148 @@
 # iCurve
 
-`iCurve` performs boolean operations on closed paths made from lines,
-quadratic and cubic Bézier curves, and rational elliptic arcs. It uses robust
-integer topology from [`iOverlay`](https://github.com/iShape-Rust/iOverlay)
-and recomposes the result as curves instead of returning flattened polygons.
+`iCurve` performs Boolean operations directly on closed 2D curve paths. The
+primary API accepts `f32` or `f64` coordinates and returns curves in the same
+coordinate type—there is no integer conversion to manage in application code.
 
-The crate supports `i16`, `i32`, and `i64` integer coordinates, float input
-through a shared fixed-point adapter, and `no_std` environments with `alloc`.
+Supported segments:
 
-## Quick start
+- lines;
+- quadratic Bézier curves;
+- cubic Bézier curves;
+- elliptic arcs represented as rational quadratic curves.
 
-The common API accepts and returns float curves. `CurveBuilder` validates each
-closed input path, and `SingleFloatCurveOverlay` provides the same concise
-two-input operation style as iOverlay. Integer conversion, one shared grid for
-both inputs, and conversion of the resulting curves back to float are handled
-internally.
+The available operations are union, intersection, difference, inverse
+difference, and xor. Shapes may contain multiple contours, including holes and
+self-intersections.
+
+Internally, iCurve maps both operands to one safe fixed-point grid and uses
+[`iOverlay`](https://github.com/iShape-Rust/iOverlay) for robust topology. The
+result is then reconstructed and returned through the float curve API.
+
+## Installation
+
+```toml
+[dependencies]
+i_curve = "0.1"
+```
+
+The crate is `no_std` and requires `alloc`. The minimum supported Rust version
+is 1.88.
+
+## Float quick start
+
+Build each closed shape with `CurveBuilder`, then call `overlay` on the subject.
+The example below intersects a cubic shape with a rectangle:
 
 ```rust
 use i_curve::{
-    CurveBuilder, FillRule, OverlayRule, SingleFloatCurveOverlay,
+    CurveBuilder, FillRule, FloatCurveShape, OverlayRule,
+    SingleFloatCurveOverlay,
 };
 
-fn rectangle(x0: f64, y0: f64, x1: f64, y1: f64) -> Result<i_curve::FloatCurveShape<[f64; 2]>, i_curve::CurveBuildError> {
+fn subject() -> Result<FloatCurveShape<[f64; 2]>, i_curve::CurveBuildError> {
     CurveBuilder::new()
-        .move_to([x0, y0])?
-        .line_to([x1, y0])?
-        .line_to([x1, y1])?
-        .line_to([x0, y1])?
+        .move_to([0.0, 0.0])?
+        .cubic_to([25.0, -30.0], [75.0, -30.0], [100.0, 0.0])?
+        .line_to([100.0, 80.0])?
+        .line_to([0.0, 80.0])?
         .close_contour()?
         .build()
 }
 
-let subject = rectangle(0.0, 0.0, 100.0, 100.0)?;
-let clip = rectangle(50.0, 20.0, 140.0, 80.0)?;
-let result = subject.overlay(&clip, OverlayRule::Intersect, FillRule::NonZero);
-assert_eq!(result.len(), 1);
+fn rectangle(
+    min: [f64; 2],
+    max: [f64; 2],
+) -> Result<FloatCurveShape<[f64; 2]>, i_curve::CurveBuildError> {
+    CurveBuilder::new()
+        .move_to([min[0], min[1]])?
+        .line_to([max[0], min[1]])?
+        .line_to(max)?
+        .line_to([min[0], max[1]])?
+        .close_contour()?
+        .build()
+}
+
+let subject = subject()?;
+let clip = rectangle([40.0, -10.0], [120.0, 50.0])?;
+
+let result = subject.overlay(
+    &clip,
+    OverlayRule::Intersect,
+    FillRule::NonZero,
+);
+
+assert!(!result.is_empty());
+assert!(result
+    .iter()
+    .flat_map(|shape| shape.contours())
+    .all(|contour| contour.is_closed()));
 # Ok::<(), i_curve::CurveBuildError>(())
 ```
 
-For a configured float operation use `FloatCurveOverlay`. Automatic scaling
-uses the largest safe power-of-two scale for the combined bounds. An explicit
-scale, when required for reproducible application-level tolerances, is still
-specified entirely in float units:
+`[f32; 2]` works the same way—use an `f32` literal when constructing the first
+point so Rust infers the desired scalar type:
+
+```rust
+use i_curve::CurveBuilder;
+
+let shape = CurveBuilder::new()
+    .move_to([0.0_f32, 0.0])?
+    .line_to([10.0, 0.0])?
+    .line_to([10.0, 10.0])?
+    .close_contour()?
+    .build()?;
+
+let _: i_curve::FloatCurveShape<[f32; 2]> = shape;
+# Ok::<(), i_curve::CurveBuildError>(())
+```
+
+## Building float shapes
+
+`CurveBuilder` uses path-style commands:
+
+| Method | Segment |
+| --- | --- |
+| `move_to(point)` | starts a contour |
+| `line_to(to)` | line |
+| `quad_to(control, to)` | quadratic Bézier |
+| `cubic_to(control0, control1, to)` | cubic Bézier |
+| `arc_to(arc)` | elliptic arc |
+| `rational_arc_to(arc)` | an existing rational arc |
+| `close_contour()` | closes and finishes the current contour |
+| `build()` | validates and returns the shape |
+
+Every contour must contain at least one segment and must be closed.
+`close_contour()` adds a final line only when the current endpoint differs from
+the start point. To build a shape with holes or disjoint contours, continue
+with another `move_to` after closing the current contour.
+
+All input points and arc values must be finite. Invalid or open paths are
+reported as `CurveBuildError` during construction.
+
+## Boolean operations
+
+For the common two-shape case, import `SingleFloatCurveOverlay` and call:
+
+```text
+subject.overlay(&clip, overlay_rule, fill_rule)
+```
+
+`OverlayRule` provides:
+
+- `Union` — area in either shape;
+- `Intersect` — area shared by both shapes;
+- `Difference` — subject minus clip;
+- `InverseDifference` — clip minus subject;
+- `Xor` — area belonging to exactly one shape;
+- `Subject` and `Clip` — resolve one operand using the selected fill rule.
+
+The return type is `Vec<FloatCurveShape<P>>`, where `P` is the same point type
+used by the input. A result can contain multiple shapes, each containing one or
+more closed contours.
+
+Use `FloatCurveOverlay` when you need to configure the conversion scale or the
+topology solver:
 
 ```rust
 use i_curve::{
@@ -53,6 +154,7 @@ let subject = CurveBuilder::new()
     .quad_to([50.0, -40.0], [100.0, 0.0])?
     .close_contour()?
     .build()?;
+
 let clip = CurveBuilder::new()
     .move_to([30.0_f64, -10.0])?
     .line_to([80.0, -10.0])?
@@ -60,170 +162,142 @@ let clip = CurveBuilder::new()
     .close_contour()?
     .build()?;
 
-let curves = FloatCurveOverlay::try_with_subj_and_clip_scale(&subject, &clip, 10_000.0)?
-    .with_solver(Solver::with_precision(Precision::MEDIUM));
-let result = curves.overlay(OverlayRule::Difference, FillRule::NonZero);
+let result = FloatCurveOverlay::try_with_subj_and_clip_scale(
+    &subject,
+    &clip,
+    10_000.0,
+)?
+.with_solver(Solver::with_precision(Precision::MEDIUM))
+.overlay(OverlayRule::Difference, FillRule::NonZero);
+
 assert!(!result.is_empty());
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-## Integer and conversion API
+The default convenience API automatically chooses the largest safe
+power-of-two scale from the combined bounds of both inputs. An explicit scale
+is useful when several independent operations must share the same grid
+resolution. A larger scale preserves smaller features but reduces the safe
+coordinate range; unsafe, non-positive, and non-finite scales return
+`CurveConversionError`.
 
-The integer API remains available for applications that already own safe
-fixed-point data. This is an advanced layer; ordinary float callers do not
-need `IntPoint`, `CurveConverter`, or `FloatPointAdapter`.
+## Reading the result
+
+The float result is exposed through three top-level aliases:
+
+- `FloatCurveShape<P>` contains contours;
+- `FloatCurvePath<P>` has a start point and segments;
+- `FloatCurveSegment<P>` is `Line`, `Quad`, `Cubic`, or `Arc`.
 
 ```rust
-use i_curve::{
-    CurveBuilder, CurveConverter, FillRule, IntCurveOverlay, IntCurveShape,
-    OverlayRule,
+use i_curve::FloatCurveSegment;
+
+# fn inspect(result: &[i_curve::FloatCurveShape<[f64; 2]>]) {
+for shape in result {
+    for contour in shape.contours() {
+        let mut current = contour.start();
+
+        for segment in contour.segments() {
+            match segment {
+                FloatCurveSegment::Line { to } => {
+                    // Render a line from `current` to `to`.
+                }
+                FloatCurveSegment::Quad { ctrl, to } => {
+                    // Render a quadratic Bézier.
+                }
+                FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => {
+                    // Render a cubic Bézier.
+                }
+                FloatCurveSegment::Arc { arc } => {
+                    // `control_points` and `weights` define the rational curve.
+                    let _ = (arc.control_points, arc.weights);
+                }
+            }
+            current = segment.end_point();
+        }
+
+        assert_eq!(current, contour.start());
+    }
+}
+# }
+```
+
+## Elliptic arcs
+
+Use `EllipticArc` to describe an arc by center, radii, rotation, and angles.
+Rotation and angles are in radians; a positive sweep is counter-clockwise and a
+negative sweep is clockwise.
+
+```rust
+use i_curve::{CurveBuilder, FloatCurveShape};
+use i_curve::float::arc::{Ellipse, EllipticArc};
+
+let circle = EllipticArc {
+    ellipse: Ellipse {
+        center: [50.0_f64, 50.0],
+        radius_x: 40.0,
+        radius_y: 40.0,
+        rotation: 0.0,
+    },
+    start_angle: 0.0,
+    sweep_angle: core::f64::consts::TAU,
 };
 
-let source = CurveBuilder::new()
-    // Subject contour.
-    .move_to([0.0_f64, 0.0])?
-    .cubic_to([20.0, -20.0], [80.0, -20.0], [100.0, 0.0])?
-    .line_to([100.0, 80.0])?
-    .line_to([0.0, 80.0])?
-    .close_contour()?
-    // Clip contour.
-    .move_to([40.0, -10.0])?
-    .line_to([120.0, -10.0])?
-    .line_to([120.0, 90.0])?
-    .line_to([40.0, 90.0])?
+let shape: FloatCurveShape<[f64; 2]> = CurveBuilder::new()
+    .move_to(circle.start_point())?
+    .arc_to(circle)?
     .close_contour()?
     .build()?;
 
-let converter = CurveConverter::<_, i32>::new(source);
-let (adapter, converted) = converter.into_parts();
-let mut contours = converted.contours.into_iter();
-let subject = IntCurveShape::from_path(contours.next().unwrap());
-let clip = IntCurveShape::from_path(contours.next().unwrap());
-
-let mut curves = IntCurveOverlay::with_capacity(8);
-curves.add_subject(subject)?;
-curves.add_clip(clip)?;
-let result = curves.overlay(OverlayRule::Difference, FillRule::NonZero);
-
-let first: [f64; 2] = adapter.int_to_float(&result[0].contours[0].start);
-assert!(first[0].is_finite());
-# Ok::<(), Box<dyn std::error::Error>>(())
+assert!(shape.contours()[0].is_closed());
+# Ok::<(), i_curve::CurveBuildError>(())
 ```
 
-`add_subject`, `add_clip`, and `add_shape` consume their input and validate
-that every contour is non-empty, connected, and closed. `overlay` consumes the
-overlay builder because its prepared edge storage is a one-operation value.
+The builder converts an elliptic arc into connected, XY-monotone rational
+quadratic pieces. In a returned `FloatCurveSegment::Arc`, the rational control
+points and weights are the authoritative geometry. Boolean snapping can move
+that geometry slightly away from its supporting ellipse, so
+`RationalArc::try_to_elliptic_arc` is intentionally fallible.
 
-## Elliptic and rational arcs
+## Precision model
 
-`float::arc::EllipticArc` is a convenient center/radii/rotation description.
-`CurveBuilder::arc_to` converts it into connected, XY-monotone rational
-quadratic pieces. Stored shapes use `float::arc::RationalArc`; its control
-points and weights are authoritative, while its ellipse and angles are
-supporting metadata.
+iCurve uses a discrete topology pipeline rather than exact symbolic curve
+intersection:
 
-```rust
-use i_curve::float::arc::{Ellipse, EllipticArc};
+1. Float coordinates are mapped to a shared fixed-point grid.
+2. Curves are approximated and planarized for topology processing.
+3. `iOverlay` resolves the Boolean operation.
+4. Surviving curve fragments are reconstructed in float coordinates.
 
-let arc = EllipticArc {
-    ellipse: Ellipse {
-        center: [0.0_f64, 0.0],
-        radius_x: 100.0,
-        radius_y: 60.0,
-        rotation: 0.3,
-    },
-    start_angle: 0.0,
-    sweep_angle: core::f64::consts::PI,
-};
+Features smaller than the effective grid and snapping resolution can collapse
+or be classified as touching. For geometry that depends on very small gaps,
+keep coordinates near the origin and use an explicit scale and solver
+precision. The same explicit scale should be reused when separate operations
+need reproducible quantization.
 
-let pieces = arc.to_rational_arcs()?;
-for pair in pieces.windows(2) {
-    assert_eq!(pair[0].end_point(), pair[1].start_point());
-}
-assert!(pieces[0].try_to_elliptic_arc(1.0e-10).is_some());
-# Ok::<(), i_curve::float::arc::EllipticArcError>(())
-```
+## Advanced integer API
 
-Boolean snapping can move a rational endpoint away from its supporting
-ellipse. `try_to_elliptic_arc` is therefore intentionally fallible and never
-silently inserts connector lines. The advanced integer representation is
-available under `i_curve::int::arc`.
+Applications that already store validated fixed-point geometry can use
+`IntCurveShape`, `IntCurveOverlay`, and the extended types under
+`i_curve::int`. `CurveConverter` and `FloatPointAdapter` are available for
+manual conversion workflows.
 
-## Precision and topology contract
+The integer layer is not required for ordinary `f32`/`f64` use. Its coordinate
+limits and approximation options are documented in the
+[`int` module](https://docs.rs/i_curve/latest/i_curve/int/index.html).
 
-Topology is determined in three fixed stages:
+## Current limitations
 
-1. Curves receive a bounded adaptive chord approximation.
-2. Exactly one curve-aware planarization pass splits nearby or intersecting
-   curve pieces while preserving source parameter ranges.
-3. `iOverlay` resolves integer polygon topology and may split or snap the
-   chords again; provenance is split and reversed with each edge before curve
-   recomposition.
-
-`CurveOverlayOptions` controls only stage 1:
-
-- `min_chord_length_power`: chords shorter than `2^power` integer grid units
-  stop subdividing. Increasing it produces fewer, longer chords.
-- `angle_tolerance_power`: a curve is locally accepted when its endpoint
-  handles are collinear with the chord to a sine tolerance of roughly
-  `2^-power`. Increasing it tightens the angular test and can add chords.
-- `max_approximation_depth`: a hard subdivision cap. Reaching it accepts the
-  current chord even if the angle test has not passed.
-
-The `Solver` precision controls snapping in the subsequent polygon overlay.
-It is independent of the curve approximation settings. Defaults are stable
-for 0.1.x, but callers whose topology depends on sub-grid gaps should set both
-the conversion scale and precision options explicitly.
-
-The practical resolution is the coarsest of the float conversion grid, chord
-approximation, planarization radius, and `iOverlay` snapping. Features below
-that resolution can collapse. Nearly coincident curves can be merged, split,
-or classified as touching after quantization or snapping; iCurve does not
-promise analytic topology for separations smaller than the selected integer
-resolution. Translate or rescale the input, and tighten the options, when such
-features must remain distinct.
-
-### Safe integer coordinate range
-
-The curve kernel reserves six coordinate bits for polynomial coefficient
-growth. Every endpoint and control point supplied to the integer API must stay
-inside these inclusive ranges:
-
-| Integer | Safe coordinate range |
-| --- | ---: |
-| `i16` | `[-1_024, 1_024]` (`[-2^10, 2^10]`) |
-| `i32` | `[-67_108_864, 67_108_864]` (`[-2^26, 2^26]`) |
-| `i64` | `[-288_230_376_151_711_744, 288_230_376_151_711_744]` (`[-2^58, 2^58]`) |
-
-The storage types can represent larger coordinates, but intermediate curve
-coefficients are not guaranteed safe there. This numeric range is a caller
-precondition and is not checked by `add_shape`. Automatic float conversion
-centers the complete bounds and selects a safe scale using the same limit.
-
-## API layers
-
-- Top-level re-exports cover the ordinary overlay, rules, point type, float
-  builder/converter, and aliased float/integer path types.
-- `i_curve::int` and `i_curve::float` contain the extended data model;
-  rational-arc details live in their `arc` submodules.
-- Approximation, planarization, provenance, normalization, intersection, and
-  collection modules are internal and carry no compatibility promise.
-
-No kurbo, SVG, lyon, GUI, or serialization integration is part of the 0.1.0
-core. Small optional adapters can be evaluated after the path model has seen
-real downstream use; SVG parsing in particular belongs in a separate adapter
-crate rather than in the geometry kernel.
-
-## Known limitations in 0.1.0
-
-- Inputs must be closed paths; open-path clipping and stroking are out of scope.
-- Topology follows the documented discrete approximation, not exact symbolic
-  curve intersection.
-- Automatic float scaling is bounds-dependent; use an explicit float scale
-  when separate operations must use exactly the same grid resolution.
-- Rational arcs may no longer match their supporting ellipse after snapping.
+- Inputs must be closed paths; open-path clipping and stroking are not
+  supported.
+- Topology follows the documented discrete precision model, not analytic curve
+  intersection.
+- Rational arcs may no longer lie exactly on their supporting ellipse after
+  snapping.
+- SVG parsing, rendering, GUI integration, and serialization are outside the
+  core crate.
 
 ## License
 
-`iCurve` is distributed under the MIT License. See the
-[license file](https://github.com/iShape-Rust/iCurve/blob/main/LICENSE).
+`iCurve` is distributed under the MIT License. See
+[`LICENSE`](https://github.com/iShape-Rust/iCurve/blob/main/LICENSE).
