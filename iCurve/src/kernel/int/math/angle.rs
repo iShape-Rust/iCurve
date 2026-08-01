@@ -1,4 +1,4 @@
-use i_overlay::i_float::int::number::int::IntNumber;
+use crate::int::CurveInt;
 use i_overlay::i_float::int::number::uint::UIntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_float::int::vector::IntVector;
@@ -7,7 +7,7 @@ pub(crate) trait ApproximateAngle {
     fn is_nearly_collinear_with(&self, other: Self, sin_angle_neg_pow2: u32) -> bool;
 }
 
-impl<I: IntNumber> ApproximateAngle for IntVector<I> {
+impl<I: CurveInt> ApproximateAngle for IntVector<I> {
     fn is_nearly_collinear_with(&self, other: Self, sin_angle_neg_pow2: u32) -> bool {
         let abs_cross = self.cross_product(other).unsigned_abs();
         if abs_cross == I::WideUInt::ZERO {

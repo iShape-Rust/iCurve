@@ -1,16 +1,16 @@
 use crate::collections::stack_vec::StackVec;
+use crate::int::CurveInt;
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::normalization::monotone::decomposition::MonotoneDecompositionDirection;
 #[cfg(test)]
 use crate::kernel::int::normalization::monotone::decomposition::{DecomposeIntoMonotone, roots_to_segments};
 use crate::kernel::int::normalization::unit_quadratic::solve_unit_quadratic;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 #[cfg(test)]
-impl<I: IntNumber> DecomposeIntoMonotone for CubicSegment<I> {
+impl<I: CurveInt> DecomposeIntoMonotone for CubicSegment<I> {
     type Output = StackVec<CubicSegment<I>, 5>;
 
     fn decompose_into_monotone(&self) -> Self::Output {
@@ -18,7 +18,7 @@ impl<I: IntNumber> DecomposeIntoMonotone for CubicSegment<I> {
     }
 }
 
-impl<I: IntNumber> CubicSegment<I> {
+impl<I: CurveInt> CubicSegment<I> {
     pub(crate) fn monotone_roots(&self) -> StackVec<SegmentParam<I>, 4> {
         let x_roots = self.monotone_roots_by_direction(MonotoneDecompositionDirection::X);
         let y_roots = self.monotone_roots_by_direction(MonotoneDecompositionDirection::Y);

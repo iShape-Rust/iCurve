@@ -1,3 +1,4 @@
+use crate::int::CurveInt;
 use crate::int::bool::edge::CurveEdge;
 use crate::int::bool::source::CurveId;
 use crate::kernel::int::curve::chord::SegmentChord;
@@ -82,7 +83,7 @@ pub(crate) struct CurveSourceSpan {
 
 impl CurveSourceSpan {
     #[inline]
-    pub(crate) fn from_edge<I: IntNumber>(edge: CurveEdge<I>) -> Self {
+    pub(crate) fn from_edge<I: CurveInt>(edge: CurveEdge<I>) -> Self {
         Self {
             curve_id: edge.curve_id,
             start: CurveParam::from_segment(edge.start_param),

@@ -1,4 +1,4 @@
-use i_overlay::i_float::int::number::int::IntNumber;
+use crate::int::CurveInt;
 use i_overlay::i_float::int::number::unit_ratio::UnitRatio;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 
@@ -6,7 +6,7 @@ use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 pub type SegmentParam<I> = UnitRatio<I>;
 
 #[inline]
-pub(crate) fn interpolate_segment_param<I: IntNumber>(
+pub(crate) fn interpolate_segment_param<I: CurveInt>(
     start: SegmentParam<I>,
     end: SegmentParam<I>,
     local: SegmentParam<I>,

@@ -1,10 +1,10 @@
+use crate::int::CurveInt;
 use crate::int::bool::source::CurveId;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::segment::Segment;
-use i_overlay::i_float::int::number::int::IntNumber;
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct CurveEdge<I: IntNumber> {
+pub(crate) struct CurveEdge<I: CurveInt> {
     pub(crate) curve: Segment<I>,
     pub(crate) curve_id: CurveId,
     // Source parameters cannot be recovered from endpoints because distinct
@@ -13,7 +13,7 @@ pub(crate) struct CurveEdge<I: IntNumber> {
     pub(crate) end_param: SegmentParam<I>,
 }
 
-impl<I: IntNumber> CurveEdge<I> {
+impl<I: CurveInt> CurveEdge<I> {
     #[inline]
     pub(crate) fn new(
         curve: Segment<I>,

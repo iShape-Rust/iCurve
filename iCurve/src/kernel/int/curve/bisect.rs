@@ -1,26 +1,26 @@
+use crate::int::CurveInt;
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::point_at::PointAt;
 use crate::kernel::int::curve::quad::QuadSegment;
 use crate::kernel::int::curve::segment::Segment;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
-pub(crate) trait Bisect<I: IntNumber> {
+pub(crate) trait Bisect<I: CurveInt> {
     fn bisect(&self, start: IntPoint<I>, end: IntPoint<I>, t: SegmentParam<I>) -> [Self; 2]
     where
         Self: Sized;
 }
 
-impl<I: IntNumber> Bisect<I> for [IntPoint<I>; 2] {
+impl<I: CurveInt> Bisect<I> for [IntPoint<I>; 2] {
     fn bisect(&self, a: IntPoint<I>, b: IntPoint<I>, t: SegmentParam<I>) -> [Self; 2] {
         let m = self.point_at(t);
         [[a, m], [m, b]]
     }
 }
 
-impl<I: IntNumber> Bisect<I> for [IntPoint<I>; 3] {
+impl<I: CurveInt> Bisect<I> for [IntPoint<I>; 3] {
     fn bisect(&self, a: IntPoint<I>, b: IntPoint<I>, t: SegmentParam<I>) -> [Self; 2] {
         let [p0, p1, p2] = *self;
         let m01 = [p0, p1].point_at(t);
@@ -31,7 +31,7 @@ impl<I: IntNumber> Bisect<I> for [IntPoint<I>; 3] {
     }
 }
 
-impl<I: IntNumber> Bisect<I> for [IntPoint<I>; 4] {
+impl<I: CurveInt> Bisect<I> for [IntPoint<I>; 4] {
     fn bisect(&self, a: IntPoint<I>, b: IntPoint<I>, t: SegmentParam<I>) -> [Self; 2] {
         let [p0, p1, p2, p3] = *self;
         let m01 = [p0, p1].point_at(t);
@@ -45,7 +45,7 @@ impl<I: IntNumber> Bisect<I> for [IntPoint<I>; 4] {
     }
 }
 
-impl<I: IntNumber> Segment<I> {
+impl<I: CurveInt> Segment<I> {
     pub(crate) fn bisect(&self, a: IntPoint<I>, b: IntPoint<I>, t: SegmentParam<I>) -> [Option<Self>; 2] {
         match self {
             Segment::Line(line) => {

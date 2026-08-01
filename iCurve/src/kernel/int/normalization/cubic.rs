@@ -1,4 +1,5 @@
 use crate::collections::stack_vec::StackVec;
+use crate::int::CurveInt;
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::param::SegmentParam;
@@ -10,7 +11,6 @@ use crate::kernel::int::normalization::monotone::decomposition::roots_to_segment
 use crate::kernel::int::normalization::unit_quadratic::solve_unit_quadratic;
 use core::cmp::Ordering;
 use i_overlay::i_float::int::number::fixed_scale::FixedScale;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::product_uint::UIntProduct;
 use i_overlay::i_float::int::number::signed_product::SignedProduct;
 use i_overlay::i_float::int::number::uint::UIntNumber;
@@ -19,19 +19,19 @@ use i_overlay::i_float::int::vector::IntVector;
 use i_overlay::i_float::triangle::Triangle;
 use i_overlay::i_shape::int::IntPoint;
 
-struct CubicSelfIntersection<I: IntNumber> {
+struct CubicSelfIntersection<I: CurveInt> {
     t0: SegmentParam<I>,
     t1: SegmentParam<I>,
     point: IntPoint<I>,
 }
 
 #[cfg(test)]
-pub(crate) enum CubicSShapeNormalization<I: IntNumber> {
+pub(crate) enum CubicSShapeNormalization<I: CurveInt> {
     NoS(CubicSegment<I>),
     Pieces([CubicSegment<I>; 2]),
 }
 
-impl<I: IntNumber> CubicSegment<I> {
+impl<I: CurveInt> CubicSegment<I> {
     pub(crate) fn split_at_cusps(&self) -> StackVec<Self, 3> {
         roots_to_segments(self, self.cusp_roots())
     }
@@ -418,7 +418,7 @@ impl<I: IntNumber> CubicSegment<I> {
 /// The caller guarantees opposite non-zero curvature signs at the interval
 /// ends. Binary search preserves that bracket until the two closest fixed-point
 /// parameters around the root remain.
-fn find_s_shape_root<I: IntNumber>(
+fn find_s_shape_root<I: CurveInt>(
     a: I::Wide,
     b: I::Wide,
     c: I::Wide,
@@ -459,7 +459,7 @@ fn find_s_shape_root<I: IntNumber>(
 
 /// Evaluates `F^2 * (a*t^2 + b*t + c)` for `t = scaled_t / F`.
 /// Every signed term remains in the double-width unsigned representation.
-fn s_shape_value<I: IntNumber>(
+fn s_shape_value<I: CurveInt>(
     a: I::Wide,
     b: I::Wide,
     c: I::Wide,
@@ -481,7 +481,7 @@ fn s_shape_value<I: IntNumber>(
 }
 
 /// Returns a strictly internal fixed-point ratio from signed magnitude parts.
-fn unit_signed_ratio<I: IntNumber>(
+fn unit_signed_ratio<I: CurveInt>(
     numerator: I::WideUInt,
     numerator_negative: bool,
     denominator: I::Wide,
@@ -513,7 +513,7 @@ fn unit_signed_ratio<I: IntNumber>(
 /// Returns `round(dot(lhs, rhs) / denominator)` when the result is inside
 /// the fixed-point unit interval. Products and their signed sum stay in the
 /// double-width unsigned representation until after division.
-fn unit_dot_ratio_scaled<I: IntNumber>(
+fn unit_dot_ratio_scaled<I: CurveInt>(
     lhs: IntVector<I>,
     rhs: IntVector<I>,
     denominator: I::Wide,
@@ -540,14 +540,14 @@ fn unit_dot_ratio_scaled<I: IntNumber>(
     (value > I::Wide::ZERO && value < FixedScale::<I>::DENOMINATOR).then_some(value)
 }
 
-fn local_segment_param<I: IntNumber>(t0: SegmentParam<I>, t1: SegmentParam<I>) -> SegmentParam<I> {
+fn local_segment_param<I: CurveInt>(t0: SegmentParam<I>, t1: SegmentParam<I>) -> SegmentParam<I> {
     let numerator = t1.value() - t0.value();
     let denominator = SegmentParam::<I>::DENOMINATOR - t0.value();
 
     SegmentParam::from_int(I::from_wide(numerator), I::from_wide(denominator))
 }
 
-fn solve_self_intersection_params<I: IntNumber>(
+fn solve_self_intersection_params<I: CurveInt>(
     ss_scaled: I::Wide,
     s_scaled: I::Wide,
     p_scaled: I::Wide,

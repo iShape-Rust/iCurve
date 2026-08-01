@@ -1,16 +1,16 @@
+use crate::int::CurveInt;
 use crate::int::arc::RationalArc;
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::quad::QuadSegment;
 use crate::kernel::int::curve::segment::Segment;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 /// Segment of an integer [`CurvePath`](crate::int::CurvePath).
 ///
 /// The containing path supplies the start point for line and Bézier variants.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum CurveSegment<I: IntNumber> {
+pub enum CurveSegment<I: CurveInt> {
     /// Straight segment.
     Line {
         /// Endpoint.
@@ -39,7 +39,7 @@ pub enum CurveSegment<I: IntNumber> {
     },
 }
 
-impl<I: IntNumber> CurveSegment<I> {
+impl<I: CurveInt> CurveSegment<I> {
     /// Returns this segment's endpoint.
     pub fn end_point(&self) -> IntPoint<I> {
         match self {

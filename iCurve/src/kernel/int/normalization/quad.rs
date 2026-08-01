@@ -1,16 +1,16 @@
 use crate::collections::stack_vec::StackVec;
+use crate::int::CurveInt;
 use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::quad::QuadSegment;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::normalization::monotone::decomposition::roots_to_segments;
 use i_overlay::i_float::int::number::fixed_scale::FixedScale;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_float::int::vector::IntVector;
 use i_overlay::i_float::triangle::Triangle;
 
-impl<I: IntNumber> QuadSegment<I> {
+impl<I: CurveInt> QuadSegment<I> {
     pub(crate) fn split_at_cusp(&self) -> StackVec<Self, 2> {
         let mut roots = StackVec::<SegmentParam<I>, 1>::new();
         roots.push_some(self.cusp_param());

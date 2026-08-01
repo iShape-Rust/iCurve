@@ -1,5 +1,5 @@
+use crate::int::CurveInt;
 use crate::kernel::int::curve::chord::SegmentChord;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::product_uint::UIntProduct;
 use i_overlay::i_float::int::number::uint::UIntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
@@ -7,12 +7,12 @@ use i_overlay::i_float::triangle::Triangle;
 use i_overlay::i_shape::int::IntPoint;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ChordCross<I: IntNumber> {
+pub(crate) enum ChordCross<I: CurveInt> {
     Point(IntPoint<I>),
     Overlay,
 }
 
-impl<I: IntNumber> SegmentChord<I> {
+impl<I: CurveInt> SegmentChord<I> {
     pub(crate) fn cross(&self, other: &Self, radius: I::Wide) -> Option<ChordCross<I>> {
         let va = self.vector();
         let vb = other.vector();

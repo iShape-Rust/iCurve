@@ -16,7 +16,6 @@ use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::core::solver::Solver;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::vector::edge::DataVectorShape;
 
@@ -373,11 +372,11 @@ where
     Ok(overlay.overlay(overlay_rule, fill_rule))
 }
 
-fn segment_count<I: IntNumber>(shape: &CurveShape<I>) -> usize {
+fn segment_count<I: CurveInt>(shape: &CurveShape<I>) -> usize {
     shape.contours.iter().map(|contour| contour.segments.len()).sum()
 }
 
-fn validate_shape<I: IntNumber>(shape: &CurveShape<I>) -> Result<(), CurveInputError> {
+fn validate_shape<I: CurveInt>(shape: &CurveShape<I>) -> Result<(), CurveInputError> {
     if shape.contours.is_empty() {
         return Err(CurveInputError::EmptyShape);
     }

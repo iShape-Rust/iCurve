@@ -1,5 +1,5 @@
+use crate::int::CurveInt;
 use i_overlay::i_float::int::number::fixed_scale::FixedScale;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::uint::UIntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
@@ -10,7 +10,7 @@ use crate::kernel::int::curve::param::SegmentParam;
 ///
 /// Arithmetic should widen components to `I::Wide` before multiplying them.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
-pub struct ArcVector<I: IntNumber> {
+pub struct ArcVector<I: CurveInt> {
     /// World-space X component of the semi-axis.
     pub x: I,
     /// World-space Y component of the semi-axis.
@@ -26,7 +26,7 @@ pub struct ArcVector<I: IntNumber> {
 ///
 /// `cos` and `sin` use [`FixedScale::<I>::DENOMINATOR`] as one.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
-pub struct ArcPhase<I: IntNumber> {
+pub struct ArcPhase<I: CurveInt> {
     /// Fixed-point cosine of the ellipse parameter.
     pub cos: I,
     /// Fixed-point sine of the ellipse parameter.
@@ -63,7 +63,7 @@ impl ArcDirection {
 /// The intended invariant is that `axis_x` and `axis_y` are the perpendicular
 /// semi-axes of the ellipse. A circle is canonicalized with world-aligned axes.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
-pub struct EllipseFrame<I: IntNumber> {
+pub struct EllipseFrame<I: CurveInt> {
     /// Center of the supporting ellipse.
     pub center: IntPoint<I>,
     /// First semi-axis. It corresponds to phase `(1, 0)`.
@@ -85,7 +85,7 @@ pub struct EllipseFrame<I: IntNumber> {
 /// so the rational endpoints are not required to lie exactly on `ellipse`
 /// after every operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ArcSegment<I: IntNumber> {
+pub struct ArcSegment<I: CurveInt> {
     /// Supporting ellipse shared by all subsegments of the source arc.
     pub ellipse: EllipseFrame<I>,
     /// Rational quadratic points: start, tangent control, and end.
@@ -160,7 +160,7 @@ impl core::fmt::Display for RationalArcError {
 
 impl core::error::Error for RationalArcError {}
 
-impl<I: IntNumber> ArcPhase<I> {
+impl<I: CurveInt> ArcPhase<I> {
     #[inline]
     fn from_wide_vector(cos: I::Wide, sin: I::Wide) -> Option<Self> {
         let max_abs = cos.unsigned_abs().max(sin.unsigned_abs());
@@ -203,7 +203,7 @@ impl<I: IntNumber> ArcPhase<I> {
     }
 }
 
-impl<I: IntNumber> EllipseFrame<I> {
+impl<I: CurveInt> EllipseFrame<I> {
     /// Recovers a normalized ellipse phase for a world-space point.
     ///
     /// The inverse frame transform gives a vector proportional to `(cos, sin)`.
@@ -235,7 +235,7 @@ impl<I: IntNumber> EllipseFrame<I> {
     }
 }
 
-impl<I: IntNumber> ArcSegment<I> {
+impl<I: CurveInt> ArcSegment<I> {
     /// Validates the structural invariants required by the integer curve kernel.
     pub fn validate(&self) -> Result<(), RationalArcError> {
         let axis_x_x = self.ellipse.axis_x.x.to_wide();
@@ -387,7 +387,7 @@ impl<I: IntNumber> ArcSegment<I> {
 }
 
 #[inline]
-fn phase_is_valid<I: IntNumber>(phase: ArcPhase<I>) -> bool {
+fn phase_is_valid<I: CurveInt>(phase: ArcPhase<I>) -> bool {
     let denominator = FixedScale::<I>::DENOMINATOR;
     let cos = phase.cos.to_wide();
     let sin = phase.sin.to_wide();
@@ -403,17 +403,17 @@ fn phase_is_valid<I: IntNumber>(phase: ArcPhase<I>) -> bool {
 }
 
 #[inline]
-fn is_ordered<I: IntNumber>(a: I, b: I, c: I) -> bool {
+fn is_ordered<I: CurveInt>(a: I, b: I, c: I) -> bool {
     a <= b && b <= c || a >= b && b >= c
 }
 
 #[derive(Clone, Copy)]
-struct RationalControl<I: IntNumber> {
+struct RationalControl<I: CurveInt> {
     point: IntPoint<I>,
     weight: I,
 }
 
-impl<I: IntNumber> RationalControl<I> {
+impl<I: CurveInt> RationalControl<I> {
     #[inline]
     fn new(point: IntPoint<I>, weight: I) -> Self {
         Self { point, weight }

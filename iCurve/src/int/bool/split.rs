@@ -1,20 +1,20 @@
+use crate::int::CurveInt;
 use crate::int::bool::edge::CurveEdge;
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::{SegmentParam, interpolate_segment_param};
 use alloc::vec::Vec;
 use i_key_sort::sort::one_key_cmp::OneKeyAndCmpSort;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct CurveSplitMark<I: IntNumber> {
+pub(crate) struct CurveSplitMark<I: CurveInt> {
     pub(crate) edge_index: usize,
     pub(crate) point: IntPoint<I>,
     pub(crate) param: SegmentParam<I>,
 }
 
-impl<I: IntNumber> CurveSplitMark<I> {
+impl<I: CurveInt> CurveSplitMark<I> {
     #[inline]
     pub(crate) fn push_if_interior(
         marks: &mut Vec<Self>,
@@ -48,11 +48,11 @@ impl<I: IntNumber> CurveSplitMark<I> {
     }
 }
 
-pub(crate) struct CurveEdgeSplitter<I: IntNumber> {
+pub(crate) struct CurveEdgeSplitter<I: CurveInt> {
     edge_buffer: Vec<CurveEdge<I>>,
 }
 
-impl<I: IntNumber> CurveEdgeSplitter<I> {
+impl<I: CurveInt> CurveEdgeSplitter<I> {
     pub(crate) fn new() -> Self {
         Self {
             edge_buffer: Vec::new(),

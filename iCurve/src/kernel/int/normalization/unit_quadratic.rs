@@ -1,11 +1,11 @@
 use crate::collections::stack_vec::StackVec;
+use crate::int::CurveInt;
 use crate::kernel::int::curve::param::SegmentParam;
 use i_overlay::i_float::int::number::fixed_scale::FixedScale;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::uint::UIntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 
-pub(super) fn solve_unit_quadratic<I: IntNumber>(
+pub(super) fn solve_unit_quadratic<I: CurveInt>(
     a: I::Wide,
     b: I::Wide,
     c: I::Wide,
@@ -53,7 +53,7 @@ pub(super) fn solve_unit_quadratic<I: IntNumber>(
     roots
 }
 
-fn scaled_sqrt<I: IntNumber>(value: I::Wide) -> I::Wide {
+fn scaled_sqrt<I: CurveInt>(value: I::Wide) -> I::Wide {
     debug_assert!(value > I::Wide::ZERO);
 
     let target_shift = FixedScale::<I>::SHIFT;
@@ -70,7 +70,7 @@ fn scaled_sqrt<I: IntNumber>(value: I::Wide) -> I::Wide {
     sqrt << remaining_shift
 }
 
-fn push_unit_root<I: IntNumber>(roots: &mut StackVec<SegmentParam<I>, 2>, t: I::Wide) {
+fn push_unit_root<I: CurveInt>(roots: &mut StackVec<SegmentParam<I>, 2>, t: I::Wide) {
     // 0 < t < 1
     if t > I::Wide::ZERO && t < SegmentParam::<I>::DENOMINATOR {
         roots.push(SegmentParam::new(I::from_wide(t)));

@@ -1,3 +1,4 @@
+use crate::int::CurveInt;
 use crate::kernel::int::cross::intersector::{
     ContactPoint, SegmentIntersectionBuffer, SegmentIntersector, SplitOptions,
 };
@@ -5,9 +6,8 @@ use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::normalization::canonical::PushCanonicalSegment;
 use alloc::vec::Vec;
-use i_overlay::i_float::int::number::int::IntNumber;
 
-impl<I: IntNumber> Segment<I> {
+impl<I: CurveInt> Segment<I> {
     pub(crate) fn intersect(self, other: Self) -> Vec<ContactPoint<I>> {
         let mut a_segments = Vec::new();
         let mut b_segments = Vec::new();

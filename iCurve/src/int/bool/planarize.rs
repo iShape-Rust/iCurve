@@ -1,3 +1,4 @@
+use crate::int::CurveInt;
 use crate::int::bool::edge::CurveEdge;
 use crate::int::bool::split::{CurveEdgeSplitter, CurveSplitMark};
 use crate::kernel::int::cross::intersector::{SegmentIntersectionBuffer, SegmentIntersector, SplitOptions};
@@ -5,16 +6,15 @@ use crate::kernel::int::curve::segment::Segment;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use i_key_sort::sort::one_key_cmp::OneKeyAndCmpSort;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::rect::IntRect;
 
 #[derive(Debug, Clone, Copy)]
-struct CurveEdgeBounds<I: IntNumber> {
+struct CurveEdgeBounds<I: CurveInt> {
     edge_index: usize,
     rect: IntRect<I>,
 }
 
-pub(crate) struct CurvePlanarizer<I: IntNumber> {
+pub(crate) struct CurvePlanarizer<I: CurveInt> {
     bounds: Vec<CurveEdgeBounds<I>>,
     bounds_buffer: Vec<CurveEdgeBounds<I>>,
     active: Vec<CurveEdgeBounds<I>>,
@@ -24,7 +24,7 @@ pub(crate) struct CurvePlanarizer<I: IntNumber> {
     intersection_buffer: SegmentIntersectionBuffer<I>,
 }
 
-impl<I: IntNumber + i_key_sort::sort::key::SortKey> CurvePlanarizer<I> {
+impl<I: CurveInt + i_key_sort::sort::key::SortKey> CurvePlanarizer<I> {
     pub(crate) fn new() -> Self {
         Self {
             bounds: Vec::new(),

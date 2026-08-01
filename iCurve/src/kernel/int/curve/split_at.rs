@@ -1,3 +1,4 @@
+use crate::int::CurveInt;
 use crate::kernel::int::curve::arc::ArcSegment;
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::line::LineSegment;
@@ -5,18 +6,17 @@ use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::point_at::PointAt;
 use crate::kernel::int::curve::quad::QuadSegment;
 use crate::kernel::int::curve::segment::Segment;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
-pub(crate) trait SplitAt<I: IntNumber> {
+pub(crate) trait SplitAt<I: CurveInt> {
     type Output;
     fn split_at(&self, t: SegmentParam<I>) -> Self::Output;
     fn split_at_left(&self, t: SegmentParam<I>) -> Self;
     fn split_at_right(&self, t: SegmentParam<I>) -> Self;
 }
 
-pub(crate) trait SetSegmentEndpoints<I: IntNumber> {
+pub(crate) trait SetSegmentEndpoints<I: CurveInt> {
     fn set_endpoints(&mut self, start: IntPoint<I>, end: IntPoint<I>);
 }
 
@@ -29,7 +29,7 @@ pub(crate) fn segment_range<I, S>(
     end_point: IntPoint<I>,
 ) -> S
 where
-    I: IntNumber,
+    I: CurveInt,
     S: SplitAt<I, Output = [S; 2]> + SetSegmentEndpoints<I> + Copy,
 {
     let mut result =
@@ -53,7 +53,7 @@ where
     result
 }
 
-impl<I: IntNumber> SetSegmentEndpoints<I> for LineSegment<I> {
+impl<I: CurveInt> SetSegmentEndpoints<I> for LineSegment<I> {
     #[inline]
     fn set_endpoints(&mut self, start: IntPoint<I>, end: IntPoint<I>) {
         self.control_points[0] = start;
@@ -61,7 +61,7 @@ impl<I: IntNumber> SetSegmentEndpoints<I> for LineSegment<I> {
     }
 }
 
-impl<I: IntNumber> SetSegmentEndpoints<I> for QuadSegment<I> {
+impl<I: CurveInt> SetSegmentEndpoints<I> for QuadSegment<I> {
     #[inline]
     fn set_endpoints(&mut self, start: IntPoint<I>, end: IntPoint<I>) {
         self.control_points[0] = start;
@@ -69,7 +69,7 @@ impl<I: IntNumber> SetSegmentEndpoints<I> for QuadSegment<I> {
     }
 }
 
-impl<I: IntNumber> SetSegmentEndpoints<I> for CubicSegment<I> {
+impl<I: CurveInt> SetSegmentEndpoints<I> for CubicSegment<I> {
     #[inline]
     fn set_endpoints(&mut self, start: IntPoint<I>, end: IntPoint<I>) {
         self.control_points[0] = start;
@@ -77,7 +77,7 @@ impl<I: IntNumber> SetSegmentEndpoints<I> for CubicSegment<I> {
     }
 }
 
-impl<I: IntNumber> SetSegmentEndpoints<I> for ArcSegment<I> {
+impl<I: CurveInt> SetSegmentEndpoints<I> for ArcSegment<I> {
     #[inline]
     fn set_endpoints(&mut self, start: IntPoint<I>, end: IntPoint<I>) {
         self.control_points[0] = start;
@@ -85,7 +85,7 @@ impl<I: IntNumber> SetSegmentEndpoints<I> for ArcSegment<I> {
     }
 }
 
-impl<I: IntNumber> SplitAt<I> for LineSegment<I> {
+impl<I: CurveInt> SplitAt<I> for LineSegment<I> {
     type Output = [Self; 2];
 
     #[inline]
@@ -119,7 +119,7 @@ impl<I: IntNumber> SplitAt<I> for LineSegment<I> {
     }
 }
 
-impl<I: IntNumber> SplitAt<I> for QuadSegment<I> {
+impl<I: CurveInt> SplitAt<I> for QuadSegment<I> {
     type Output = [Self; 2];
 
     #[inline]
@@ -167,7 +167,7 @@ impl<I: IntNumber> SplitAt<I> for QuadSegment<I> {
     }
 }
 
-impl<I: IntNumber> SplitAt<I> for CubicSegment<I> {
+impl<I: CurveInt> SplitAt<I> for CubicSegment<I> {
     type Output = [Self; 2];
 
     #[inline]
@@ -221,7 +221,7 @@ impl<I: IntNumber> SplitAt<I> for CubicSegment<I> {
     }
 }
 
-impl<I: IntNumber> SplitAt<I> for ArcSegment<I> {
+impl<I: CurveInt> SplitAt<I> for ArcSegment<I> {
     type Output = [Self; 2];
 
     #[inline]
@@ -240,7 +240,7 @@ impl<I: IntNumber> SplitAt<I> for ArcSegment<I> {
     }
 }
 
-impl<I: IntNumber> Segment<I> {
+impl<I: CurveInt> Segment<I> {
     pub(crate) fn split_at_point(&self, t: SegmentParam<I>, point: IntPoint<I>) -> [Self; 2] {
         match self {
             Segment::Line(line) => {

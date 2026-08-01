@@ -5,6 +5,9 @@
 //! the integer kernel invariants when they are added. Most applications should
 //! prefer the crate-level float API, which selects and applies an integer
 //! conversion scale automatically.
+//!
+//! Every integer geometry type uses the sealed [`CurveInt`] engine bound. The
+//! supported coordinate types are `i16`, `i32`, and `i64`.
 
 mod bool;
 mod curve;
@@ -28,7 +31,6 @@ pub use curve::shape::CurveShape;
 /// This trait is sealed and implemented for `i16`, `i32`, and `i64`.
 pub use i_overlay::core::integer::OverlayInt as CurveInt;
 pub use i_overlay::core::overlay::ShapeType;
-pub use i_overlay::i_float::int::number::int::IntNumber;
 pub use i_overlay::i_shape::int::IntPoint;
 
 /// Bits reserved for intermediate polynomial coefficient growth.

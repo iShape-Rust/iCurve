@@ -1,24 +1,24 @@
+use crate::int::CurveInt;
 use crate::int::bool::edge::CurveEdge;
 use crate::int::bool::overlay::CurveOverlayOptions;
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::point_at::PointAt;
 use alloc::vec::Vec;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 
 #[derive(Clone, Copy)]
-struct ApproximationItem<I: IntNumber> {
+struct ApproximationItem<I: CurveInt> {
     edge: CurveEdge<I>,
     depth: u32,
 }
 
-pub(crate) struct CurveApproximator<I: IntNumber> {
+pub(crate) struct CurveApproximator<I: CurveInt> {
     output: Vec<CurveEdge<I>>,
     stack: Vec<ApproximationItem<I>>,
 }
 
-impl<I: IntNumber> CurveApproximator<I> {
+impl<I: CurveInt> CurveApproximator<I> {
     pub(crate) fn new() -> Self {
         Self {
             output: Vec::new(),

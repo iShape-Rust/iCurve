@@ -1,12 +1,12 @@
+use crate::int::CurveInt;
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::math::angle::ApproximateAngle;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
-pub(super) struct Split<I: IntNumber> {
+pub(super) struct Split<I: CurveInt> {
     pub(super) t0: SegmentParam<I>,
     pub(super) s0: Option<Segment<I>>,
     pub(super) t1: SegmentParam<I>,
@@ -14,7 +14,7 @@ pub(super) struct Split<I: IntNumber> {
     pub(super) step: SegmentParam<I>,
 }
 
-impl<I: IntNumber> Segment<I> {
+impl<I: CurveInt> Segment<I> {
     pub(crate) fn is_nearly_linear(&self, sin_angle_neg_pow2: u32) -> bool {
         let chord = self.chord();
         let chord_vector = chord.vector();

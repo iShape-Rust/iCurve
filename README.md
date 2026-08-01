@@ -259,6 +259,10 @@ The direct `FloatCurveOverlay` API makes the integer engine explicit: use
 `FloatCurveOverlay::<_, i32>` for the standard engine or
 `FloatCurveOverlay::<_, i64>` for the wider one.
 
+For subject-only resolution with a reproducible grid, use
+`FloatCurveOverlay::try_from_subject_with_scale(&subject, scale)` and resolve it
+with `OverlayRule::Subject`.
+
 ## Reading the result
 
 The float result is exposed through three top-level aliases:

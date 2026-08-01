@@ -244,6 +244,22 @@ where
         Self::with_adapter::<R, R>(subject, None, adapter)
     }
 
+    /// Creates a subject-only overlay with an explicit float-to-grid scale.
+    ///
+    /// This is the deterministic-scale counterpart of [`from_subject`](Self::from_subject),
+    /// useful for resolving one operand with [`OverlayRule::Subject`]. Larger
+    /// values retain smaller features but reduce the safe coordinate range.
+    /// The scale is rejected when it cannot represent the subject bounds safely.
+    pub fn try_from_subject_with_scale<R>(subject: &R, scale: P::Scalar) -> Result<Self, CurveConversionError>
+    where
+        R: CurveResource<P> + ?Sized,
+    {
+        let bounds = resource_bounds(subject).unwrap_or_else(FloatRect::zero);
+        let adapter =
+            FloatPointAdapter::try_with_scale_and_coordinate_bits(bounds, scale, Self::COORDINATE_BITS)?;
+        Ok(Self::with_adapter::<R, R>(subject, None, adapter))
+    }
+
     /// Creates an overlay with an explicit float-to-grid scale.
     ///
     /// Larger values retain smaller features but reduce the safe coordinate
@@ -548,6 +564,27 @@ mod tests {
             .overlay(OverlayRule::Union, FillRule::NonZero);
 
         assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn subject_only_explicit_scale_is_used_and_reported() {
+        let subject = rectangle(0.0, 0.0, 10.0, 10.0);
+
+        let overlay = FloatCurveOverlay::<_, i32>::try_from_subject_with_scale(&subject, 1_024.0).unwrap();
+
+        assert_eq!(overlay.scale(), 1_024.0);
+        let report = overlay.conversion_report();
+        assert_eq!(report.subject.contour_count, 1);
+        assert!(report.clip.is_none());
+        assert!(!report.has_degeneracies());
+
+        let result = overlay.overlay(OverlayRule::Subject, FillRule::NonZero);
+        assert_eq!(result.len(), 1);
+
+        let error = FloatCurveOverlay::<_, i32>::try_from_subject_with_scale(&subject, 0.0)
+            .err()
+            .unwrap();
+        assert_eq!(error, CurveConversionError::ScaleNonPositive);
     }
 
     #[test]

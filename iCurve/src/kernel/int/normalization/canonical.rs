@@ -1,3 +1,4 @@
+use crate::int::CurveInt;
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::{SegmentParam, interpolate_segment_param};
 use crate::kernel::int::curve::point_at::PointAt;
@@ -8,35 +9,34 @@ use crate::kernel::int::normalization::cubic::CubicSShapeNormalization;
 #[cfg(test)]
 use crate::kernel::int::normalization::monotone::decomposition::DecomposeIntoMonotone;
 use alloc::vec::Vec;
-use i_overlay::i_float::int::number::int::IntNumber;
 
 #[cfg(test)]
-pub(crate) trait PushCanonicalSegment<I: IntNumber> {
+pub(crate) trait PushCanonicalSegment<I: CurveInt> {
     fn push_canonical(&mut self, segment: Segment<I>);
 }
 
-pub(crate) trait PushSimpleSegment<I: IntNumber> {
+pub(crate) trait PushSimpleSegment<I: CurveInt> {
     fn push_simple(&mut self, segment: Segment<I>);
 }
 
 #[cfg(test)]
-pub(crate) trait PushCanonicalSimpleSegment<I: IntNumber> {
+pub(crate) trait PushCanonicalSimpleSegment<I: CurveInt> {
     fn push_canonical_simple(&mut self, segment: Segment<I>);
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct ParametricSegment<I: IntNumber> {
+pub(crate) struct ParametricSegment<I: CurveInt> {
     pub(crate) curve: Segment<I>,
     pub(crate) start: SegmentParam<I>,
     pub(crate) end: SegmentParam<I>,
 }
 
-pub(crate) trait PushCanonicalSimpleParametricSegment<I: IntNumber> {
+pub(crate) trait PushCanonicalSimpleParametricSegment<I: CurveInt> {
     fn push_canonical_simple_parametric(&mut self, segment: Segment<I>);
 }
 
 #[cfg(test)]
-impl<I: IntNumber> PushCanonicalSegment<I> for Vec<Segment<I>> {
+impl<I: CurveInt> PushCanonicalSegment<I> for Vec<Segment<I>> {
     fn push_canonical(&mut self, segment: Segment<I>) {
         let mut simple_segments = Vec::new();
         simple_segments.push_simple(segment);
@@ -47,7 +47,7 @@ impl<I: IntNumber> PushCanonicalSegment<I> for Vec<Segment<I>> {
     }
 }
 
-impl<I: IntNumber> PushSimpleSegment<I> for Vec<Segment<I>> {
+impl<I: CurveInt> PushSimpleSegment<I> for Vec<Segment<I>> {
     fn push_simple(&mut self, segment: Segment<I>) {
         match segment {
             Segment::Line(line) => {
@@ -77,11 +77,11 @@ impl<I: IntNumber> PushSimpleSegment<I> for Vec<Segment<I>> {
     }
 }
 
-trait PushSimpleWithoutSelfIntersection<I: IntNumber> {
+trait PushSimpleWithoutSelfIntersection<I: CurveInt> {
     fn push_simple_without_self_intersection(&mut self, segment: Segment<I>);
 }
 
-impl<I: IntNumber> PushSimpleWithoutSelfIntersection<I> for Vec<Segment<I>> {
+impl<I: CurveInt> PushSimpleWithoutSelfIntersection<I> for Vec<Segment<I>> {
     fn push_simple_without_self_intersection(&mut self, segment: Segment<I>) {
         match segment {
             Segment::Line(line) => self.push(Segment::Line(line)),
@@ -109,7 +109,7 @@ impl<I: IntNumber> PushSimpleWithoutSelfIntersection<I> for Vec<Segment<I>> {
 }
 
 #[cfg(test)]
-impl<I: IntNumber> PushCanonicalSimpleSegment<I> for Vec<Segment<I>> {
+impl<I: CurveInt> PushCanonicalSimpleSegment<I> for Vec<Segment<I>> {
     fn push_canonical_simple(&mut self, segment: Segment<I>) {
         match segment {
             Segment::Line(line) => self.push(Segment::Line(line)),
@@ -146,7 +146,7 @@ impl<I: IntNumber> PushCanonicalSimpleSegment<I> for Vec<Segment<I>> {
     }
 }
 
-impl<I: IntNumber> PushCanonicalSimpleParametricSegment<I> for Vec<ParametricSegment<I>> {
+impl<I: CurveInt> PushCanonicalSimpleParametricSegment<I> for Vec<ParametricSegment<I>> {
     fn push_canonical_simple_parametric(&mut self, segment: Segment<I>) {
         let zero = SegmentParam::new(I::ZERO);
         let one = SegmentParam::new(I::from_wide(SegmentParam::<I>::DENOMINATOR));

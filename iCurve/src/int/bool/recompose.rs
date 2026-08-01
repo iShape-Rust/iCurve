@@ -1,4 +1,5 @@
 use crate::collections::circular_merge_list::CircularMergeList;
+use crate::int::CurveInt;
 use crate::int::bool::data::{CurveEdgeData, CurveEdgeDataStore, CurveSourceSpan};
 use crate::int::bool::source::CurveSource;
 use crate::int::curve::path::CurvePath;
@@ -10,19 +11,18 @@ use crate::kernel::int::curve::point_at::PointAt;
 use crate::kernel::int::curve::segment::Segment;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::uint::UIntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 use i_overlay::vector::edge::{DataVectorEdge, DataVectorShape};
 
-struct CurveRun<I: IntNumber> {
+struct CurveRun<I: CurveInt> {
     start: IntPoint<I>,
     end: IntPoint<I>,
     candidates: Vec<CurveSourceSpan>,
 }
 
-impl<I: IntNumber> CurveRun<I> {
+impl<I: CurveInt> CurveRun<I> {
     fn try_merge(&mut self, next: &mut Self) -> bool {
         if self.end != next.start {
             debug_assert!(false, "adjacent overlay edges must share an endpoint");
@@ -162,11 +162,11 @@ impl<I: IntNumber> CurveRun<I> {
     }
 }
 
-pub(crate) struct CurveRecomposer<I: IntNumber> {
+pub(crate) struct CurveRecomposer<I: CurveInt> {
     merge_list: CircularMergeList<CurveRun<I>>,
 }
 
-impl<I: IntNumber> CurveRecomposer<I> {
+impl<I: CurveInt> CurveRecomposer<I> {
     pub(crate) fn new() -> Self {
         Self {
             merge_list: CircularMergeList::with_capacity(0),

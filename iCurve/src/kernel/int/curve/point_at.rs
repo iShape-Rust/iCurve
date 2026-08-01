@@ -1,21 +1,21 @@
+use crate::int::CurveInt;
 use crate::kernel::int::curve::arc::ArcSegment;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::segment::Segment;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
-pub(crate) trait PointAt<I: IntNumber> {
+pub(crate) trait PointAt<I: CurveInt> {
     fn point_at(&self, param: SegmentParam<I>) -> IntPoint<I>;
 }
 
-impl<I: IntNumber> PointAt<I> for ArcSegment<I> {
+impl<I: CurveInt> PointAt<I> for ArcSegment<I> {
     #[inline(always)]
     fn point_at(&self, param: SegmentParam<I>) -> IntPoint<I> {
         ArcSegment::point_at(self, param)
     }
 }
 
-impl<I: IntNumber> PointAt<I> for Segment<I> {
+impl<I: CurveInt> PointAt<I> for Segment<I> {
     #[inline(always)]
     fn point_at(&self, param: SegmentParam<I>) -> IntPoint<I> {
         match self {
@@ -27,7 +27,7 @@ impl<I: IntNumber> PointAt<I> for Segment<I> {
     }
 }
 
-impl<I: IntNumber> PointAt<I> for [IntPoint<I>; 2] {
+impl<I: CurveInt> PointAt<I> for [IntPoint<I>; 2] {
     #[inline(always)]
     fn point_at(&self, t: SegmentParam<I>) -> IntPoint<I> {
         let [p0, p1] = *self;
@@ -35,7 +35,7 @@ impl<I: IntNumber> PointAt<I> for [IntPoint<I>; 2] {
     }
 }
 
-impl<I: IntNumber> PointAt<I> for [IntPoint<I>; 3] {
+impl<I: CurveInt> PointAt<I> for [IntPoint<I>; 3] {
     #[inline(always)]
     fn point_at(&self, t: SegmentParam<I>) -> IntPoint<I> {
         let [p0, p1, p2] = *self;
@@ -45,7 +45,7 @@ impl<I: IntNumber> PointAt<I> for [IntPoint<I>; 3] {
     }
 }
 
-impl<I: IntNumber> PointAt<I> for [IntPoint<I>; 4] {
+impl<I: CurveInt> PointAt<I> for [IntPoint<I>; 4] {
     #[inline(always)]
     fn point_at(&self, t: SegmentParam<I>) -> IntPoint<I> {
         let [p0, p1, p2, p3] = *self;

@@ -1,10 +1,10 @@
+use crate::int::CurveInt;
 use crate::kernel::int::curve::arc::ArcSegment;
 use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::segment::Segment;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::triangle::Triangle;
 
-impl<I: IntNumber> ArcSegment<I> {
+impl<I: CurveInt> ArcSegment<I> {
     #[inline]
     pub(crate) fn try_segment(self) -> Option<Segment<I>> {
         let [p0, p1, p2] = self.control_points;

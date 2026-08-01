@@ -1,13 +1,13 @@
+use crate::int::CurveInt;
 use crate::kernel::int::curve::chord::{Chord, SegmentChord};
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 #[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct QuadSegment<I: IntNumber> {
+pub(crate) struct QuadSegment<I: CurveInt> {
     pub(crate) control_points: [IntPoint<I>; 3],
 }
 
-impl<I: IntNumber> Chord<I> for QuadSegment<I> {
+impl<I: CurveInt> Chord<I> for QuadSegment<I> {
     #[inline]
     fn chord(&self) -> SegmentChord<I> {
         SegmentChord {

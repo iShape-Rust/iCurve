@@ -14,7 +14,6 @@ use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
 use i_overlay::i_float::float::rect::FloatRect;
 use i_overlay::i_float::int::number::fixed_scale::FixedScale;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
@@ -178,7 +177,7 @@ pub(crate) fn convert_resource<P, I, R>(
 ) -> (IntCurveShape<I>, CurveConversionReport)
 where
     P: FloatPointCompatible,
-    I: IntNumber,
+    I: CurveInt,
     R: CurveResource<P> + ?Sized,
 {
     let mut report = CurveConversionReport::default();
@@ -194,7 +193,7 @@ where
     (IntCurveShape { contours }, report)
 }
 
-pub(crate) fn convert_shapes_to_float<P: FloatPointCompatible, I: IntNumber>(
+pub(crate) fn convert_shapes_to_float<P: FloatPointCompatible, I: CurveInt>(
     source: Vec<IntCurveShape<I>>,
     adapter: &FloatPointAdapter<P, I>,
 ) -> Vec<FloatCurveShape<P>> {
@@ -211,7 +210,7 @@ pub(crate) fn convert_shapes_to_float<P: FloatPointCompatible, I: IntNumber>(
         .collect()
 }
 
-fn convert_path_to_float<P: FloatPointCompatible, I: IntNumber>(
+fn convert_path_to_float<P: FloatPointCompatible, I: CurveInt>(
     source: IntCurvePath<I>,
     adapter: &FloatPointAdapter<P, I>,
 ) -> FloatCurvePath<P> {
@@ -224,7 +223,7 @@ fn convert_path_to_float<P: FloatPointCompatible, I: IntNumber>(
     FloatCurvePath::from_validated_parts(start, segments)
 }
 
-fn convert_segment_to_float<P: FloatPointCompatible, I: IntNumber>(
+fn convert_segment_to_float<P: FloatPointCompatible, I: CurveInt>(
     source: IntCurveSegment<I>,
     adapter: &FloatPointAdapter<P, I>,
 ) -> FloatCurveSegment<P> {
@@ -247,7 +246,7 @@ fn convert_segment_to_float<P: FloatPointCompatible, I: IntNumber>(
     }
 }
 
-fn convert_arc_to_float<P: FloatPointCompatible, I: IntNumber>(
+fn convert_arc_to_float<P: FloatPointCompatible, I: CurveInt>(
     source: ArcSegment<I>,
     adapter: &FloatPointAdapter<P, I>,
 ) -> RationalArc<P> {
@@ -276,7 +275,7 @@ fn convert_arc_to_float<P: FloatPointCompatible, I: IntNumber>(
     }
 }
 
-fn phase_angle<F: FloatNumber, I: IntNumber>(phase: ArcPhase<I>) -> F {
+fn phase_angle<F: FloatNumber, I: CurveInt>(phase: ArcPhase<I>) -> F {
     vector_angle(F::from_int(phase.cos), F::from_int(phase.sin))
 }
 
@@ -306,7 +305,7 @@ fn directed_sweep<F: FloatNumber>(start: F, end: F, direction: ArcDirection) -> 
     sweep
 }
 
-fn convert_path<P: FloatPointCompatible, I: IntNumber>(
+fn convert_path<P: FloatPointCompatible, I: CurveInt>(
     source: &FloatCurvePath<P>,
     adapter: &FloatPointAdapter<P, I>,
     report: &mut CurveConversionReport,
@@ -361,7 +360,7 @@ fn convert_path<P: FloatPointCompatible, I: IntNumber>(
     }
 }
 
-fn append_rational_arc<P: FloatPointCompatible, I: IntNumber>(
+fn append_rational_arc<P: FloatPointCompatible, I: CurveInt>(
     arc: RationalArc<P>,
     current: IntPoint<I>,
     adapter: &FloatPointAdapter<P, I>,
@@ -413,12 +412,12 @@ fn append_rational_arc<P: FloatPointCompatible, I: IntNumber>(
     end
 }
 
-fn fixed_weight<F: FloatNumber, I: IntNumber>(weight: F) -> I {
+fn fixed_weight<F: FloatNumber, I: CurveInt>(weight: F) -> I {
     let denominator = FixedScale::<I>::DENOMINATOR.to_f64();
     I::from_rounded_float(weight.to_f64() * denominator)
 }
 
-fn fixed_direction_is_valid<I: IntNumber>(
+fn fixed_direction_is_valid<I: CurveInt>(
     start: ArcPhase<I>,
     end: ArcPhase<I>,
     direction: ArcDirection,
@@ -430,7 +429,7 @@ fn fixed_direction_is_valid<I: IntNumber>(
     }
 }
 
-fn ellipse_frame_is_valid<I: IntNumber>(frame: &EllipseFrame<I>) -> bool {
+fn ellipse_frame_is_valid<I: CurveInt>(frame: &EllipseFrame<I>) -> bool {
     let axis_x_x = frame.axis_x.x.to_wide();
     let axis_x_y = frame.axis_x.y.to_wide();
     let axis_y_x = frame.axis_y.x.to_wide();
@@ -462,7 +461,7 @@ impl<F: FloatNumber> FloatArcPhase<F> {
         }
     }
 
-    fn to_fixed<I: IntNumber>(self) -> ArcPhase<I> {
+    fn to_fixed<I: CurveInt>(self) -> ArcPhase<I> {
         let cos = self.cos.to_f64();
         let sin = self.sin.to_f64();
         let length = <f64 as FloatNumber>::sqrt(cos * cos + sin * sin);
@@ -510,7 +509,7 @@ impl<P: FloatPointCompatible> FloatEllipseFrame<P> {
         }
     }
 
-    fn to_int<I: IntNumber>(&self, adapter: &FloatPointAdapter<P, I>) -> EllipseFrame<I> {
+    fn to_int<I: CurveInt>(&self, adapter: &FloatPointAdapter<P, I>) -> EllipseFrame<I> {
         EllipseFrame {
             center: adapter.float_to_int(&self.center),
             axis_x: ArcVector {
@@ -533,7 +532,7 @@ mod tests {
     use i_overlay::i_float::int::number::fixed_scale::FixedScale;
     use i_overlay::i_shape::int::IntPoint;
 
-    fn assert_arc_control_polygons_are_monotone<I: IntNumber>(shape: &IntCurveShape<I>) {
+    fn assert_arc_control_polygons_are_monotone<I: CurveInt>(shape: &IntCurveShape<I>) {
         for contour in &shape.contours {
             for segment in &contour.segments {
                 if let IntCurveSegment::Arc { arc } = segment {

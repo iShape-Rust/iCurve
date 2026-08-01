@@ -1,11 +1,11 @@
+use crate::int::CurveInt;
 use i_overlay::i_float::int::number::fixed_scale::FixedScale;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 
 pub(crate) struct QuadraticEquation;
 
 impl QuadraticEquation {
-    pub(crate) fn solve<I: IntNumber>(a: I, b: I, c: I) -> Option<[I; 2]> {
+    pub(crate) fn solve<I: CurveInt>(a: I, b: I, c: I) -> Option<[I; 2]> {
         if a == I::ZERO {
             return if b == I::ZERO {
                 None

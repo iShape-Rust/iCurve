@@ -170,13 +170,23 @@ fn float_builder_is_at_top_level_and_converter_is_scoped() {
     assert_eq!(source.contours().len(), 1);
     let _: CurveConversionReport = converter.report();
 
-    fn assert_int_number<I: i_curve::int::IntNumber>() {}
-    assert_int_number::<i64>();
-
     fn assert_curve_int<I: i_curve::int::CurveInt>() {}
     assert_curve_int::<i16>();
     assert_curve_int::<i32>();
     assert_curve_int::<i64>();
+
+    fn assert_integer_surface<I: i_curve::int::CurveInt>() {
+        let _: Option<i_curve::int::CurvePath<I>> = None;
+        let _: Option<i_curve::int::CurveSegment<I>> = None;
+        let _: Option<i_curve::int::CurveShape<I>> = None;
+        let _: Option<i_curve::int::arc::ArcPhase<I>> = None;
+        let _: Option<i_curve::int::arc::ArcVector<I>> = None;
+        let _: Option<i_curve::int::arc::EllipseFrame<I>> = None;
+        let _: Option<i_curve::int::arc::RationalArc<I>> = None;
+    }
+    assert_integer_surface::<i16>();
+    assert_integer_surface::<i32>();
+    assert_integer_surface::<i64>();
 
     assert_eq!(
         invalid_arc([IntPoint::new(0, 0); 3]).validate(),
@@ -260,6 +270,16 @@ fn float_curve_resources_accept_shape_collections_and_paths() {
 fn float_overlay_supports_explicit_i64_solver() {
     let subject = float_rectangle(0.0, 0.0, 10.0, 10.0);
     let clip = float_rectangle(5.0, 2.0, 12.0, 8.0);
+
+    let subject_only = FloatCurveOverlay::<_, i64>::try_from_subject_with_scale(&subject, 1_000.0).unwrap();
+    assert_eq!(subject_only.scale(), 1_000.0);
+    assert!(subject_only.conversion_report().clip.is_none());
+    assert_eq!(
+        subject_only
+            .overlay(OverlayRule::Subject, FillRule::NonZero)
+            .len(),
+        1
+    );
 
     let overlay = FloatCurveOverlay::<_, i64>::new(&subject, &clip)
         .try_with_options(FloatCurveOverlayOptions::default().with_min_chord_length(0.001))

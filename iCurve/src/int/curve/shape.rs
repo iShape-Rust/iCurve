@@ -1,18 +1,18 @@
+use crate::int::CurveInt;
 use crate::int::curve::path::CurvePath;
 use alloc::vec::Vec;
-use i_overlay::i_float::int::number::int::IntNumber;
 
 /// Integer curve shape containing contours that form one overlay operand.
 ///
 /// This is a structural container; [`IntCurveOverlay`](crate::int::IntCurveOverlay)
 /// validates non-emptiness and each contour's invariants when the shape is added.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CurveShape<I: IntNumber> {
+pub struct CurveShape<I: CurveInt> {
     /// Contours belonging to this shape; overlay input requires each one to be closed.
     pub contours: Vec<CurvePath<I>>,
 }
 
-impl<I: IntNumber> CurveShape<I> {
+impl<I: CurveInt> CurveShape<I> {
     /// Creates a shape from closed contours.
     pub fn new(contours: Vec<CurvePath<I>>) -> Self {
         Self { contours }

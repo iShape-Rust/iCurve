@@ -1,8 +1,8 @@
 use crate::collections::stack_vec::StackVec;
+use crate::int::CurveInt;
 use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::split_at::{SetSegmentEndpoints, SplitAt, segment_range};
-use i_overlay::i_float::int::number::int::IntNumber;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum MonotoneDecompositionDirection {
@@ -22,7 +22,7 @@ pub(crate) fn roots_to_segments<I, S, const ROOT_CAP: usize, const SEGMENT_CAP: 
     mut roots: StackVec<SegmentParam<I>, ROOT_CAP>,
 ) -> StackVec<S, SEGMENT_CAP>
 where
-    I: IntNumber,
+    I: CurveInt,
     S: SplitAt<I, Output = [S; 2]> + SetSegmentEndpoints<I> + Chord<I> + Copy + Default,
 {
     roots.buffer[0..roots.len].sort_unstable_by_key(|root| root.value());

@@ -1,4 +1,5 @@
 use crate::collections::stack_vec::StackVec;
+use crate::int::CurveInt;
 use crate::kernel::int::cross::chord::ChordCross;
 use crate::kernel::int::cross::parallel::ParallelSegment;
 use crate::kernel::int::curve::chord::Chord;
@@ -6,11 +7,10 @@ use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::math::angle::ApproximateAngle;
 use alloc::vec::Vec;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
-pub(crate) struct SplitOptions<I: IntNumber> {
+pub(crate) struct SplitOptions<I: CurveInt> {
     pub(super) max_parts_count_log: u32,
     pub(super) min_len_pow2: u32,
     pub(super) min_sqr_len_pow2: u32,
@@ -19,13 +19,13 @@ pub(crate) struct SplitOptions<I: IntNumber> {
     pub(super) cross_radius: I::Wide,
 }
 
-pub(crate) struct SegmentIntersector<I: IntNumber> {
+pub(crate) struct SegmentIntersector<I: CurveInt> {
     pub(super) options: SplitOptions<I>,
     original_segment_0: Segment<I>,
     original_segment_1: Segment<I>,
 }
 
-struct Pair<I: IntNumber> {
+struct Pair<I: CurveInt> {
     s0: Segment<I>,
     ch0: StackVec<IntPoint<I>, 4>,
     t0: SegmentParam<I>,
@@ -38,13 +38,13 @@ struct Pair<I: IntNumber> {
     is_nearly_linear_1: bool,
 }
 
-pub(crate) struct SegmentIntersectionBuffer<I: IntNumber> {
+pub(crate) struct SegmentIntersectionBuffer<I: CurveInt> {
     stack: Vec<Pair<I>>,
     contacts: Vec<ContactPoint<I>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct ContactPoint<I: IntNumber> {
+pub(crate) struct ContactPoint<I: CurveInt> {
     pub(crate) point: IntPoint<I>,
     pub(crate) t0: SegmentParam<I>,
     pub(crate) t1: SegmentParam<I>,
@@ -57,7 +57,7 @@ pub(crate) enum ContactType {
     Tangent,
 }
 
-impl<I: IntNumber> SegmentIntersector<I> {
+impl<I: CurveInt> SegmentIntersector<I> {
     pub(crate) fn new(s0: Segment<I>, s1: Segment<I>, options: SplitOptions<I>) -> Self {
         Self {
             original_segment_0: s0,
@@ -230,7 +230,7 @@ impl<I: IntNumber> SegmentIntersector<I> {
     }
 }
 
-impl<I: IntNumber> Default for SegmentIntersectionBuffer<I> {
+impl<I: CurveInt> Default for SegmentIntersectionBuffer<I> {
     fn default() -> Self {
         Self {
             stack: Vec::new(),
@@ -239,14 +239,14 @@ impl<I: IntNumber> Default for SegmentIntersectionBuffer<I> {
     }
 }
 
-fn push_unique_contact<I: IntNumber>(output: &mut Vec<ContactPoint<I>>, contact: ContactPoint<I>) {
+fn push_unique_contact<I: CurveInt>(output: &mut Vec<ContactPoint<I>>, contact: ContactPoint<I>) {
     if !output.contains(&contact) {
         output.push(contact);
     }
 }
 
 #[inline]
-pub(super) fn global_param<I: IntNumber>(
+pub(super) fn global_param<I: CurveInt>(
     center: SegmentParam<I>,
     step: SegmentParam<I>,
     local: SegmentParam<I>,
@@ -258,7 +258,7 @@ pub(super) fn global_param<I: IntNumber>(
     SegmentParam::new(I::from_wide(start + offset))
 }
 
-impl<I: IntNumber> Default for SplitOptions<I> {
+impl<I: CurveInt> Default for SplitOptions<I> {
     fn default() -> Self {
         let min_len_pow2 = 4;
         Self {
@@ -272,7 +272,7 @@ impl<I: IntNumber> Default for SplitOptions<I> {
     }
 }
 
-impl<I: IntNumber> SplitOptions<I> {
+impl<I: CurveInt> SplitOptions<I> {
     #[inline]
     pub(crate) fn with_cross_radius(cross_radius: I::Wide) -> Self {
         Self {

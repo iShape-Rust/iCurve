@@ -1,10 +1,10 @@
 use crate::collections::stack_vec::StackVec;
+use crate::int::CurveInt;
 use core::cmp::Ordering;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
-impl<I: IntNumber> StackVec<IntPoint<I>, 4> {
+impl<I: CurveInt> StackVec<IntPoint<I>, 4> {
     pub(crate) fn with_slice_as_convex(points: &[IntPoint<I>]) -> Self {
         let mut convex: StackVec<IntPoint<I>, 4> = StackVec::new();
         convex.init_as_convex(points);

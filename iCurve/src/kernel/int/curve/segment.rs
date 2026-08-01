@@ -1,21 +1,21 @@
 use crate::collections::stack_vec::StackVec;
+use crate::int::CurveInt;
 use crate::kernel::int::curve::arc::ArcSegment;
 use crate::kernel::int::curve::chord::{Chord, SegmentChord};
 use crate::kernel::int::curve::cubic::CubicSegment;
 use crate::kernel::int::curve::line::LineSegment;
 use crate::kernel::int::curve::quad::QuadSegment;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum Segment<I: IntNumber> {
+pub(crate) enum Segment<I: CurveInt> {
     Line(LineSegment<I>),
     Quad(QuadSegment<I>),
     Cubic(CubicSegment<I>),
     Arc(ArcSegment<I>),
 }
 
-impl<I: IntNumber> Default for Segment<I> {
+impl<I: CurveInt> Default for Segment<I> {
     fn default() -> Self {
         Self::Line(LineSegment {
             control_points: [IntPoint::ZERO; 2],
@@ -23,7 +23,7 @@ impl<I: IntNumber> Default for Segment<I> {
     }
 }
 
-impl<I: IntNumber> Segment<I> {
+impl<I: CurveInt> Segment<I> {
     #[inline]
     pub(crate) fn convex_hull(&self) -> StackVec<IntPoint<I>, 4> {
         match self {
@@ -35,7 +35,7 @@ impl<I: IntNumber> Segment<I> {
     }
 }
 
-impl<I: IntNumber> Chord<I> for Segment<I> {
+impl<I: CurveInt> Chord<I> for Segment<I> {
     #[inline]
     fn chord(&self) -> SegmentChord<I> {
         match self {

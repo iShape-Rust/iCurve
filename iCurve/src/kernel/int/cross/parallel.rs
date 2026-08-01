@@ -1,3 +1,4 @@
+use crate::int::CurveInt;
 use crate::kernel::int::cross::chord::ChordCross;
 use crate::kernel::int::cross::intersector::{ContactPoint, ContactType, SegmentIntersector, global_param};
 use crate::kernel::int::curve::chord::{Chord, SegmentChord};
@@ -5,7 +6,6 @@ use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::point_at::PointAt;
 use crate::kernel::int::curve::segment::Segment;
 use alloc::vec::Vec;
-use i_overlay::i_float::int::number::int::IntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
@@ -16,44 +16,44 @@ enum ProjectionAxis {
 }
 
 #[derive(Clone, Copy)]
-struct Sample<I: IntNumber> {
+struct Sample<I: CurveInt> {
     point: IntPoint<I>,
     param: SegmentParam<I>,
 }
 
 #[derive(Clone, Copy)]
-struct PolylineEdge<I: IntNumber> {
+struct PolylineEdge<I: CurveInt> {
     a: Sample<I>,
     b: Sample<I>,
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct ParallelSegment<I: IntNumber> {
+pub(super) struct ParallelSegment<I: CurveInt> {
     segment: Segment<I>,
     transform: ParamTransform<I>,
 }
 
 #[derive(Clone, Copy)]
-struct ParamTransform<I: IntNumber> {
+struct ParamTransform<I: CurveInt> {
     center: SegmentParam<I>,
     step: SegmentParam<I>,
 }
 
-struct ParallelPointIter<I: IntNumber> {
+struct ParallelPointIter<I: CurveInt> {
     segment: Segment<I>,
     parts: usize,
     next: usize,
     reversed: bool,
 }
 
-struct ParallelEdgeIter<I: IntNumber> {
+struct ParallelEdgeIter<I: CurveInt> {
     points: ParallelPointIter<I>,
     previous: Option<Sample<I>>,
     #[cfg(debug_assertions)]
     last_end: Option<IntPoint<I>>,
 }
 
-impl<I: IntNumber> SegmentIntersector<I> {
+impl<I: CurveInt> SegmentIntersector<I> {
     pub(super) fn intersect_parallel(
         &self,
         first: ParallelSegment<I>,
@@ -134,7 +134,7 @@ impl<I: IntNumber> SegmentIntersector<I> {
     }
 }
 
-impl<I: IntNumber> ParallelSegment<I> {
+impl<I: CurveInt> ParallelSegment<I> {
     pub(super) fn new(segment: Segment<I>, center: SegmentParam<I>, step: SegmentParam<I>) -> Self {
         Self {
             segment,
@@ -143,14 +143,14 @@ impl<I: IntNumber> ParallelSegment<I> {
     }
 }
 
-impl<I: IntNumber> ParamTransform<I> {
+impl<I: CurveInt> ParamTransform<I> {
     fn apply(self, local: SegmentParam<I>) -> SegmentParam<I> {
         global_param(self.center, self.step, local)
     }
 }
 
 impl ProjectionAxis {
-    fn for_chords<I: IntNumber>(a: SegmentChord<I>, b: SegmentChord<I>) -> Self {
+    fn for_chords<I: CurveInt>(a: SegmentChord<I>, b: SegmentChord<I>) -> Self {
         let av = a.vector();
         let bv = b.vector();
         let x = av.x.unsigned_abs() + bv.x.unsigned_abs();
@@ -159,7 +159,7 @@ impl ProjectionAxis {
     }
 
     #[inline]
-    fn value<I: IntNumber>(self, point: IntPoint<I>) -> I {
+    fn value<I: CurveInt>(self, point: IntPoint<I>) -> I {
         match self {
             Self::X => point.x,
             Self::Y => point.y,
@@ -167,7 +167,7 @@ impl ProjectionAxis {
     }
 }
 
-impl<I: IntNumber> ParallelPointIter<I> {
+impl<I: CurveInt> ParallelPointIter<I> {
     fn new(segment: Segment<I>, axis: ProjectionAxis, parts: usize) -> Self {
         let chord = segment.chord();
         Self {
@@ -179,7 +179,7 @@ impl<I: IntNumber> ParallelPointIter<I> {
     }
 }
 
-impl<I: IntNumber> Iterator for ParallelPointIter<I> {
+impl<I: CurveInt> Iterator for ParallelPointIter<I> {
     type Item = Sample<I>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -203,7 +203,7 @@ impl<I: IntNumber> Iterator for ParallelPointIter<I> {
     }
 }
 
-impl<I: IntNumber> ParallelEdgeIter<I> {
+impl<I: CurveInt> ParallelEdgeIter<I> {
     fn new(segment: Segment<I>, axis: ProjectionAxis, parts: usize) -> Self {
         Self {
             points: ParallelPointIter::new(segment, axis, parts),
@@ -214,7 +214,7 @@ impl<I: IntNumber> ParallelEdgeIter<I> {
     }
 }
 
-impl<I: IntNumber> Iterator for ParallelEdgeIter<I> {
+impl<I: CurveInt> Iterator for ParallelEdgeIter<I> {
     type Item = PolylineEdge<I>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -240,7 +240,7 @@ impl<I: IntNumber> Iterator for ParallelEdgeIter<I> {
     }
 }
 
-impl<I: IntNumber> SegmentChord<I> {
+impl<I: CurveInt> SegmentChord<I> {
     fn projection_range(&self, axis: ProjectionAxis) -> (I, I) {
         let a = axis.value(self.a);
         let b = axis.value(self.b);
@@ -261,11 +261,11 @@ impl<I: IntNumber> SegmentChord<I> {
     }
 }
 
-fn segment_point_at<I: IntNumber>(segment: Segment<I>, param: SegmentParam<I>) -> IntPoint<I> {
+fn segment_point_at<I: CurveInt>(segment: Segment<I>, param: SegmentParam<I>) -> IntPoint<I> {
     segment.point_at(param)
 }
 
-fn edge_param<I: IntNumber>(edge: PolylineEdge<I>, point: IntPoint<I>) -> SegmentParam<I> {
+fn edge_param<I: CurveInt>(edge: PolylineEdge<I>, point: IntPoint<I>) -> SegmentParam<I> {
     let chord = SegmentChord {
         a: edge.a.point,
         b: edge.b.point,
@@ -273,7 +273,7 @@ fn edge_param<I: IntNumber>(edge: PolylineEdge<I>, point: IntPoint<I>) -> Segmen
     interpolate_param(edge.a.param, edge.b.param, chord.param_for_point(point))
 }
 
-fn interpolate_param<I: IntNumber>(
+fn interpolate_param<I: CurveInt>(
     a: SegmentParam<I>,
     b: SegmentParam<I>,
     local: SegmentParam<I>,
@@ -284,7 +284,7 @@ fn interpolate_param<I: IntNumber>(
     SegmentParam::new(I::from_wide(value))
 }
 
-fn push_internal_overlap_ends<I: IntNumber>(
+fn push_internal_overlap_ends<I: CurveInt>(
     output: &mut Vec<ContactPoint<I>>,
     axis: ProjectionAxis,
     a: PolylineEdge<I>,
@@ -307,11 +307,11 @@ fn push_internal_overlap_ends<I: IntNumber>(
 }
 
 #[inline]
-fn is_unit_end<I: IntNumber>(param: SegmentParam<I>) -> bool {
+fn is_unit_end<I: CurveInt>(param: SegmentParam<I>) -> bool {
     param.value() == I::Wide::ZERO || param.value() == SegmentParam::<I>::DENOMINATOR
 }
 
-fn push_tangent<I: IntNumber>(
+fn push_tangent<I: CurveInt>(
     output: &mut Vec<ContactPoint<I>>,
     point: IntPoint<I>,
     a: PolylineEdge<I>,
@@ -329,7 +329,7 @@ fn push_tangent<I: IntNumber>(
     );
 }
 
-fn push_contact<I: IntNumber>(output: &mut Vec<ContactPoint<I>>, contact: ContactPoint<I>) {
+fn push_contact<I: CurveInt>(output: &mut Vec<ContactPoint<I>>, contact: ContactPoint<I>) {
     if !output
         .iter()
         .any(|item| item.point == contact.point && item.contact_type == contact.contact_type)
