@@ -191,6 +191,7 @@ impl<F: FloatNumber> FloatCurveOverlayOptions<F> {
 pub struct FloatCurveOverlay<P: FloatPointCompatible, I: CurveInt> {
     adapter: FloatPointAdapter<P, I>,
     overlay: IntCurveOverlay<I>,
+    options: FloatCurveOverlayOptions<P::Scalar>,
     conversion_report: FloatCurveOverlayConversionReport,
 }
 
@@ -296,6 +297,7 @@ where
         Self {
             adapter,
             overlay,
+            options: FloatCurveOverlayOptions::default(),
             conversion_report,
         }
     }
@@ -313,7 +315,20 @@ where
         options: FloatCurveOverlayOptions<P::Scalar>,
     ) -> Result<Self, FloatCurveOverlayOptionsError> {
         self.overlay = self.overlay.try_with_options(options.to_int(&self.adapter)?)?;
+        self.options = options;
         Ok(self)
+    }
+
+    /// Returns the topology solver configuration.
+    #[inline]
+    pub fn solver(&self) -> Solver {
+        self.overlay.solver()
+    }
+
+    /// Returns the curve approximation options in float input coordinates.
+    #[inline]
+    pub fn options(&self) -> FloatCurveOverlayOptions<P::Scalar> {
+        self.options
     }
 
     /// Returns the effective float-to-integer conversion scale.
@@ -326,6 +341,16 @@ where
     #[inline]
     pub fn conversion_report(&self) -> FloatCurveOverlayConversionReport {
         self.conversion_report
+    }
+
+    /// Resolves the subject operand using the selected fill rule.
+    ///
+    /// This is the direct completion method for overlays created with
+    /// [`from_subject`](Self::from_subject) or
+    /// [`try_from_subject_with_scale`](Self::try_from_subject_with_scale).
+    /// If a clip operand is present, it is ignored.
+    pub fn resolve_subject(self, fill_rule: FillRule) -> alloc::vec::Vec<CurveShape<P>> {
+        self.overlay(OverlayRule::Subject, fill_rule)
     }
 
     /// Performs the Boolean operation and returns float curve shapes.
@@ -540,8 +565,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let result = FloatCurveOverlay::<_, i32>::from_subject(&subject)
-            .overlay(OverlayRule::Subject, FillRule::NonZero);
+        let result = FloatCurveOverlay::<_, i32>::from_subject(&subject).resolve_subject(FillRule::NonZero);
 
         assert_eq!(result.len(), 1);
         assert!(
@@ -578,7 +602,7 @@ mod tests {
         assert!(report.clip.is_none());
         assert!(!report.has_degeneracies());
 
-        let result = overlay.overlay(OverlayRule::Subject, FillRule::NonZero);
+        let result = overlay.resolve_subject(FillRule::NonZero);
         assert_eq!(result.len(), 1);
 
         let error = FloatCurveOverlay::<_, i32>::try_from_subject_with_scale(&subject, 0.0)
@@ -603,6 +627,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(overlay.scale(), 1_024.0);
+        assert_eq!(overlay.options(), options);
         assert_eq!(
             overlay.overlay.options(),
             CurveOverlayOptions {

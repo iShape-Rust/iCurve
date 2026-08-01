@@ -165,7 +165,8 @@ more closed contours.
 
 `FloatCurvePath` also provides `overlay` directly. For a slice, array, `Vec`,
 or another `CurveResource`, import `CurveResourceOverlayExt`. Every path in one
-resource belongs to the same subject or clip operand:
+resource belongs to the same subject or clip operand. Collections of borrowed
+paths or shapes and resources wrapped in `Box` are accepted as well:
 
 ```rust
 use i_curve::{CurveResourceOverlayExt, FillRule, OverlayRule};
@@ -234,7 +235,8 @@ coordinate range; unsafe, non-positive, and non-finite scales return
 coordinates. Leaving it as `None` preserves the scale-relative default. The
 fallible `try_with_options` rejects non-finite or out-of-range tolerances and
 subdivision depths above `CurveOverlayOptions::MAX_APPROXIMATION_DEPTH` (16).
-Use `scale()` to inspect the effective float-to-integer conversion scale.
+Use `scale()`, `solver()`, and `options()` to inspect the effective conversion
+scale and the configured advanced settings.
 
 Use `conversion_report()` before consuming a `FloatCurveOverlay` when an empty
 or simplified result needs diagnosis. It returns separate subject and clip
@@ -260,8 +262,8 @@ The direct `FloatCurveOverlay` API makes the integer engine explicit: use
 `FloatCurveOverlay::<_, i64>` for the wider one.
 
 To resolve a subject without a clip on a reproducible grid, use
-`FloatCurveOverlay::try_from_subject_with_scale(&subject, scale)` and resolve it
-with `OverlayRule::Subject`.
+`FloatCurveOverlay::try_from_subject_with_scale(&subject, scale)` followed by
+`resolve_subject(fill_rule)`.
 
 ## Reading the result
 
@@ -359,6 +361,8 @@ quadratic pieces. In a returned `FloatCurveSegment::Arc`, the rational control
 points and weights are the authoritative geometry. Boolean snapping can move
 that geometry slightly away from its supporting ellipse, so
 `RationalArc::try_to_elliptic_arc` is intentionally fallible.
+Manually constructed `EllipticArc` and `RationalArc` values can be checked with
+their `validate()` methods before use.
 
 ## Precision model
 

@@ -191,8 +191,12 @@ impl<P: FloatPointCompatible> EllipticArc<P> {
         }
     }
 
+    /// Validates the supporting ellipse and directed angular interval.
+    ///
+    /// This checks that all values are finite, both radii are positive, and
+    /// the sweep is non-zero and no longer than one full revolution.
     #[inline]
-    pub(crate) fn validate(&self) -> Result<(), EllipticArcError> {
+    pub fn validate(&self) -> Result<(), EllipticArcError> {
         self.ellipse.validate()?;
         if !is_finite(self.start_angle) || !is_finite(self.sweep_angle) {
             return Err(EllipticArcError::NonFinite);
@@ -282,6 +286,10 @@ impl<P: FloatPointCompatible> RationalArc<P> {
     }
 
     /// Evaluates the authoritative rational quadratic geometry.
+    ///
+    /// The curve segment is traced over `t` in the inclusive range `[0, 1]`.
+    /// Values outside that range extrapolate the rational quadratic and are
+    /// not part of the represented arc.
     pub fn point_at(&self, t: P::Scalar) -> P {
         let one_minus_t = P::Scalar::ONE - t;
         let factors = [
@@ -354,7 +362,11 @@ impl<P: FloatPointCompatible> RationalArc<P> {
         Some(arc)
     }
 
-    pub(crate) fn validate(&self) -> Result<(), RationalArcError> {
+    /// Validates the supporting arc metadata and authoritative rational data.
+    ///
+    /// Control points must be finite and all weights must be finite and
+    /// positive. The supporting [`EllipticArc`] must also be valid.
+    pub fn validate(&self) -> Result<(), RationalArcError> {
         self.supporting_arc().validate()?;
         if self.control_points.iter().any(|point| !is_finite_point(*point)) {
             return Err(RationalArcError::NonFiniteControlPoint);

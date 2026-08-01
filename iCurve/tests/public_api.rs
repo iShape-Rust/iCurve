@@ -1,3 +1,7 @@
+use i_curve::float::arc::{
+    Ellipse as FloatEllipse, EllipticArc as FloatEllipticArc, EllipticArcError,
+    RationalArcError as FloatRationalArcError,
+};
 use i_curve::int::arc::{ArcDirection, ArcPhase, ArcVector, EllipseFrame, RationalArc, RationalArcError};
 use i_curve::int::{
     CurveInputError, CurveOverlayOptions, CurveOverlayOptionsError, CurvePath, CurveSegment, CurveShape,
@@ -40,6 +44,39 @@ fn invalid_arc(control_points: [IntPoint<i32>; 3]) -> RationalArc<i32> {
         end_phase: ArcPhase { cos: 0, sin: 0 },
         direction: ArcDirection::CounterClockwise,
     }
+}
+
+#[test]
+fn float_arcs_expose_validation() {
+    let arc = FloatEllipticArc {
+        ellipse: FloatEllipse {
+            center: [0.0_f64, 0.0],
+            radius_x: 10.0,
+            radius_y: 5.0,
+            rotation: 0.0,
+        },
+        start_angle: 0.0,
+        sweep_angle: core::f64::consts::FRAC_PI_2,
+    };
+    assert_eq!(arc.validate(), Ok(()));
+
+    let mut invalid_arc = arc;
+    invalid_arc.ellipse.radius_x = 0.0;
+    assert_eq!(invalid_arc.validate(), Err(EllipticArcError::NonPositiveRadius));
+
+    let mut rational = arc.to_rational_arcs().unwrap()[0];
+    assert_eq!(rational.validate(), Ok(()));
+    rational.weights[1] = 0.0;
+    assert_eq!(rational.validate(), Err(FloatRationalArcError::NonPositiveWeight));
+
+    rational.weights[1] = 1.0;
+    rational.ellipse.radius_y = 0.0;
+    let error = rational.validate().unwrap_err();
+    assert_eq!(
+        error,
+        FloatRationalArcError::Elliptic(EllipticArcError::NonPositiveRadius)
+    );
+    assert!(core::error::Error::source(&error).is_some_and(|source| source.is::<EllipticArcError>()));
 }
 
 #[test]
@@ -169,6 +206,9 @@ fn float_builder_is_at_top_level_and_converter_is_scoped() {
     assert!(converter.shape().contours[0].is_closed());
     assert_eq!(source.contours().len(), 1);
     let _: CurveConversionReport = converter.report();
+    let (_, converted, report) = converter.into_parts();
+    assert_eq!(converted.contours.len(), 1);
+    assert_eq!(report.contour_count, 1);
 
     fn assert_float_point<P: i_curve::float::FloatPointCompatible>() {}
     assert_float_point::<[f32; 2]>();
@@ -255,6 +295,14 @@ fn float_curve_resources_accept_shape_collections_and_paths() {
         .overlay(clip_path, OverlayRule::Intersect, FillRule::NonZero);
     assert_eq!(result.len(), 2);
 
+    let subject_refs = vec![&subjects[0], &subjects[1]];
+    let result = subject_refs.overlay(clip_path, OverlayRule::Intersect, FillRule::NonZero);
+    assert_eq!(result.len(), 2);
+
+    let boxed_subject = Box::new(subjects[0].clone());
+    let result = boxed_subject.overlay(clip_path, OverlayRule::Intersect, FillRule::NonZero);
+    assert_eq!(result.len(), 1);
+
     let result = FloatCurveOverlay::<_, i32>::new(&subjects, clip_path)
         .overlay(OverlayRule::Intersect, FillRule::NonZero);
     assert_eq!(result.len(), 2);
@@ -278,20 +326,18 @@ fn float_overlay_supports_explicit_i64_solver() {
     let subject_only = FloatCurveOverlay::<_, i64>::try_from_subject_with_scale(&subject, 1_000.0).unwrap();
     assert_eq!(subject_only.scale(), 1_000.0);
     assert!(subject_only.conversion_report().clip.is_none());
-    assert_eq!(
-        subject_only
-            .overlay(OverlayRule::Subject, FillRule::NonZero)
-            .len(),
-        1
-    );
+    assert_eq!(subject_only.resolve_subject(FillRule::NonZero).len(), 1);
 
+    let options = FloatCurveOverlayOptions::default().with_min_chord_length(0.001);
     let overlay = FloatCurveOverlay::<_, i64>::new(&subject, &clip)
-        .try_with_options(FloatCurveOverlayOptions::default().with_min_chord_length(0.001))
+        .try_with_options(options)
         .unwrap()
         .with_solver(Solver::with_precision(Precision::MEDIUM));
 
     assert!(overlay.scale().is_finite());
     assert!(overlay.scale() > 0.0);
+    assert_eq!(overlay.options(), options);
+    assert_eq!(overlay.solver().precision, Precision::MEDIUM);
 
     let result = overlay.overlay(OverlayRule::Intersect, FillRule::NonZero);
 

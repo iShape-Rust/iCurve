@@ -164,10 +164,11 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
         self.shape
     }
 
-    /// Consumes this converter and returns its adapter and integer shape.
+    /// Consumes this converter and returns its adapter, integer shape, and
+    /// conversion diagnostics.
     #[inline]
-    pub fn into_parts(self) -> (FloatPointAdapter<P, I>, IntCurveShape<I>) {
-        (self.adapter, self.shape)
+    pub fn into_parts(self) -> (FloatPointAdapter<P, I>, IntCurveShape<I>, CurveConversionReport) {
+        (self.adapter, self.shape, self.report)
     }
 }
 
@@ -656,12 +657,14 @@ mod tests {
     }
 
     #[test]
-    fn into_parts_preserves_adapter_and_shape() -> Result<(), CurveError> {
+    fn into_parts_preserves_adapter_shape_and_report() -> Result<(), CurveError> {
         let converter = CurveConverter::<_, i32>::new(&float_shape()?);
-        let (adapter, shape) = converter.into_parts();
+        let (adapter, shape, report) = converter.into_parts();
 
         assert_eq!(shape.contours.len(), 1);
         assert!(adapter.rect().contains(&[0.0, 0.0]));
+        assert_eq!(report.contour_count, 1);
+        assert!(!report.has_degeneracies());
         Ok(())
     }
 
