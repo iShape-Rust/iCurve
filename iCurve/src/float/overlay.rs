@@ -34,12 +34,12 @@ use i_tree::{Expiration, LayoutNumber};
 ///     .close_contour()?
 ///     .build()?;
 ///
-/// let result = FloatCurveOverlay::with_subj_and_clip(&subject, &clip)
+/// let result = FloatCurveOverlay::<_, i32>::new(&subject, &clip)
 ///     .overlay(OverlayRule::Intersect, FillRule::NonZero);
 /// assert!(!result.is_empty());
 /// # Ok::<(), i_curve::CurveBuildError>(())
 /// ```
-pub struct FloatCurveOverlay<P: FloatPointCompatible, I: IntNumber + Expiration = i32> {
+pub struct FloatCurveOverlay<P: FloatPointCompatible, I: IntNumber + Expiration> {
     adapter: FloatPointAdapter<P, I>,
     overlay: IntCurveOverlay<I>,
 }
@@ -55,7 +55,7 @@ where
     ///
     /// The adapter is selected from the combined bounds so both inputs use
     /// exactly the same internal grid.
-    pub fn from_subj_and_clip<R0, R1>(subject: &R0, clip: &R1) -> Self
+    pub fn new<R0, R1>(subject: &R0, clip: &R1) -> Self
     where
         R0: CurveResource<P> + ?Sized,
         R1: CurveResource<P> + ?Sized,
@@ -66,7 +66,7 @@ where
     }
 
     /// Creates an overlay containing only a subject curve resource.
-    pub fn from_subj<R>(subject: &R) -> Self
+    pub fn from_subject<R>(subject: &R) -> Self
     where
         R: CurveResource<P> + ?Sized,
     {
@@ -80,7 +80,7 @@ where
     /// Larger values retain smaller features but reduce the safe coordinate
     /// range. The scale is rejected when it cannot represent the combined
     /// input bounds safely.
-    pub fn try_from_subj_and_clip_with_scale<R0, R1>(
+    pub fn try_with_scale<R0, R1>(
         subject: &R0,
         clip: &R1,
         scale: P::Scalar,
@@ -120,46 +120,6 @@ where
     pub fn overlay(self, overlay_rule: OverlayRule, fill_rule: FillRule) -> alloc::vec::Vec<CurveShape<P>> {
         let shapes = self.overlay.overlay(overlay_rule, fill_rule);
         convert_shapes_to_float(shapes, &self.adapter)
-    }
-}
-
-impl<P: FloatPointCompatible> FloatCurveOverlay<P> {
-    /// Creates an overlay with automatic scaling.
-    ///
-    /// This spelling uses the default internal engine.
-    #[inline]
-    pub fn with_subj_and_clip<R0, R1>(subject: &R0, clip: &R1) -> Self
-    where
-        R0: CurveResource<P> + ?Sized,
-        R1: CurveResource<P> + ?Sized,
-    {
-        Self::from_subj_and_clip(subject, clip)
-    }
-
-    /// Creates a subject-only overlay with automatic scaling.
-    #[inline]
-    pub fn with_subj<R>(subject: &R) -> Self
-    where
-        R: CurveResource<P> + ?Sized,
-    {
-        Self::from_subj(subject)
-    }
-
-    /// Creates an overlay with an explicit float scale.
-    ///
-    /// This spelling keeps the ordinary API independent of the internal
-    /// integer engine while still allowing a reproducible grid resolution.
-    #[inline]
-    pub fn try_with_subj_and_clip_scale<R0, R1>(
-        subject: &R0,
-        clip: &R1,
-        scale: P::Scalar,
-    ) -> Result<Self, CurveConversionError>
-    where
-        R0: CurveResource<P> + ?Sized,
-        R1: CurveResource<P> + ?Sized,
-    {
-        Self::try_from_subj_and_clip_with_scale(subject, clip, scale)
     }
 }
 
@@ -219,7 +179,7 @@ where
         overlay_rule: OverlayRule,
         fill_rule: FillRule,
     ) -> alloc::vec::Vec<CurveShape<P>> {
-        FloatCurveOverlay::with_subj_and_clip(self, clip).overlay(overlay_rule, fill_rule)
+        FloatCurveOverlay::<P, i32>::new(self, clip).overlay(overlay_rule, fill_rule)
     }
 
     #[inline]
@@ -232,7 +192,7 @@ where
     where
         I: IntNumber + Expiration + LayoutNumber + SortKey,
     {
-        FloatCurveOverlay::<P, I>::from_subj_and_clip(self, clip).overlay(overlay_rule, fill_rule)
+        FloatCurveOverlay::<P, I>::new(self, clip).overlay(overlay_rule, fill_rule)
     }
 }
 
@@ -325,7 +285,8 @@ mod tests {
             .build()
             .unwrap();
 
-        let result = FloatCurveOverlay::with_subj(&subject).overlay(OverlayRule::Subject, FillRule::NonZero);
+        let result = FloatCurveOverlay::<_, i32>::from_subject(&subject)
+            .overlay(OverlayRule::Subject, FillRule::NonZero);
 
         assert_eq!(result.len(), 1);
         assert!(result[0].contours()[0].is_closed());
@@ -342,7 +303,7 @@ mod tests {
         let subject = rectangle(0.0, 0.0, 10.0, 10.0);
         let clip = rectangle(5.0, 2.0, 12.0, 8.0);
 
-        let result = FloatCurveOverlay::try_with_subj_and_clip_scale(&subject, &clip, 1_000.0)
+        let result = FloatCurveOverlay::<_, i32>::try_with_scale(&subject, &clip, 1_000.0)
             .unwrap()
             .overlay(OverlayRule::Union, FillRule::NonZero);
 

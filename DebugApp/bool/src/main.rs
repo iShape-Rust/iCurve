@@ -298,7 +298,7 @@ fn build_overlay_result(
     overlay_rule: OverlayRule,
     fill_rule: FillRule,
 ) -> Result<OverlayResult, String> {
-    let overlay = FloatCurveOverlay::with_subj_and_clip(&example.subject, &example.clip);
+    let overlay = FloatCurveOverlay::<_, i32>::new(&example.subject, &example.clip);
 
     Ok(OverlayResult {
         shapes: overlay.overlay(overlay_rule, fill_rule),
@@ -340,7 +340,7 @@ fn overlay_input_source(
 
     writeln!(
         source,
-        "    let result = FloatCurveOverlay::with_subj_and_clip(&subject, &clip)"
+        "    let result = FloatCurveOverlay::<_, i32>::new(&subject, &clip)"
     )
     .unwrap();
     writeln!(
@@ -1138,7 +1138,7 @@ mod tests {
 
         assert!(source.contains("CurveBuilder::new()"));
         assert!(source.contains("EllipticArc"));
-        assert!(source.contains("FloatCurveOverlay::with_subj_and_clip(&subject, &clip)"));
+        assert!(source.contains("FloatCurveOverlay::<_, i32>::new(&subject, &clip)"));
         assert!(source.contains(".overlay(OverlayRule::Difference, FillRule::EvenOdd)"));
         assert!(!source.contains("IntCurveOverlay"));
         assert!(!source.contains("CurveConverter"));

@@ -199,7 +199,7 @@ let clip = CurveBuilder::new()
     .close_contour()?
     .build()?;
 
-let result = FloatCurveOverlay::try_with_subj_and_clip_scale(
+let result = FloatCurveOverlay::<_, i32>::try_with_scale(
     &subject,
     &clip,
     10_000.0,
@@ -217,6 +217,10 @@ is useful when several independent operations must share the same grid
 resolution. A larger scale preserves smaller features but reduces the safe
 coordinate range; unsafe, non-positive, and non-finite scales return
 `CurveConversionError`.
+
+The direct `FloatCurveOverlay` API makes the integer engine explicit: use
+`FloatCurveOverlay::<_, i32>` for the standard engine or
+`FloatCurveOverlay::<_, i64>` for the wider one.
 
 ## Reading the result
 
