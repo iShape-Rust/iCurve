@@ -32,10 +32,7 @@ Build each closed shape with `CurveBuilder`, then call `overlay` on the subject.
 The example below intersects a cubic shape with a rectangle:
 
 ```rust
-use i_curve::{
-    CurveBuilder, FillRule, FloatCurveShape, OverlayRule,
-    SingleFloatCurveOverlay,
-};
+use i_curve::{CurveBuilder, FillRule, FloatCurveShape, OverlayRule};
 
 fn subject() -> Result<FloatCurveShape<[f64; 2]>, i_curve::CurveBuildError> {
     CurveBuilder::new()

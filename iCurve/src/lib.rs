@@ -23,5 +23,5 @@ pub use i_overlay::i_float::int::number::int::IntNumber;
 pub use i_overlay::i_shape::int::IntPoint;
 pub use int::{
     CurveInputError, CurveOverlayOptions, CurvePath as IntCurvePath, CurveSegment as IntCurveSegment,
-    CurveShape as IntCurveShape, IntCurveOverlay, overlay,
+    CurveShape as IntCurveShape, IntCurveOverlay,
 };

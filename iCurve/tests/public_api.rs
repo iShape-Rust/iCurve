@@ -1,7 +1,7 @@
-use i_curve::int::{CurvePath, CurveSegment, CurveShape};
+use i_curve::int::{CurvePath, CurveSegment, CurveShape, overlay};
 use i_curve::{
     CurveBuilder, CurveInputError, CurveOverlayOptions, CurveResource, FillRule, FloatCurveOverlay,
-    IntCurveOverlay, IntPoint, OverlayRule, Precision, Solver, overlay,
+    IntCurveOverlay, IntPoint, OverlayRule, Precision, Solver,
 };
 
 fn rectangle(x0: i32, y0: i32, x1: i32, y1: i32) -> CurveShape<i32> {
@@ -24,7 +24,7 @@ fn rectangle(x0: i32, y0: i32, x1: i32, y1: i32) -> CurveShape<i32> {
 }
 
 #[test]
-fn top_level_integer_overlay_is_complete() -> Result<(), CurveInputError> {
+fn scoped_integer_overlay_is_complete() -> Result<(), CurveInputError> {
     let result = overlay(
         rectangle(0, 0, 100, 100),
         rectangle(50, 25, 150, 75),
