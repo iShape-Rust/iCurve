@@ -1,5 +1,6 @@
+//! Boolean operations on closed paths of lines, Bézier curves, and rational elliptic arcs.
+
 #![no_std]
-#![doc = include_str!("../../README.md")]
 #![deny(missing_docs)]
 #![deny(rustdoc::broken_intra_doc_links)]
 

@@ -9,7 +9,7 @@ license = "MIT"
 repository = "https://github.com/iShape-Rust/iCurve"
 homepage = "https://github.com/iShape-Rust/iCurve"
 documentation = "https://docs.rs/i_curve"
-readme = "../README.md"
+readme = "README.md"
 keywords = ["geometry", "boolean", "bezier", "curves", "no-std"]
 categories = ["algorithms", "graphics", "mathematics", "no-std"]
 
