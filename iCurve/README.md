@@ -19,6 +19,11 @@ Internally, iCurve maps both operands to one safe fixed-point grid and uses
 [`iOverlay`](https://github.com/iShape-Rust/iOverlay) for robust topology. The
 result is then reconstructed and returned through the float curve API.
 
+## Live demos
+
+- [Boolean playground](https://ishape-rust.github.io/iShape-js/curve/boolean_playground.html)
+- [Curve types](https://ishape-rust.github.io/iShape-js/curve/type_curve.html)
+
 ## Installation
 
 ```toml
