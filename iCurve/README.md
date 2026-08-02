@@ -72,7 +72,6 @@ let result = subject.overlay(
 );
 
 assert!(!result.is_empty());
-# Ok::<(), i_curve::CurveBuildError>(())
 ```
 
 Every returned `FloatCurvePath` is a validated, non-empty closed contour.
@@ -91,7 +90,6 @@ let shape = CurveBuilder::new()
     .build()?;
 
 let _: i_curve::FloatCurveShape<[f32; 2]> = shape;
-# Ok::<(), i_curve::CurveBuildError>(())
 ```
 
 ## Building float shapes
@@ -134,7 +132,6 @@ for point in &points[1..] {
 
 let shape = builder.close_contour()?.build()?;
 assert_eq!(shape.contours().len(), 1);
-# Ok::<(), i_curve::CurveBuildError>(())
 ```
 
 ## Boolean operations
@@ -145,14 +142,16 @@ trait import is needed:
 ```rust
 use i_curve::{FillRule, FloatCurveShape, OverlayRule};
 
-# fn example(subject: &FloatCurveShape<[f64; 2]>, clip: &FloatCurveShape<[f64; 2]>) {
-let result = subject.overlay(
-    clip,
-    OverlayRule::Intersect,
-    FillRule::NonZero,
-);
-# let _ = result;
-# }
+fn example(
+    subject: &FloatCurveShape<[f64; 2]>,
+    clip: &FloatCurveShape<[f64; 2]>,
+) {
+    let result = subject.overlay(
+        clip,
+        OverlayRule::Intersect,
+        FillRule::NonZero,
+    );
+}
 ```
 
 `OverlayRule` provides:
@@ -176,17 +175,16 @@ paths or shapes and resources wrapped in `Box` are accepted as well:
 ```rust
 use i_curve::{CurveResourceOverlayExt, FillRule, OverlayRule};
 
-# fn example(
-#     subjects: &[i_curve::FloatCurveShape<[f64; 2]>],
-#     clip: &i_curve::FloatCurveShape<[f64; 2]>,
-# ) {
-let result = subjects.overlay(
-    clip,
-    OverlayRule::Intersect,
-    FillRule::NonZero,
-);
-# let _ = result;
-# }
+fn example(
+    subjects: &[i_curve::FloatCurveShape<[f64; 2]>],
+    clip: &i_curve::FloatCurveShape<[f64; 2]>,
+) {
+    let result = subjects.overlay(
+        clip,
+        OverlayRule::Intersect,
+        FillRule::NonZero,
+    );
+}
 ```
 
 Use `FloatCurveOverlay` when you need to configure the conversion scale, curve
@@ -226,7 +224,6 @@ let result = FloatCurveOverlay::<_, i32>::try_with_scale(
 .overlay(OverlayRule::Difference, FillRule::NonZero);
 
 assert!(!result.is_empty());
-# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 The convenience `overlay` methods automatically choose the largest safe
@@ -252,14 +249,14 @@ replaced by lines. Manual conversion exposes the same information through
 ```rust
 use i_curve::float::CurveConverter;
 
-# fn inspect(shape: &i_curve::FloatCurveShape<[f64; 2]>) {
-let converter = CurveConverter::<_, i32>::new(shape);
-let report = converter.report();
+fn inspect(shape: &i_curve::FloatCurveShape<[f64; 2]>) {
+    let converter = CurveConverter::<_, i32>::new(shape);
+    let report = converter.report();
 
-if report.has_degeneracies() {
-    // Increase the explicit scale or inspect the affected source geometry.
+    if report.has_degeneracies() {
+        // Increase the explicit scale or inspect the affected source geometry.
+    }
 }
-# }
 ```
 
 The direct `FloatCurveOverlay` API makes the integer engine explicit: use
@@ -281,34 +278,34 @@ The float result is exposed through three top-level types:
 ```rust
 use i_curve::FloatCurveSegment;
 
-# fn inspect(result: &[i_curve::FloatCurveShape<[f64; 2]>]) {
-for shape in result {
-    for contour in shape {
-        let mut current = contour.start();
+fn inspect(result: &[i_curve::FloatCurveShape<[f64; 2]>]) {
+    for shape in result {
+        for contour in shape {
+            let mut current = contour.start();
 
-        for segment in contour {
-            match segment {
-                FloatCurveSegment::Line { to } => {
-                    // Render a line from `current` to `to`.
+            for segment in contour {
+                match segment {
+                    FloatCurveSegment::Line { to } => {
+                        // Render a line from `current` to `to`.
+                    }
+                    FloatCurveSegment::Quad { ctrl, to } => {
+                        // Render a quadratic Bézier.
+                    }
+                    FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => {
+                        // Render a cubic Bézier.
+                    }
+                    FloatCurveSegment::Arc { arc } => {
+                        // `control_points` and `weights` define the rational curve.
+                        let _ = (arc.control_points, arc.weights);
+                    }
                 }
-                FloatCurveSegment::Quad { ctrl, to } => {
-                    // Render a quadratic Bézier.
-                }
-                FloatCurveSegment::Cubic { ctrl0, ctrl1, to } => {
-                    // Render a cubic Bézier.
-                }
-                FloatCurveSegment::Arc { arc } => {
-                    // `control_points` and `weights` define the rational curve.
-                    let _ = (arc.control_points, arc.weights);
-                }
+                current = segment.end_point();
             }
-            current = segment.end_point();
-        }
 
-        assert_eq!(current, contour.start());
+            assert_eq!(current, contour.start());
+        }
     }
 }
-# }
 ```
 
 Float shapes, paths, segments, and arcs implement `Debug`. Validated shapes and
@@ -320,15 +317,17 @@ then `try_new` to validate and rebuild it:
 ```rust
 use i_curve::{FloatCurvePath, FloatCurveShape};
 
-# fn rebuild(shape: FloatCurveShape<[f64; 2]>) -> Result<FloatCurveShape<[f64; 2]>, i_curve::CurveBuildError> {
-let mut contours = Vec::new();
-for contour in shape {
-    let (start, segments) = contour.into_parts();
-    // Transform `segments` here without cloning them.
-    contours.push(FloatCurvePath::try_new(start, segments)?);
+fn rebuild(
+    shape: FloatCurveShape<[f64; 2]>,
+) -> Result<FloatCurveShape<[f64; 2]>, i_curve::CurveBuildError> {
+    let mut contours = Vec::new();
+    for contour in shape {
+        let (start, segments) = contour.into_parts();
+        // Transform `segments` here without cloning them.
+        contours.push(FloatCurvePath::try_new(start, segments)?);
+    }
+    FloatCurveShape::try_new(contours)
 }
-FloatCurveShape::try_new(contours)
-# }
 ```
 
 ## Elliptic arcs
@@ -359,7 +358,6 @@ let shape: FloatCurveShape<[f64; 2]> = CurveBuilder::new()
     .build()?;
 
 assert_eq!(shape.contours().len(), 1);
-# Ok::<(), i_curve::CurveBuildError>(())
 ```
 
 The builder converts an elliptic arc into connected, XY-monotone rational
