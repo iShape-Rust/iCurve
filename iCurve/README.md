@@ -1,5 +1,7 @@
 # iCurve
 
+[![crates.io version](https://img.shields.io/crates/v/i_curve.svg)](https://crates.io/crates/i_curve)
+
 `iCurve` performs Boolean operations directly on closed 2D curve paths. The
 primary API accepts `f32` or `f64` coordinates and returns curves in the same
 coordinate type—there is no integer conversion to manage in application code.
