@@ -22,6 +22,7 @@ pub fn load_examples() -> Vec<BoolExample> {
         quad_lens_x_capsule(),
         cubic_blobs(),
         cubic_x_ellipse(),
+        flower_x_ellipse(),
         two_subjects(),
         three_subjects(),
         annulus_x_rect(),
@@ -149,6 +150,45 @@ fn cubic_x_ellipse() -> BoolExample {
             [-165.0, 190.0],
         )],
         clip: vec![ellipse([25.0, -5.0], 145.0, 90.0, 0.62)],
+    }
+}
+
+fn flower_x_ellipse() -> BoolExample {
+    const FLOWER_CENTER: CurvePoint = [350.0, 340.0];
+    const ELLIPSE_CENTER: CurvePoint = [364.18658, 298.4343];
+
+    let polar_point = |radius: f32, angle: f32| {
+        [
+            FLOWER_CENTER[0] + radius * angle.cos(),
+            FLOWER_CENTER[1] + radius * angle.sin(),
+        ]
+    };
+    let step = PI / 3.0;
+    let start_angle = -PI / 6.0;
+    let flower_start = polar_point(72.0, start_angle);
+    let mut builder = CurveBuilder::new();
+    builder.move_to(flower_start).unwrap();
+    for index in 0..6 {
+        let center_angle = start_angle + (index as f32 + 0.5) * step;
+        let end = if index == 5 {
+            flower_start
+        } else {
+            polar_point(72.0, start_angle + (index as f32 + 1.0) * step)
+        };
+        builder
+            .cubic_to(
+                polar_point(170.0, center_angle - step * 0.22),
+                polar_point(170.0, center_angle + step * 0.22),
+                end,
+            )
+            .unwrap();
+    }
+    let flower = builder.close_contour().unwrap().build().unwrap();
+
+    BoolExample {
+        name: "test 04: flower x ellipse",
+        subject: vec![flower],
+        clip: vec![ellipse(ELLIPSE_CENTER, 118.53169, 96.0, 0.18)],
     }
 }
 
