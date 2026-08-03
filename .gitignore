@@ -25,3 +25,7 @@ AGENTS.md
 
 # macOS system files
 .DS_Store
+
+# Generated PDF assets and rendering intermediates
+output/pdf/
+tmp/pdfs/

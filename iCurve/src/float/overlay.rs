@@ -29,6 +29,14 @@ pub struct FloatCurveOverlayOptions<F: FloatNumber> {
     /// Hard safety limit for local approximation subdivision. The value must
     /// not exceed [`CurveOverlayOptions::MAX_APPROXIMATION_DEPTH`].
     pub max_approximation_depth: u32,
+    /// Power-of-two subdivision used when another chord endpoint lies inside
+    /// a curve piece's convex hull. The default produces eight pieces.
+    pub refinement_subdivision_power: u32,
+    /// Negative power-of-two sine tolerance below which a curve piece is too
+    /// flat to containment-refine.
+    pub refinement_angle_tolerance_power: u32,
+    /// Maximum number of containment-refinement passes.
+    pub max_refinement_iterations: u32,
 }
 
 impl<F: FloatNumber> Default for FloatCurveOverlayOptions<F> {
@@ -37,6 +45,9 @@ impl<F: FloatNumber> Default for FloatCurveOverlayOptions<F> {
             min_chord_length: None,
             angle_tolerance: F::from_float(0.125_f64),
             max_approximation_depth: CurveOverlayOptions::default().max_approximation_depth,
+            refinement_subdivision_power: CurveOverlayOptions::default().refinement_subdivision_power,
+            refinement_angle_tolerance_power: CurveOverlayOptions::default().refinement_angle_tolerance_power,
+            max_refinement_iterations: CurveOverlayOptions::default().max_refinement_iterations,
         }
     }
 }
@@ -108,6 +119,27 @@ impl<F: FloatNumber> FloatCurveOverlayOptions<F> {
         self
     }
 
+    /// Sets the power-of-two subdivision used by containment refinement.
+    #[must_use]
+    pub fn with_refinement_subdivision_power(mut self, power: u32) -> Self {
+        self.refinement_subdivision_power = power;
+        self
+    }
+
+    /// Sets the near-linear angle threshold used by containment refinement.
+    #[must_use]
+    pub fn with_refinement_angle_tolerance_power(mut self, power: u32) -> Self {
+        self.refinement_angle_tolerance_power = power;
+        self
+    }
+
+    /// Sets the maximum number of containment-refinement passes.
+    #[must_use]
+    pub fn with_max_refinement_iterations(mut self, iterations: u32) -> Self {
+        self.max_refinement_iterations = iterations;
+        self
+    }
+
     fn to_int<P, I>(
         self,
         adapter: &FloatPointAdapter<P, I>,
@@ -154,6 +186,9 @@ impl<F: FloatNumber> FloatCurveOverlayOptions<F> {
             min_chord_length_power,
             angle_tolerance_power,
             max_approximation_depth: self.max_approximation_depth,
+            refinement_subdivision_power: self.refinement_subdivision_power,
+            refinement_angle_tolerance_power: self.refinement_angle_tolerance_power,
+            max_refinement_iterations: self.max_refinement_iterations,
         })
     }
 }
@@ -619,6 +654,9 @@ mod tests {
             min_chord_length: Some(0.25),
             angle_tolerance: 0.2,
             max_approximation_depth: 12,
+            refinement_subdivision_power: 2,
+            refinement_angle_tolerance_power: 6,
+            max_refinement_iterations: 1,
         };
 
         let overlay = FloatCurveOverlay::<_, i32>::try_with_scale(&subject, &clip, 1_024.0)
@@ -634,6 +672,9 @@ mod tests {
                 min_chord_length_power: 8,
                 angle_tolerance_power: 3,
                 max_approximation_depth: 12,
+                refinement_subdivision_power: 2,
+                refinement_angle_tolerance_power: 6,
+                max_refinement_iterations: 1,
             }
         );
     }

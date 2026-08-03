@@ -154,10 +154,16 @@ fn options_are_configured_without_public_overlay_fields() {
     let options = CurveOverlayOptions::default()
         .with_min_chord_length_power(5)
         .with_angle_tolerance_power(4)
-        .with_max_approximation_depth(12);
+        .with_max_approximation_depth(12)
+        .with_refinement_subdivision_power(2)
+        .with_refinement_angle_tolerance_power(6)
+        .with_max_refinement_iterations(1);
     let curves = IntCurveOverlay::<i32>::new().try_with_options(options).unwrap();
 
     assert_eq!(curves.options(), options);
+    assert_eq!(CurveOverlayOptions::default().refinement_subdivision_power, 3);
+    assert_eq!(CurveOverlayOptions::default().refinement_angle_tolerance_power, 8);
+    assert_eq!(CurveOverlayOptions::default().max_refinement_iterations, 2);
 
     assert!(
         CurveOverlayOptions::default()
@@ -186,6 +192,33 @@ fn options_are_configured_without_public_overlay_fields() {
         }
         _ => panic!("unexpected options error"),
     }
+
+    assert_eq!(
+        CurveOverlayOptions::default()
+            .with_refinement_subdivision_power(CurveOverlayOptions::MAX_REFINEMENT_SUBDIVISION_POWER + 1,)
+            .validate(),
+        Err(CurveOverlayOptionsError::RefinementSubdivisionPowerTooLarge {
+            requested: CurveOverlayOptions::MAX_REFINEMENT_SUBDIVISION_POWER + 1,
+            maximum: CurveOverlayOptions::MAX_REFINEMENT_SUBDIVISION_POWER,
+        })
+    );
+    assert_eq!(
+        CurveOverlayOptions::default()
+            .with_max_refinement_iterations(CurveOverlayOptions::MAX_REFINEMENT_ITERATIONS + 1)
+            .validate(),
+        Err(CurveOverlayOptionsError::MaxRefinementIterationsTooLarge {
+            requested: CurveOverlayOptions::MAX_REFINEMENT_ITERATIONS + 1,
+            maximum: CurveOverlayOptions::MAX_REFINEMENT_ITERATIONS,
+        })
+    );
+
+    let float_options = FloatCurveOverlayOptions::<f64>::default()
+        .with_refinement_subdivision_power(2)
+        .with_refinement_angle_tolerance_power(6)
+        .with_max_refinement_iterations(1);
+    assert_eq!(float_options.refinement_subdivision_power, 2);
+    assert_eq!(float_options.refinement_angle_tolerance_power, 6);
+    assert_eq!(float_options.max_refinement_iterations, 1);
 }
 
 #[test]

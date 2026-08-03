@@ -1,10 +1,12 @@
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
 use crate::int::CurveInt;
 use crate::int::bool::approximate::CurveApproximator;
+use crate::int::bool::bounds::CurveBoundsBuffer;
 use crate::int::bool::data::{CurveEdgeData, CurveEdgeDataStore, CurveSourceSpan};
 use crate::int::bool::edge::CurveEdge;
 use crate::int::bool::planarize::CurvePlanarizer;
 use crate::int::bool::recompose::CurveRecomposer;
+use crate::int::bool::refine::CurveContainmentRefiner;
 use crate::int::bool::source::{CurveId, CurveSource};
 use crate::int::curve::shape::CurveShape;
 use crate::kernel::int::curve::arc::RationalArcError;
@@ -99,6 +101,20 @@ pub enum CurveOverlayOptionsError {
         /// Largest value accepted by this version of the library.
         maximum: u32,
     },
+    /// The requested refinement subdivision power exceeds the safety ceiling.
+    RefinementSubdivisionPowerTooLarge {
+        /// Value supplied by the caller.
+        requested: u32,
+        /// Largest value accepted by this version of the library.
+        maximum: u32,
+    },
+    /// The requested refinement iteration count exceeds the safety ceiling.
+    MaxRefinementIterationsTooLarge {
+        /// Value supplied by the caller.
+        requested: u32,
+        /// Largest value accepted by this version of the library.
+        maximum: u32,
+    },
 }
 
 impl core::fmt::Display for CurveOverlayOptionsError {
@@ -107,6 +123,14 @@ impl core::fmt::Display for CurveOverlayOptionsError {
             Self::MaxApproximationDepthTooLarge { requested, maximum } => write!(
                 formatter,
                 "maximum approximation depth {requested} exceeds the safety limit {maximum}"
+            ),
+            Self::RefinementSubdivisionPowerTooLarge { requested, maximum } => write!(
+                formatter,
+                "refinement subdivision power {requested} exceeds the safety limit {maximum}"
+            ),
+            Self::MaxRefinementIterationsTooLarge { requested, maximum } => write!(
+                formatter,
+                "maximum refinement iteration count {requested} exceeds the safety limit {maximum}"
             ),
         }
     }
@@ -134,6 +158,17 @@ pub struct CurveOverlayOptions {
     /// Hard safety limit for local approximation subdivision. Values above
     /// [`MAX_APPROXIMATION_DEPTH`](Self::MAX_APPROXIMATION_DEPTH) are rejected.
     pub max_approximation_depth: u32,
+    /// Power-of-two subdivision applied to a curve piece whose convex hull
+    /// contains another chord endpoint. The default value of `3` produces
+    /// eight pieces.
+    pub refinement_subdivision_power: u32,
+    /// A curve piece flatter than the sine tolerance
+    /// `2^-refinement_angle_tolerance_power` is not containment-refined. The
+    /// default value is `8`.
+    pub refinement_angle_tolerance_power: u32,
+    /// Maximum number of containment-refinement passes. Zero disables the
+    /// additional refinement stage.
+    pub max_refinement_iterations: u32,
 }
 
 impl Default for CurveOverlayOptions {
@@ -142,6 +177,9 @@ impl Default for CurveOverlayOptions {
             min_chord_length_power: 4,
             angle_tolerance_power: 3,
             max_approximation_depth: Self::MAX_APPROXIMATION_DEPTH,
+            refinement_subdivision_power: 3,
+            refinement_angle_tolerance_power: 8,
+            max_refinement_iterations: 2,
         }
     }
 }
@@ -149,6 +187,10 @@ impl Default for CurveOverlayOptions {
 impl CurveOverlayOptions {
     /// Absolute safety ceiling for local approximation subdivision.
     pub const MAX_APPROXIMATION_DEPTH: u32 = 16;
+    /// Absolute safety ceiling for the power-of-two refinement subdivision.
+    pub const MAX_REFINEMENT_SUBDIVISION_POWER: u32 = 4;
+    /// Absolute safety ceiling for containment-refinement passes.
+    pub const MAX_REFINEMENT_ITERATIONS: u32 = 4;
 
     /// Sets the minimum accepted chord length power.
     #[must_use]
@@ -171,12 +213,45 @@ impl CurveOverlayOptions {
         self
     }
 
+    /// Sets the power-of-two subdivision used by containment refinement.
+    #[must_use]
+    pub const fn with_refinement_subdivision_power(mut self, power: u32) -> Self {
+        self.refinement_subdivision_power = power;
+        self
+    }
+
+    /// Sets the near-linear angle threshold used by containment refinement.
+    #[must_use]
+    pub const fn with_refinement_angle_tolerance_power(mut self, power: u32) -> Self {
+        self.refinement_angle_tolerance_power = power;
+        self
+    }
+
+    /// Sets the maximum number of containment-refinement passes.
+    #[must_use]
+    pub const fn with_max_refinement_iterations(mut self, iterations: u32) -> Self {
+        self.max_refinement_iterations = iterations;
+        self
+    }
+
     /// Validates the computational safety limits of this configuration.
     pub fn validate(&self) -> Result<(), CurveOverlayOptionsError> {
         if self.max_approximation_depth > Self::MAX_APPROXIMATION_DEPTH {
             return Err(CurveOverlayOptionsError::MaxApproximationDepthTooLarge {
                 requested: self.max_approximation_depth,
                 maximum: Self::MAX_APPROXIMATION_DEPTH,
+            });
+        }
+        if self.refinement_subdivision_power > Self::MAX_REFINEMENT_SUBDIVISION_POWER {
+            return Err(CurveOverlayOptionsError::RefinementSubdivisionPowerTooLarge {
+                requested: self.refinement_subdivision_power,
+                maximum: Self::MAX_REFINEMENT_SUBDIVISION_POWER,
+            });
+        }
+        if self.max_refinement_iterations > Self::MAX_REFINEMENT_ITERATIONS {
+            return Err(CurveOverlayOptionsError::MaxRefinementIterationsTooLarge {
+                requested: self.max_refinement_iterations,
+                maximum: Self::MAX_REFINEMENT_ITERATIONS,
             });
         }
 
@@ -290,13 +365,22 @@ impl<I: CurveInt> IntCurveOverlay<I> {
     }
 
     fn prepare(&mut self) {
-        // Build a bounded local chord approximation first, then run exactly one
-        // curve-aware planarization pass for nearby/intersecting curve pieces.
+        // Build a bounded local chord approximation, run one curve-aware
+        // planarization pass, then apply bounded containment refinement.
         CurveApproximator::new().approximate(&mut self.curve_edges, self.options);
 
+        let mut bounds = CurveBoundsBuffer::new();
         let mut planarizer = CurvePlanarizer::new();
         let cross_radius = self.initial_snap_radius();
-        planarizer.planarize(&mut self.curve_edges, cross_radius);
+        planarizer.planarize(&mut self.curve_edges, cross_radius, &mut bounds);
+        CurveContainmentRefiner::new().refine(
+            &mut self.curve_edges,
+            self.options.refinement_subdivision_power,
+            self.options.max_refinement_iterations,
+            self.options.min_chord_length_power,
+            self.options.refinement_angle_tolerance_power,
+            &mut bounds,
+        );
     }
 
     #[inline]
@@ -673,6 +757,38 @@ mod tests {
     }
 
     #[test]
+    fn containment_refine_keeps_identical_operands_equivalent() {
+        let start = IntPoint::new(67, 142);
+        let shape = CurveShape {
+            contours: vec![CurvePath {
+                start,
+                segments: vec![
+                    CurveSegment::Quad {
+                        ctrl: IntPoint::new(-833, -1500),
+                        to: IntPoint::new(-833, -1500),
+                    },
+                    CurveSegment::Quad {
+                        ctrl: IntPoint::new(2, -2),
+                        to: IntPoint::new(-831, -1499),
+                    },
+                    CurveSegment::Cubic {
+                        ctrl0: IntPoint::new(67_078, -313_947),
+                        ctrl1: IntPoint::new(-381, -671),
+                        to: start,
+                    },
+                ],
+            }],
+        };
+        let mut overlay = IntCurveOverlay::new();
+        overlay.add_subject(shape.clone()).unwrap();
+        overlay.add_clip(shape).unwrap();
+
+        let result = overlay.overlay(OverlayRule::Difference, FillRule::NonZero);
+
+        assert!(result.is_empty(), "identical operands produced {result:#?}");
+    }
+
+    #[test]
     fn path_segments_restore_all_control_points() {
         let p0 = IntPoint::new(1, 2);
         let p1 = IntPoint::new(3, 4);
@@ -823,6 +939,7 @@ mod tests {
             min_chord_length_power: 6,
             angle_tolerance_power: 5,
             max_approximation_depth: 12,
+            ..Default::default()
         };
 
         let overlay = IntCurveOverlay::<i32>::with_capacity(4)

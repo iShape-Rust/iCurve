@@ -1,8 +1,10 @@
 mod approximate;
+mod bounds;
 mod data;
 mod edge;
 pub(crate) mod overlay;
 mod planarize;
 mod recompose;
+mod refine;
 mod source;
 mod split;

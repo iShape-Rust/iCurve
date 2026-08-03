@@ -1,23 +1,13 @@
 use crate::int::CurveInt;
+use crate::int::bool::bounds::CurveBoundsBuffer;
 use crate::int::bool::edge::CurveEdge;
 use crate::int::bool::split::{CurveEdgeSplitter, CurveSplitMark};
 use crate::kernel::int::cross::intersector::{SegmentIntersectionBuffer, SegmentIntersector, SplitOptions};
 use crate::kernel::int::curve::segment::Segment;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
-use i_key_sort::sort::one_key_cmp::OneKeyAndCmpSort;
-use i_overlay::i_float::int::rect::IntRect;
-
-#[derive(Debug, Clone, Copy)]
-struct CurveEdgeBounds<I: CurveInt> {
-    edge_index: usize,
-    rect: IntRect<I>,
-}
 
 pub(crate) struct CurvePlanarizer<I: CurveInt> {
-    bounds: Vec<CurveEdgeBounds<I>>,
-    bounds_buffer: Vec<CurveEdgeBounds<I>>,
-    active: Vec<CurveEdgeBounds<I>>,
     split_marks: Vec<CurveSplitMark<I>>,
     split_marks_buffer: Vec<CurveSplitMark<I>>,
     splitter: CurveEdgeSplitter<I>,
@@ -27,9 +17,6 @@ pub(crate) struct CurvePlanarizer<I: CurveInt> {
 impl<I: CurveInt + i_key_sort::sort::key::SortKey> CurvePlanarizer<I> {
     pub(crate) fn new() -> Self {
         Self {
-            bounds: Vec::new(),
-            bounds_buffer: Vec::new(),
-            active: Vec::new(),
             split_marks: Vec::new(),
             split_marks_buffer: Vec::new(),
             splitter: CurveEdgeSplitter::new(),
@@ -37,60 +24,38 @@ impl<I: CurveInt + i_key_sort::sort::key::SortKey> CurvePlanarizer<I> {
         }
     }
 
-    pub(crate) fn planarize(&mut self, edges: &mut Vec<CurveEdge<I>>, cross_radius: I::Wide) {
+    pub(crate) fn planarize(
+        &mut self,
+        edges: &mut Vec<CurveEdge<I>>,
+        cross_radius: I::Wide,
+        bounds: &mut CurveBoundsBuffer<I>,
+    ) {
         if edges.len() < 2 {
             return;
         }
 
-        self.build_bounds(edges);
-        self.collect_split_marks(edges, cross_radius);
+        bounds.build(edges);
+        self.collect_split_marks(edges, cross_radius, bounds);
         self.splitter.split(edges, &self.split_marks);
     }
 
-    fn build_bounds(&mut self, edges: &[CurveEdge<I>]) {
-        self.bounds.clear();
-        self.bounds
-            .reserve(edges.len().saturating_sub(self.bounds.capacity()));
-
-        for (edge_index, edge) in edges.iter().enumerate() {
-            let hull = edge.curve.convex_hull();
-            let points = hull.as_slice();
-            let first = points[0];
-            let mut rect = IntRect {
-                min_x: first.x,
-                max_x: first.x,
-                min_y: first.y,
-                max_y: first.y,
-            };
-
-            for point in points.iter().skip(1) {
-                rect.min_x = rect.min_x.min(point.x);
-                rect.max_x = rect.max_x.max(point.x);
-                rect.min_y = rect.min_y.min(point.y);
-                rect.max_y = rect.max_y.max(point.y);
-            }
-
-            self.bounds.push(CurveEdgeBounds { edge_index, rect });
-        }
-
-        self.bounds.sort_by_one_key_then_by_and_buffer(
-            false,
-            &mut self.bounds_buffer,
-            |item| item.rect.min_x,
-            |it0, it1| it0.rect.min_y.cmp(&it1.rect.min_y),
-        );
-    }
-
-    fn collect_split_marks(&mut self, edges: &[CurveEdge<I>], cross_radius: I::Wide) {
-        self.active.clear();
+    fn collect_split_marks(
+        &mut self,
+        edges: &[CurveEdge<I>],
+        cross_radius: I::Wide,
+        bounds: &mut CurveBoundsBuffer<I>,
+    ) {
+        bounds.active.clear();
         self.split_marks.clear();
 
-        for bounds_index in 0..self.bounds.len() {
-            let current = self.bounds[bounds_index];
-            self.active.retain(|other| other.rect.max_x >= current.rect.min_x);
+        for bounds_index in 0..bounds.bounds.len() {
+            let current = bounds.bounds[bounds_index];
+            bounds
+                .active
+                .retain(|other| other.rect.max_x >= current.rect.min_x);
 
-            for active_index in 0..self.active.len() {
-                let other = self.active[active_index];
+            for active_index in 0..bounds.active.len() {
+                let other = bounds.active[active_index];
                 if !other.rect.is_intersect_border_include(&current.rect) {
                     continue;
                 }
@@ -126,7 +91,7 @@ impl<I: CurveInt + i_key_sort::sort::key::SortKey> CurvePlanarizer<I> {
                 }
             }
 
-            self.active.push(current);
+            bounds.active.push(current);
         }
 
         CurveSplitMark::sort_and_dedup(&mut self.split_marks, &mut self.split_marks_buffer);
@@ -186,8 +151,9 @@ mod tests {
     fn splits_crossing_edges_and_preserves_curve_ids() {
         let mut edges = vec![line(0, [0, 0], [10, 10]), line(1, [0, 10], [10, 0])];
         let mut planarizer = CurvePlanarizer::new();
+        let mut bounds = CurveBoundsBuffer::new();
 
-        planarizer.planarize(&mut edges, 2_i64);
+        planarizer.planarize(&mut edges, 2_i64, &mut bounds);
 
         assert_eq!(edges.len(), 4);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
@@ -206,8 +172,9 @@ mod tests {
     fn does_not_split_edges_at_shared_endpoint() {
         let mut edges = vec![line(0, [0, 0], [5, 5]), line(1, [5, 5], [10, 0])];
         let mut planarizer = CurvePlanarizer::new();
+        let mut bounds = CurveBoundsBuffer::new();
 
-        planarizer.planarize(&mut edges, 2_i64);
+        planarizer.planarize(&mut edges, 2_i64, &mut bounds);
 
         assert_eq!(edges.len(), 2);
     }
@@ -220,8 +187,9 @@ mod tests {
             line(2, [75, -50], [75, 50]),
         ];
         let mut planarizer = CurvePlanarizer::new();
+        let mut bounds = CurveBoundsBuffer::new();
 
-        planarizer.planarize(&mut edges, 2_i64);
+        planarizer.planarize(&mut edges, 2_i64, &mut bounds);
 
         assert_eq!(edges.len(), 7);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 3);
@@ -241,8 +209,9 @@ mod tests {
     fn splits_parallel_overlap_boundaries_without_changing_curve_ids() {
         let mut edges = vec![line(0, [0, 0], [64, 0]), line(1, [16, 0], [80, 0])];
         let mut planarizer = CurvePlanarizer::new();
+        let mut bounds = CurveBoundsBuffer::new();
 
-        planarizer.planarize(&mut edges, 2_i64);
+        planarizer.planarize(&mut edges, 2_i64, &mut bounds);
 
         assert_eq!(edges.len(), 4);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);

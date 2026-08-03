@@ -1,4 +1,6 @@
-use i_curve::int::{CurvePath, CurveSegment, CurveShape, IntCurveOverlay, IntPoint, ShapeType};
+use i_curve::int::{
+    CurveOverlayOptions, CurvePath, CurveSegment, CurveShape, IntCurveOverlay, IntPoint, ShapeType,
+};
 use i_curve::{FillRule, OverlayRule, Precision, Solver};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
@@ -20,6 +22,8 @@ const DEFAULT_EQUIVALENCE_SEGMENT_LIMIT: usize = 256;
 /// Set `ICURVE_STRESS_TRACE=1` to print every operation within a case.
 /// Set `ICURVE_STRESS_PRECISION` to `absolute`, `high`, `medium-high`,
 /// `medium`, `medium-low`, or `low` to override the default solver precision.
+/// Set `ICURVE_STRESS_REFINEMENT_ANGLE_POWER` to override the near-linear
+/// containment-refinement threshold.
 #[test]
 #[ignore = "long-running randomized stress test"]
 fn randomized_boolean_invariants() {
@@ -33,8 +37,9 @@ fn randomized_boolean_invariants() {
     );
 
     eprintln!(
-        "iCurve stress test: cases={cases}, start_case={start_case}, seed={base_seed}, equivalence_limit={equivalence_limit}, precision={}",
-        std::env::var("ICURVE_STRESS_PRECISION").unwrap_or_else(|_| "default".into())
+        "iCurve stress test: cases={cases}, start_case={start_case}, seed={base_seed}, equivalence_limit={equivalence_limit}, precision={}, refinement_angle_power={}",
+        std::env::var("ICURVE_STRESS_PRECISION").unwrap_or_else(|_| "default".into()),
+        stress_options().refinement_angle_tolerance_power,
     );
 
     for case_index in start_case..start_case.saturating_add(cases) {
@@ -60,6 +65,28 @@ fn randomized_boolean_invariants() {
             eprintln!("completed {completed}/{cases} cases");
         }
     }
+}
+
+/// Regression for a stress case that became pathologically slow when
+/// containment refinement used multiple passes by default.
+#[test]
+#[ignore = "long-running randomized regression"]
+fn randomized_case_6582_refinement_regression() {
+    const CASE_INDEX: u64 = 6_582;
+
+    let case_seed = splitmix64(DEFAULT_SEED.wrapping_add(CASE_INDEX));
+    let mut rng = StdRng::seed_from_u64(case_seed);
+    let subject = random_shape_group(&mut rng);
+    let clip = random_shape_group(&mut rng);
+
+    run_case(
+        CASE_INDEX,
+        &mut rng,
+        &subject,
+        &clip,
+        DEFAULT_EQUIVALENCE_SEGMENT_LIMIT,
+        false,
+    );
 }
 
 fn run_case(
@@ -147,7 +174,10 @@ fn run_case(
 
 fn overlay(subject: &[CurveShape<i32>], clip: &[CurveShape<i32>], rule: OverlayRule) -> Vec<CurveShape<i32>> {
     let capacity = segment_count(subject) + segment_count(clip);
-    let mut overlay = IntCurveOverlay::with_capacity(capacity).with_solver(stress_solver());
+    let mut overlay = IntCurveOverlay::with_capacity(capacity)
+        .with_solver(stress_solver())
+        .try_with_options(stress_options())
+        .unwrap();
 
     for shape in subject {
         overlay.add_shape(shape.clone(), ShapeType::Subject).unwrap();
@@ -157,6 +187,16 @@ fn overlay(subject: &[CurveShape<i32>], clip: &[CurveShape<i32>], rule: OverlayR
     }
 
     overlay.overlay(rule, FillRule::NonZero)
+}
+
+fn stress_options() -> CurveOverlayOptions {
+    let default = CurveOverlayOptions::default();
+    let angle_power = env_u64(
+        "ICURVE_STRESS_REFINEMENT_ANGLE_POWER",
+        default.refinement_angle_tolerance_power as u64,
+    )
+    .min(u32::MAX as u64) as u32;
+    default.with_refinement_angle_tolerance_power(angle_power)
 }
 
 fn stress_solver() -> Solver {

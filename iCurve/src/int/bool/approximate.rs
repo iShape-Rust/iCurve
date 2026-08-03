@@ -148,6 +148,7 @@ mod tests {
             min_chord_length_power: 4,
             angle_tolerance_power: 30,
             max_approximation_depth: 16,
+            ..Default::default()
         };
 
         CurveApproximator::new().approximate(&mut edges, options);

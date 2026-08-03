@@ -4,7 +4,6 @@ use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 impl<I: CurveInt> StackVec<IntPoint<I>, 4> {
-    #[cfg(test)]
     pub(crate) fn contains_point_border_included(&self, point: IntPoint<I>) -> bool {
         let points = self.as_slice();
         match points {
