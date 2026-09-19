@@ -18,7 +18,7 @@ use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay::ShapeType;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::core::solver::Solver;
-use i_overlay::i_float::int::number::wide_int::WideIntNumber;
+use i_overlay::i_float::int::number::uint::UIntNumber;
 use i_overlay::vector::edge::DataVectorShape;
 
 /// Structural error in an integer curve input.
@@ -384,10 +384,10 @@ impl<I: CurveInt> IntCurveOverlay<I> {
     }
 
     #[inline]
-    fn initial_snap_radius(&self) -> I::Wide {
+    fn initial_snap_radius(&self) -> I::WideUInt {
         let coordinate_bits = I::BITS - CURVE_COORDINATE_SAFETY_BITS;
         let max_exponent = 2 * coordinate_bits;
-        I::Wide::ONE << (self.solver.precision.start as u32).min(max_exponent)
+        I::WideUInt::ONE << (self.solver.precision.start as u32).min(max_exponent)
     }
 
     fn build_vector_shapes(

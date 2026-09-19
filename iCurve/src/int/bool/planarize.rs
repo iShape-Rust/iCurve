@@ -27,7 +27,7 @@ impl<I: CurveInt + i_key_sort::sort::key::SortKey> CurvePlanarizer<I> {
     pub(crate) fn planarize(
         &mut self,
         edges: &mut Vec<CurveEdge<I>>,
-        cross_radius: I::Wide,
+        cross_radius: I::WideUInt,
         bounds: &mut CurveBoundsBuffer<I>,
     ) {
         if edges.len() < 2 {
@@ -42,7 +42,7 @@ impl<I: CurveInt + i_key_sort::sort::key::SortKey> CurvePlanarizer<I> {
     fn collect_split_marks(
         &mut self,
         edges: &[CurveEdge<I>],
-        cross_radius: I::Wide,
+        cross_radius: I::WideUInt,
         bounds: &mut CurveBoundsBuffer<I>,
     ) {
         bounds.active.clear();
@@ -153,7 +153,7 @@ mod tests {
         let mut planarizer = CurvePlanarizer::new();
         let mut bounds = CurveBoundsBuffer::new();
 
-        planarizer.planarize(&mut edges, 2_i64, &mut bounds);
+        planarizer.planarize(&mut edges, 2_u64, &mut bounds);
 
         assert_eq!(edges.len(), 4);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);
@@ -174,7 +174,7 @@ mod tests {
         let mut planarizer = CurvePlanarizer::new();
         let mut bounds = CurveBoundsBuffer::new();
 
-        planarizer.planarize(&mut edges, 2_i64, &mut bounds);
+        planarizer.planarize(&mut edges, 2_u64, &mut bounds);
 
         assert_eq!(edges.len(), 2);
     }
@@ -189,7 +189,7 @@ mod tests {
         let mut planarizer = CurvePlanarizer::new();
         let mut bounds = CurveBoundsBuffer::new();
 
-        planarizer.planarize(&mut edges, 2_i64, &mut bounds);
+        planarizer.planarize(&mut edges, 2_u64, &mut bounds);
 
         assert_eq!(edges.len(), 7);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 3);
@@ -211,7 +211,7 @@ mod tests {
         let mut planarizer = CurvePlanarizer::new();
         let mut bounds = CurveBoundsBuffer::new();
 
-        planarizer.planarize(&mut edges, 2_i64, &mut bounds);
+        planarizer.planarize(&mut edges, 2_u64, &mut bounds);
 
         assert_eq!(edges.len(), 4);
         assert_eq!(edges.iter().filter(|edge| edge.curve_id == CurveId(0)).count(), 2);

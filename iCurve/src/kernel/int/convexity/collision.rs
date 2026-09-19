@@ -1,5 +1,6 @@
 use crate::collections::stack_vec::StackVec;
 use crate::int::CurveInt;
+use i_overlay::i_float::int::number::uint::UIntNumber;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 

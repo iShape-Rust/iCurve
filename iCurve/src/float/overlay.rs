@@ -8,7 +8,7 @@ use crate::{CurveConversionError, FillRule, OverlayRule, Solver};
 use i_overlay::i_float::adapter::FloatPointAdapter;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
-use i_overlay::i_float::float::rect::FloatRect;
+use i_overlay::i_float::float::rect::{FloatRect, FloatRectError};
 use i_overlay::i_float::int::number::int::IntNumber;
 
 /// Curve approximation options expressed in float input coordinates.
@@ -260,24 +260,53 @@ where
     ///
     /// The adapter is selected from the combined bounds so both inputs use
     /// exactly the same internal grid.
+    ///
+    /// # Panics
+    /// Panics if the computed bounds violate the floating-point rectangle
+    /// contract. Use [`Self::try_new`] to receive the bounds error.
     pub fn new<R0, R1>(subject: &R0, clip: &R1) -> Self
     where
         R0: CurveResource<P> + ?Sized,
         R1: CurveResource<P> + ?Sized,
     {
-        let bounds = combined_bounds(subject, clip);
+        Self::try_new(subject, clip).expect("invalid curve overlay bounds")
+    }
+
+    /// Creates an overlay with an automatically selected scale, returning
+    /// errors from bounds construction. Input geometry must satisfy its contract;
+    /// bounds computation does not validate every point.
+    pub fn try_new<R0, R1>(subject: &R0, clip: &R1) -> Result<Self, CurveConversionError>
+    where
+        R0: CurveResource<P> + ?Sized,
+        R1: CurveResource<P> + ?Sized,
+    {
+        let bounds = combined_bounds(subject, clip)?.unwrap_or_else(FloatRect::zero);
         let adapter = FloatPointAdapter::with_coordinate_bits(bounds, Self::COORDINATE_BITS);
-        Self::with_adapter(subject, Some(clip), adapter)
+        Ok(Self::with_adapter(subject, Some(clip), adapter))
     }
 
     /// Creates an overlay containing only a subject curve resource.
+    ///
+    /// # Panics
+    /// Panics if the computed bounds violate the floating-point rectangle
+    /// contract. Use [`Self::try_from_subject`] to receive the bounds error.
     pub fn from_subject<R>(subject: &R) -> Self
     where
         R: CurveResource<P> + ?Sized,
     {
-        let bounds = resource_bounds(subject).unwrap_or_else(FloatRect::zero);
+        Self::try_from_subject(subject).expect("invalid curve overlay bounds")
+    }
+
+    /// Creates a subject-only overlay with an automatically selected scale,
+    /// returning errors from bounds construction. Input geometry must satisfy
+    /// its contract; bounds computation does not validate every point.
+    pub fn try_from_subject<R>(subject: &R) -> Result<Self, CurveConversionError>
+    where
+        R: CurveResource<P> + ?Sized,
+    {
+        let bounds = resource_bounds(subject)?.unwrap_or_else(FloatRect::zero);
         let adapter = FloatPointAdapter::with_coordinate_bits(bounds, Self::COORDINATE_BITS);
-        Self::with_adapter::<R, R>(subject, None, adapter)
+        Ok(Self::with_adapter::<R, R>(subject, None, adapter))
     }
 
     /// Creates a subject-only overlay with an explicit float-to-grid scale.
@@ -286,11 +315,14 @@ where
     /// useful for resolving one operand with [`OverlayRule::Subject`]. Larger
     /// values retain smaller features but reduce the safe coordinate range.
     /// The scale is rejected when it cannot represent the subject bounds safely.
+    /// It must also be positive, finite, and have a finite reciprocal in the
+    /// input scalar type, including for empty or point bounds. Adapter bounds
+    /// errors retain their original cause.
     pub fn try_from_subject_with_scale<R>(subject: &R, scale: P::Scalar) -> Result<Self, CurveConversionError>
     where
         R: CurveResource<P> + ?Sized,
     {
-        let bounds = resource_bounds(subject).unwrap_or_else(FloatRect::zero);
+        let bounds = resource_bounds(subject)?.unwrap_or_else(FloatRect::zero);
         let adapter =
             FloatPointAdapter::try_with_scale_and_coordinate_bits(bounds, scale, Self::COORDINATE_BITS)?;
         Ok(Self::with_adapter::<R, R>(subject, None, adapter))
@@ -301,6 +333,9 @@ where
     /// Larger values retain smaller features but reduce the safe coordinate
     /// range. The scale is rejected when it cannot represent the combined
     /// input bounds safely.
+    /// It must also be positive, finite, and have a finite reciprocal in the
+    /// input scalar type, including for empty or point bounds. Adapter bounds
+    /// errors retain their original cause.
     pub fn try_with_scale<R0, R1>(
         subject: &R0,
         clip: &R1,
@@ -310,7 +345,7 @@ where
         R0: CurveResource<P> + ?Sized,
         R1: CurveResource<P> + ?Sized,
     {
-        let bounds = combined_bounds(subject, clip);
+        let bounds = combined_bounds(subject, clip)?.unwrap_or_else(FloatRect::zero);
         let adapter =
             FloatPointAdapter::try_with_scale_and_coordinate_bits(bounds, scale, Self::COORDINATE_BITS)?;
         Ok(Self::with_adapter(subject, Some(clip), adapter))
@@ -523,17 +558,13 @@ where
     }
 }
 
-fn combined_bounds<P, R0, R1>(subject: &R0, clip: &R1) -> FloatRect<P::Scalar>
+fn combined_bounds<P, R0, R1>(subject: &R0, clip: &R1) -> Result<Option<FloatRect<P::Scalar>>, FloatRectError>
 where
     P: FloatPointCompatible,
     R0: CurveResource<P> + ?Sized,
     R1: CurveResource<P> + ?Sized,
 {
-    match (resource_bounds(subject), resource_bounds(clip)) {
-        (Some(subject), Some(clip)) => FloatRect::with_rects(subject, clip),
-        (Some(bounds), None) | (None, Some(bounds)) => bounds,
-        (None, None) => FloatRect::zero(),
-    }
+    FloatRect::with_optional_rects(resource_bounds(subject)?, resource_bounds(clip)?)
 }
 
 fn resource_segment_count<P, R>(resource: &R) -> usize
@@ -564,6 +595,48 @@ mod tests {
             .unwrap()
             .build()
             .unwrap()
+    }
+
+    #[test]
+    fn fallible_overlays_preserve_bounds_errors_and_accept_empty_resources() {
+        let empty: [CurvePath<[f64; 2]>; 0] = [];
+        assert!(combined_bounds(&empty, &empty).unwrap().is_none());
+        let valid = rectangle(10.0, 20.0, 11.0, 21.0);
+        for bounds in [combined_bounds(&valid, &empty), combined_bounds(&empty, &valid)] {
+            let bounds = bounds.unwrap().unwrap();
+            assert_eq!(
+                (bounds.min_x, bounds.max_x, bounds.min_y, bounds.max_y),
+                (10.0, 11.0, 20.0, 21.0)
+            );
+        }
+        for result in [
+            FloatCurveOverlay::<_, i32>::try_new(&empty, &empty),
+            FloatCurveOverlay::<_, i32>::try_from_subject(&empty),
+            FloatCurveOverlay::<_, i32>::try_with_scale(&empty, &empty, 1.0),
+            FloatCurveOverlay::<_, i32>::try_from_subject_with_scale(&empty, 1.0),
+        ] {
+            assert!(result.unwrap().resolve_subject(FillRule::NonZero).is_empty());
+        }
+
+        // Inject a Rect failure without relying on public input validation.
+        let invalid = CurvePath {
+            start: [f64::MAX, 0.0],
+            segments: alloc::vec![crate::float::CurveSegment::Line { to: [f64::MAX, 0.0] }],
+        };
+        for result in [
+            FloatCurveOverlay::<_, i32>::try_new(&valid, &invalid),
+            FloatCurveOverlay::<_, i32>::try_new(&invalid, &valid),
+            FloatCurveOverlay::<_, i32>::try_from_subject(&invalid),
+            FloatCurveOverlay::<_, i32>::try_with_scale(&valid, &invalid, 1.0),
+            FloatCurveOverlay::<_, i32>::try_from_subject_with_scale(&invalid, 1.0),
+        ] {
+            assert_eq!(
+                result.err(),
+                Some(CurveConversionError::InvalidRect(
+                    FloatRectError::CoordinatesOutOfRange
+                ))
+            );
+        }
     }
 
     #[test]

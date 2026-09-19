@@ -16,8 +16,8 @@ impl<I: CurveInt> ApproximateAngle for IntVector<I> {
         let log_cross = abs_cross.ilog2();
         let sqr_len_0 = self.sqr_length();
         let sqr_len_1 = other.sqr_length();
-        debug_assert!(sqr_len_0 != I::Wide::ZERO);
-        debug_assert!(sqr_len_1 != I::Wide::ZERO);
+        debug_assert!(sqr_len_0 != I::WideUInt::ZERO);
+        debug_assert!(sqr_len_1 != I::WideUInt::ZERO);
 
         let log_len = (sqr_len_0.ilog2() + sqr_len_1.ilog2()) >> 1;
 

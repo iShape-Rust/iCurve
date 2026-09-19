@@ -13,7 +13,7 @@ pub(crate) enum ChordCross<I: CurveInt> {
 }
 
 impl<I: CurveInt> SegmentChord<I> {
-    pub(crate) fn cross(&self, other: &Self, radius: I::Wide) -> Option<ChordCross<I>> {
+    pub(crate) fn cross(&self, other: &Self, radius: I::WideUInt) -> Option<ChordCross<I>> {
         let va = self.vector();
         let vb = other.vector();
 
@@ -78,7 +78,7 @@ impl<I: CurveInt> SegmentChord<I> {
             && point.y <= self.a.y.max(self.b.y)
     }
 
-    fn middle_cross_point(&self, other: &Self, radius: I::Wide) -> IntPoint<I> {
+    fn middle_cross_point(&self, other: &Self, radius: I::WideUInt) -> IntPoint<I> {
         let point = self.cross_point(other);
         if Triangle::is_line(self.a, point, self.b) && Triangle::is_line(other.a, point, other.b) {
             return point;
@@ -160,7 +160,7 @@ mod tests {
             a: IntPoint::new(0, -10),
             b: IntPoint::new(0, 10),
         };
-        let Some(ChordCross::Point(point)) = a.cross(&b, 1_i64) else {
+        let Some(ChordCross::Point(point)) = a.cross(&b, 1_u64) else {
             panic!("cross expected")
         };
         assert_eq!(point, IntPoint::ZERO);
@@ -184,7 +184,7 @@ mod tests {
             a: IntPoint::new(5, 0),
             b: IntPoint::new(15, 0),
         };
-        assert_eq!(a.cross(&b, 1_i64), Some(ChordCross::Overlay));
+        assert_eq!(a.cross(&b, 1_u64), Some(ChordCross::Overlay));
     }
 
     #[test]
@@ -198,7 +198,7 @@ mod tests {
             b: IntPoint::new(10, -10),
         };
 
-        assert_eq!(a.cross(&b, 1_i64), Some(ChordCross::Point(IntPoint::ZERO)));
+        assert_eq!(a.cross(&b, 1_u64), Some(ChordCross::Point(IntPoint::ZERO)));
     }
 
     #[test]
@@ -212,7 +212,7 @@ mod tests {
             b: IntPoint::new(20, 0),
         };
 
-        assert_eq!(a.cross(&b, 1_i64), Some(ChordCross::Point(IntPoint::new(10, 0))));
+        assert_eq!(a.cross(&b, 1_u64), Some(ChordCross::Point(IntPoint::new(10, 0))));
     }
 
     #[test]
@@ -226,6 +226,6 @@ mod tests {
             b: IntPoint::new(30, 0),
         };
 
-        assert_eq!(a.cross(&b, 1_i64), None);
+        assert_eq!(a.cross(&b, 1_u64), None);
     }
 }
