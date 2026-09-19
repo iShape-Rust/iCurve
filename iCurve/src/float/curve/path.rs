@@ -4,7 +4,7 @@ use crate::float::curve::segment::CurveSegment;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
-use i_overlay::i_float::float::rect::FloatRect;
+use i_overlay::i_float::float::rect::{FloatRect, FloatRectError};
 
 /// A validated, non-empty closed curve contour.
 ///
@@ -83,13 +83,22 @@ impl<P: FloatPointCompatible> CurvePath<P> {
         self.segments
     }
 
-    pub(crate) fn bounds(&self) -> FloatRect<P::Scalar> {
+    pub(crate) fn bounds(&self) -> Result<FloatRect<P::Scalar>, FloatRectError> {
         Self::bounds_for_parts(self.start, &self.segments)
     }
 
-    fn bounds_for_parts(start: P, segments: &[CurveSegment<P>]) -> FloatRect<P::Scalar> {
-        let mut bounds = None;
-        add_point(&mut bounds, start);
+    fn bounds_for_parts(
+        start: P,
+        segments: &[CurveSegment<P>],
+    ) -> Result<FloatRect<P::Scalar>, FloatRectError> {
+        // Accumulate extrema without validating each input point. Only the
+        // resulting rectangle is checked; callers must supply valid geometry.
+        let mut bounds = FloatRect {
+            min_x: start.x(),
+            max_x: start.x(),
+            min_y: start.y(),
+            max_y: start.y(),
+        };
 
         for segment in segments {
             match segment {
@@ -104,11 +113,11 @@ impl<P: FloatPointCompatible> CurvePath<P> {
                     add_point(&mut bounds, *to);
                 }
                 CurveSegment::Arc { arc } => {
-                    let ellipse_bounds = arc.ellipse.bounds();
-                    bounds = Some(match bounds {
-                        Some(bounds) => FloatRect::with_rects(bounds, ellipse_bounds),
-                        None => ellipse_bounds,
-                    });
+                    let ellipse_bounds = arc.ellipse.bounds()?;
+                    bounds.min_x = bounds.min_x.min(ellipse_bounds.min_x);
+                    bounds.max_x = bounds.max_x.max(ellipse_bounds.max_x);
+                    bounds.min_y = bounds.min_y.min(ellipse_bounds.min_y);
+                    bounds.max_y = bounds.max_y.max(ellipse_bounds.max_y);
                     for point in arc.control_points {
                         add_point(&mut bounds, point);
                     }
@@ -116,7 +125,7 @@ impl<P: FloatPointCompatible> CurvePath<P> {
             }
         }
 
-        bounds.unwrap_or_else(FloatRect::zero)
+        FloatRect::new(bounds.min_x, bounds.max_x, bounds.min_y, bounds.max_y)
     }
 
     pub(crate) fn validate(&self) -> Result<(), CurveError> {
@@ -155,9 +164,7 @@ impl<P: FloatPointCompatible> CurvePath<P> {
         if !same_point(current, start) {
             return Err(CurveError::UnclosedContour);
         }
-        if !finite_rect(&Self::bounds_for_parts(start, segments)) {
-            return Err(CurveError::NonFiniteBounds);
-        }
+        Self::bounds_for_parts(start, segments)?;
         Ok(())
     }
 }
@@ -199,9 +206,11 @@ impl<'a, P: FloatPointCompatible> IntoIterator for &'a CurvePath<P> {
 }
 
 #[inline]
-fn add_point<P: FloatPointCompatible>(bounds: &mut Option<FloatRect<P::Scalar>>, point: P) {
-    debug_assert!(is_finite_point(point));
-    FloatRect::optional_add_point(bounds, &point);
+fn add_point<P: FloatPointCompatible>(bounds: &mut FloatRect<P::Scalar>, point: P) {
+    bounds.min_x = bounds.min_x.min(point.x());
+    bounds.max_x = bounds.max_x.max(point.x());
+    bounds.min_y = bounds.min_y.min(point.y());
+    bounds.max_y = bounds.max_y.max(point.y());
 }
 
 #[inline]
@@ -218,12 +227,109 @@ pub(crate) fn same_point<P: FloatPointCompatible>(a: P, b: P) -> bool {
     a.x() == b.x() && a.y() == b.y()
 }
 
-#[inline]
-pub(crate) fn finite_rect<F: FloatNumber>(rect: &FloatRect<F>) -> bool {
-    rect.min_x.to_f64().is_finite()
-        && rect.max_x.to_f64().is_finite()
-        && rect.min_y.to_f64().is_finite()
-        && rect.max_y.to_f64().is_finite()
-        && rect.width().to_f64().is_finite()
-        && rect.height().to_f64().is_finite()
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::float::curve::arc::{Ellipse, RationalArc};
+
+    #[test]
+    fn bounds_check_coordinate_limits_for_both_scalar_widths() {
+        fn check<F: FloatNumber>() {
+            let limit = F::MAX_COORDINATE;
+            let start = [-limit, -limit];
+            let segments = [CurveSegment::Line { to: [limit, limit] }];
+            let bounds = CurvePath::bounds_for_parts(start, &segments).unwrap();
+            assert!(bounds.min_x == -limit && bounds.max_x == limit);
+            assert!(bounds.min_y == -limit && bounds.max_y == limit);
+
+            let segments = [CurveSegment::Line {
+                to: [limit * F::TWO, F::ZERO],
+            }];
+            assert_eq!(
+                CurvePath::bounds_for_parts(start, &segments).err(),
+                Some(FloatRectError::CoordinatesOutOfRange)
+            );
+        }
+        check::<f32>();
+        check::<f64>();
+    }
+
+    #[test]
+    fn bounds_include_bezier_control_points() {
+        let path = CurvePath::try_new(
+            [0.0_f64, 0.0],
+            alloc::vec![
+                CurveSegment::Quad {
+                    ctrl: [-5.0, 8.0],
+                    to: [1.0, 1.0]
+                },
+                CurveSegment::Cubic {
+                    ctrl0: [9.0, -7.0],
+                    ctrl1: [2.0, 3.0],
+                    to: [0.0, 0.0]
+                },
+            ],
+        )
+        .unwrap();
+        let bounds = path.bounds().unwrap();
+        assert_eq!(
+            (bounds.min_x, bounds.max_x, bounds.min_y, bounds.max_y),
+            (-5.0, 9.0, -7.0, 8.0)
+        );
+    }
+
+    #[test]
+    fn bounds_include_rotated_ellipse_and_authoritative_arc_controls() {
+        let ellipse = Ellipse {
+            center: [10.0_f64, 20.0],
+            radius_x: 2.0,
+            radius_y: 1.0,
+            rotation: core::f64::consts::FRAC_PI_4,
+        };
+        let path = CurvePath::try_new(
+            ellipse.center,
+            alloc::vec![CurveSegment::Arc {
+                arc: RationalArc {
+                    ellipse,
+                    control_points: [ellipse.center, [30.0, -10.0], ellipse.center],
+                    weights: [1.0; 3],
+                    start_angle: 0.0,
+                    sweep_angle: 1.0,
+                }
+            }],
+        )
+        .unwrap();
+        let bounds = path.bounds().unwrap();
+        let extent = 2.5_f64.sqrt();
+        assert!((bounds.min_x - (10.0 - extent)).abs() < 1.0e-12);
+        assert!((bounds.max_y - (20.0 + extent)).abs() < 1.0e-12);
+        assert_eq!(bounds.max_x, 30.0);
+        assert_eq!(bounds.min_y, -10.0);
+    }
+
+    #[test]
+    fn ellipse_bounds_error_reaches_path_constructor() {
+        let ellipse = Ellipse {
+            center: [f64::MAX_COORDINATE, 0.0],
+            radius_x: f64::MAX_COORDINATE,
+            radius_y: 1.0,
+            rotation: 0.0,
+        };
+        let result = CurvePath::try_new(
+            ellipse.center,
+            alloc::vec![CurveSegment::Arc {
+                arc: RationalArc {
+                    ellipse,
+                    control_points: [ellipse.center; 3],
+                    weights: [1.0; 3],
+                    start_angle: 0.0,
+                    sweep_angle: 1.0,
+                }
+            }],
+        );
+        assert_eq!(
+            result.err(),
+            Some(CurveError::InvalidBounds(FloatRectError::CoordinatesOutOfRange))
+        );
+    }
 }

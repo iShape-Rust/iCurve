@@ -4,6 +4,11 @@
 //! to pass paths or shape collections to an operation, and
 //! [`FloatCurveOverlay`] when conversion scale or solver settings must be
 //! controlled explicitly.
+//!
+//! Callers must supply valid geometry with finite coordinates whose absolute
+//! values are at most `2^60` for `f32` or `2^500` for `f64`. Computed bounds
+//! must also satisfy this range. Bounds computation checks rectangles rather
+//! than every input point; its errors do not provide exhaustive input validation.
 
 mod curve;
 mod overlay;

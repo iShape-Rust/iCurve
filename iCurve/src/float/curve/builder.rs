@@ -6,6 +6,7 @@ use crate::float::curve::segment::CurveSegment;
 use crate::float::curve::shape::CurveShape;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
+use i_overlay::i_float::float::rect::FloatRectError;
 
 /// Mutable builder for closed float curve paths.
 ///
@@ -65,13 +66,22 @@ pub enum CurveError {
     /// A point coordinate is NaN or infinite.
     NonFinitePoint,
     /// Computing the complete curve bounds produced a non-finite value.
+    /// Retained for compatibility; checked bounds now report [`Self::InvalidBounds`].
     NonFiniteBounds,
+    /// Computed bounds violate the floating-point rectangle contract.
+    InvalidBounds(FloatRectError),
     /// An elliptic arc could not be materialized.
     Arc(EllipticArcError),
     /// An authoritative rational arc is invalid.
     RationalArc(RationalArcError),
     /// A rational arc's start point differs from the preceding endpoint.
     DisconnectedArc,
+}
+
+impl From<FloatRectError> for CurveError {
+    fn from(error: FloatRectError) -> Self {
+        Self::InvalidBounds(error)
+    }
 }
 
 impl From<EllipticArcError> for CurveError {
@@ -95,6 +105,7 @@ impl core::fmt::Display for CurveError {
             Self::NoContours => formatter.write_str("a curve shape must contain at least one contour"),
             Self::NonFinitePoint => formatter.write_str("curve points must be finite"),
             Self::NonFiniteBounds => formatter.write_str("curve bounds must be finite"),
+            Self::InvalidBounds(error) => write!(formatter, "invalid curve bounds: {error:?}"),
             Self::Arc(_) => formatter.write_str("invalid elliptic arc"),
             Self::RationalArc(_) => formatter.write_str("invalid rational arc"),
             Self::DisconnectedArc => formatter.write_str("an arc must start at the current path point"),
@@ -326,7 +337,10 @@ mod tests {
             .line_to([f64::MAX, 0.0])?
             .line_to([-f64::MAX, 0.0])?
             .build();
-        assert!(matches!(bounds, Err(CurveError::NonFiniteBounds)));
+        assert!(matches!(
+            bounds,
+            Err(CurveError::InvalidBounds(FloatRectError::CoordinatesOutOfRange))
+        ));
 
         let invalid_arc = EllipticArc {
             ellipse: Ellipse {

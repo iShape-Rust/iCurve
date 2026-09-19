@@ -164,18 +164,32 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
 
     /// Chooses the largest safe power-of-two scale for all paths in a curve
     /// resource and converts them immediately.
+    ///
+    /// # Panics
+    /// Panics if the computed bounds violate the floating-point rectangle
+    /// contract. Use [`Self::try_new`] to receive the bounds error.
     pub fn new<R>(source: &R) -> Self
     where
         R: CurveResource<P> + ?Sized,
     {
-        let bounds = resource_bounds(source).unwrap_or_else(FloatRect::zero);
+        Self::try_new(source).expect("invalid curve conversion bounds")
+    }
+
+    /// Converts a resource with an automatically selected scale, returning
+    /// errors from bounds construction. Input geometry must satisfy its contract;
+    /// bounds computation does not validate every point.
+    pub fn try_new<R>(source: &R) -> Result<Self, CurveConversionError>
+    where
+        R: CurveResource<P> + ?Sized,
+    {
+        let bounds = resource_bounds(source)?.unwrap_or_else(FloatRect::zero);
         let adapter = FloatPointAdapter::with_coordinate_bits(bounds, Self::COORDINATE_BITS);
         let (shape, report) = convert_resource(source, &adapter);
-        Self {
+        Ok(Self {
             adapter,
             shape,
             report,
-        }
+        })
     }
 
     /// Converts all paths in a curve resource with an explicitly requested scale.
@@ -187,7 +201,7 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
     where
         R: CurveResource<P> + ?Sized,
     {
-        let bounds = resource_bounds(source).unwrap_or_else(FloatRect::zero);
+        let bounds = resource_bounds(source)?.unwrap_or_else(FloatRect::zero);
         let adapter =
             FloatPointAdapter::try_with_scale_and_coordinate_bits(bounds, scale, Self::COORDINATE_BITS)?;
         let (shape, report) = convert_resource(source, &adapter);
@@ -216,7 +230,7 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
             adapter.dir_scale(),
             Self::COORDINATE_BITS,
         )?;
-        if resource_bounds(source).is_some_and(|bounds| !adapter_contains_bounds(adapter, bounds)) {
+        if resource_bounds(source)?.is_some_and(|bounds| !adapter_contains_bounds(adapter, bounds)) {
             return Err(CurveConversionError::ResourceOutsideAdapter);
         }
 
@@ -694,6 +708,54 @@ mod tests {
             .quad_to([5.0, 10.0], [10.0, 0.0])?
             .line_to([0.0, 0.0])?
             .build()
+    }
+
+    #[test]
+    fn fallible_converters_preserve_bounds_errors_and_accept_empty_resources() {
+        let empty: [FloatCurvePath<[f64; 2]>; 0] = [];
+        let adapter = FloatPointAdapter::<[f64; 2], i32>::new(FloatRect::zero());
+        for result in [
+            CurveConverter::<_, i32>::try_new(&empty),
+            CurveConverter::<_, i32>::try_with_scale(&empty, 1.0),
+            CurveConverter::<_, i32>::try_with_adapter(&empty, &adapter),
+        ] {
+            assert!(result.unwrap().shape().contours.is_empty());
+        }
+
+        // Inject a Rect failure without relying on public input validation.
+        let invalid = FloatCurvePath {
+            start: [f64::MAX, 0.0],
+            segments: alloc::vec![FloatCurveSegment::Line { to: [f64::MAX, 0.0] }],
+        };
+        for result in [
+            CurveConverter::<_, i32>::try_new(&invalid),
+            CurveConverter::<_, i32>::try_with_scale(&invalid, 1.0),
+            CurveConverter::<_, i32>::try_with_adapter(&invalid, &adapter),
+        ] {
+            assert_eq!(
+                result.err(),
+                Some(CurveConversionError::InvalidRect(
+                    FloatRectError::CoordinatesOutOfRange
+                ))
+            );
+        }
+    }
+
+    #[test]
+    fn adapter_rectangle_errors_keep_their_reason() {
+        for error in [
+            FloatRectError::CoordinatesOutOfRange,
+            FloatRectError::InvalidBounds,
+        ] {
+            assert_eq!(
+                CurveConversionError::from(FloatPointAdapterScaleError::InvalidRect(error)),
+                CurveConversionError::InvalidRect(error)
+            );
+        }
+        assert_eq!(
+            CurveConversionError::from(FloatPointAdapterScaleError::ScaleTooSmall),
+            CurveConversionError::ScaleTooSmall
+        );
     }
 
     fn arc_shape(

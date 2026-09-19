@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
-use i_overlay::i_float::float::rect::FloatRect;
+use i_overlay::i_float::float::rect::{FloatRect, FloatRectError};
 
 /// Supporting ellipse in float coordinates.
 ///
@@ -139,7 +139,7 @@ impl<P: FloatPointCompatible> Ellipse<P> {
     }
 
     #[inline]
-    pub(crate) fn bounds(&self) -> FloatRect<P::Scalar> {
+    pub(crate) fn bounds(&self) -> Result<FloatRect<P::Scalar>, FloatRectError> {
         let (rotation_sin, rotation_cos) = self.rotation.sin_cos();
         let axis_x_x = self.radius_x * rotation_cos;
         let axis_x_y = self.radius_x * rotation_sin;

@@ -5,7 +5,7 @@ use crate::float::curve::shape::CurveShape;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
-use i_overlay::i_float::float::rect::FloatRect;
+use i_overlay::i_float::float::rect::{FloatRect, FloatRectError};
 
 pub(crate) mod private {
     use super::{CurvePath, CurveShape, FloatPointCompatible};
@@ -404,15 +404,14 @@ where
     }
 }
 
-pub(crate) fn resource_bounds<P, R>(resource: &R) -> Option<FloatRect<P::Scalar>>
+pub(crate) fn resource_bounds<P, R>(resource: &R) -> Result<Option<FloatRect<P::Scalar>>, FloatRectError>
 where
     P: FloatPointCompatible,
     R: CurveResource<P> + ?Sized,
 {
-    resource
-        .iter_paths()
-        .map(CurvePath::bounds)
-        .reduce(FloatRect::with_rects)
+    resource.iter_paths().try_fold(None, |bounds, path| {
+        FloatRect::with_optional_rects(bounds, Some(path.bounds()?))
+    })
 }
 
 #[cfg(test)]
@@ -433,6 +432,37 @@ mod tests {
             .unwrap()
             .build()
             .unwrap()
+    }
+
+    #[test]
+    fn bounds_distinguish_empty_resources_from_rectangle_errors() {
+        use crate::float::curve::segment::CurveSegment;
+
+        let empty: [CurvePath<[f64; 2]>; 0] = [];
+        assert!(resource_bounds(&empty).unwrap().is_none());
+        let valid = rectangle(10.0);
+        let bounds = resource_bounds(&valid).unwrap().unwrap();
+        assert_eq!(
+            (bounds.min_x, bounds.max_x, bounds.min_y, bounds.max_y),
+            (10.0, 11.0, 0.0, 1.0)
+        );
+
+        // Bypass construction to exercise propagation of a computed Rect error.
+        let invalid = CurvePath {
+            start: [f64::MAX, 0.0],
+            segments: alloc::vec![CurveSegment::Line { to: [f64::MAX, 0.0] }],
+        };
+        let paths = [&valid.contours()[0], &invalid];
+        assert_eq!(
+            resource_bounds(&paths).err(),
+            Some(FloatRectError::CoordinatesOutOfRange)
+        );
+        assert_eq!(
+            CurveShape::try_new(alloc::vec![invalid]).err(),
+            Some(crate::CurveBuildError::InvalidBounds(
+                FloatRectError::CoordinatesOutOfRange
+            ))
+        );
     }
 
     #[test]

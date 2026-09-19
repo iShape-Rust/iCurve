@@ -1,6 +1,5 @@
 use crate::float::curve::builder::CurveError;
 use crate::float::curve::path::CurvePath;
-use crate::float::curve::path::finite_rect;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::rect::FloatRect;
@@ -89,14 +88,9 @@ impl<P: FloatPointCompatible> CurveShape<P> {
         for contour in contours {
             contour.validate()?;
         }
-        let bounds = contours
-            .iter()
-            .map(CurvePath::bounds)
-            .reduce(FloatRect::with_rects)
-            .unwrap_or_else(FloatRect::zero);
-        if !finite_rect(&bounds) {
-            return Err(CurveError::NonFiniteBounds);
-        }
+        contours.iter().try_fold(None, |bounds, contour| {
+            FloatRect::with_optional_rects(bounds, Some(contour.bounds()?))
+        })?;
         Ok(())
     }
 }
