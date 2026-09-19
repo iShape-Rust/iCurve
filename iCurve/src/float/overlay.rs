@@ -286,6 +286,9 @@ where
     /// useful for resolving one operand with [`OverlayRule::Subject`]. Larger
     /// values retain smaller features but reduce the safe coordinate range.
     /// The scale is rejected when it cannot represent the subject bounds safely.
+    /// It must also be positive, finite, and have a finite reciprocal in the
+    /// input scalar type, including for empty or point bounds. Adapter bounds
+    /// errors retain their original cause.
     pub fn try_from_subject_with_scale<R>(subject: &R, scale: P::Scalar) -> Result<Self, CurveConversionError>
     where
         R: CurveResource<P> + ?Sized,
@@ -301,6 +304,9 @@ where
     /// Larger values retain smaller features but reduce the safe coordinate
     /// range. The scale is rejected when it cannot represent the combined
     /// input bounds safely.
+    /// It must also be positive, finite, and have a finite reciprocal in the
+    /// input scalar type, including for empty or point bounds. Adapter bounds
+    /// errors retain their original cause.
     pub fn try_with_scale<R0, R1>(
         subject: &R0,
         clip: &R1,

@@ -24,6 +24,7 @@ pub use curve::segment::CurveSegment;
 pub use curve::shape::CurveShape;
 pub use i_overlay::i_float::adapter::FloatPointAdapter;
 pub use i_overlay::i_float::float::compatible::FloatPointCompatible;
+pub use i_overlay::i_float::float::rect::FloatRectError;
 pub use overlay::{
     CurveResourceOverlayExt, FloatCurveOverlay, FloatCurveOverlayConversionReport, FloatCurveOverlayOptions,
     FloatCurveOverlayOptionsError,

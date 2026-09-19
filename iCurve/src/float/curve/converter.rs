@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 use i_overlay::i_float::adapter::{FloatPointAdapter, FloatPointAdapterScaleError};
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
-use i_overlay::i_float::float::rect::FloatRect;
+use i_overlay::i_float::float::rect::{FloatRect, FloatRectError};
 use i_overlay::i_float::int::number::fixed_scale::FixedScale;
 use i_overlay::i_float::int::number::wide_int::WideIntNumber;
 use i_overlay::i_shape::int::IntPoint;
@@ -62,12 +62,16 @@ impl CurveConversionReport {
     }
 }
 
-/// Invalid configuration requested for float-to-integer conversion.
+/// Invalid bounds or configuration encountered during float-to-integer conversion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum CurveConversionError {
+    /// Input bounds violate the floating-point coordinate contract.
+    InvalidRect(FloatRectError),
     /// Requested scale would exceed the safe integer coordinate range.
     ScaleTooLarge,
+    /// Requested scale has a non-finite reciprocal in the input scalar type.
+    ScaleTooSmall,
     /// Requested scale is zero or negative.
     ScaleNonPositive,
     /// Requested scale is NaN or infinite.
@@ -76,10 +80,18 @@ pub enum CurveConversionError {
     ResourceOutsideAdapter,
 }
 
+impl From<FloatRectError> for CurveConversionError {
+    fn from(error: FloatRectError) -> Self {
+        Self::InvalidRect(error)
+    }
+}
+
 impl From<FloatPointAdapterScaleError> for CurveConversionError {
     fn from(error: FloatPointAdapterScaleError) -> Self {
         match error {
+            FloatPointAdapterScaleError::InvalidRect(error) => Self::InvalidRect(error),
             FloatPointAdapterScaleError::ScaleTooLarge => Self::ScaleTooLarge,
+            FloatPointAdapterScaleError::ScaleTooSmall => Self::ScaleTooSmall,
             FloatPointAdapterScaleError::ScaleNonPositive => Self::ScaleNonPositive,
             FloatPointAdapterScaleError::ScaleNotFinite => Self::ScaleNotFinite,
         }
@@ -89,7 +101,11 @@ impl From<FloatPointAdapterScaleError> for CurveConversionError {
 impl core::fmt::Display for CurveConversionError {
     fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Self::InvalidRect(error) => write!(formatter, "invalid conversion bounds: {error}"),
             Self::ScaleTooLarge => formatter.write_str("conversion scale exceeds the safe coordinate range"),
+            Self::ScaleTooSmall => {
+                formatter.write_str("conversion scale has a non-finite reciprocal in the input scalar type")
+            }
             Self::ScaleNonPositive => formatter.write_str("conversion scale must be positive"),
             Self::ScaleNotFinite => formatter.write_str("conversion scale must be finite"),
             Self::ResourceOutsideAdapter => {
@@ -99,7 +115,14 @@ impl core::fmt::Display for CurveConversionError {
     }
 }
 
-impl core::error::Error for CurveConversionError {}
+impl core::error::Error for CurveConversionError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        match self {
+            Self::InvalidRect(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 /// Invalid integer shape or float result encountered during reverse conversion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -156,6 +179,10 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
     }
 
     /// Converts all paths in a curve resource with an explicitly requested scale.
+    ///
+    /// The scale must be positive, finite, fit the curve coordinate budget, and
+    /// have a finite reciprocal in the input scalar type. Adapter bounds errors
+    /// retain their original cause. Empty and point bounds still validate scale.
     pub fn try_with_scale<R>(source: &R, scale: P::Scalar) -> Result<Self, CurveConversionError>
     where
         R: CurveResource<P> + ?Sized,
@@ -175,6 +202,8 @@ impl<P: FloatPointCompatible, I: CurveInt> CurveConverter<P, I> {
     ///
     /// Use this when several operands must share exactly the same integer
     /// coordinate space. The adapter is cloned into the returned converter.
+    /// Adapter validation errors retain their original cause and precede the
+    /// resource coverage check.
     pub fn try_with_adapter<R>(
         source: &R,
         adapter: &FloatPointAdapter<P, I>,
