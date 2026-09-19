@@ -11,6 +11,7 @@
 //! than every input point; its errors do not provide exhaustive input validation.
 
 mod curve;
+mod math;
 mod overlay;
 mod resource;
 

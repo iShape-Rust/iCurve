@@ -1,3 +1,4 @@
+use crate::float::math::vector_length;
 use alloc::vec::Vec;
 use i_overlay::i_float::float::compatible::FloatPointCompatible;
 use i_overlay::i_float::float::number::FloatNumber;
@@ -145,8 +146,8 @@ impl<P: FloatPointCompatible> Ellipse<P> {
         let axis_x_y = self.radius_x * rotation_sin;
         let axis_y_x = -self.radius_y * rotation_sin;
         let axis_y_y = self.radius_y * rotation_cos;
-        let extent_x = (axis_x_x * axis_x_x + axis_y_x * axis_y_x).sqrt();
-        let extent_y = (axis_x_y * axis_x_y + axis_y_y * axis_y_y).sqrt();
+        let extent_x = vector_length(axis_x_x, axis_y_x);
+        let extent_y = vector_length(axis_x_y, axis_y_y);
 
         FloatRect::new(
             self.center.x() - extent_x,
@@ -551,6 +552,57 @@ mod tests {
     use super::*;
 
     type Point = [f64; 2];
+
+    fn check_rotated_ellipse_bounds<F: FloatNumber>(unit: F, epsilon: f64) {
+        for rotation in [
+            0.0,
+            0.4,
+            core::f64::consts::FRAC_PI_4,
+            core::f64::consts::FRAC_PI_2,
+        ] {
+            let ellipse = Ellipse {
+                center: [F::TWO * unit, -F::THREE * unit],
+                radius_x: F::THREE * unit,
+                radius_y: F::FOUR * unit,
+                rotation: F::from_float(rotation),
+            };
+            let bounds = ellipse.bounds().unwrap();
+            // Compute the reference in units of the input scale. Squaring
+            // dimensionless radii avoids reproducing the underflow under test.
+            let (sin, cos) = ellipse.rotation.to_f64().sin_cos();
+            let extent_x = (9.0 * cos * cos + 16.0 * sin * sin).sqrt();
+            let extent_y = (9.0 * sin * sin + 16.0 * cos * cos).sqrt();
+            for (actual, expected) in [
+                (bounds.min_x, 2.0 - extent_x),
+                (bounds.max_x, 2.0 + extent_x),
+                (bounds.min_y, -3.0 - extent_y),
+                (bounds.max_y, -3.0 + extent_y),
+            ] {
+                assert!(actual.is_finite());
+                let normalized = actual.to_f64() / unit.to_f64();
+                assert!(
+                    (normalized - expected).abs() <= 64.0 * epsilon,
+                    "rotation={rotation}, unit={unit}, bound/unit={normalized}, expected={expected}"
+                );
+            }
+            assert!(bounds.min_x < ellipse.center[0] && bounds.max_x > ellipse.center[0]);
+            assert!(bounds.min_y < ellipse.center[1] && bounds.max_y > ellipse.center[1]);
+        }
+    }
+
+    #[test]
+    fn rotated_ellipse_bounds_preserve_full_extents_at_f32_scales() {
+        for unit in [1.0_f32, 1.0e-36, f32::MAX_COORDINATE / 16.0] {
+            check_rotated_ellipse_bounds(unit, f32::EPSILON as f64);
+        }
+    }
+
+    #[test]
+    fn rotated_ellipse_bounds_preserve_full_extents_at_f64_scales() {
+        for unit in [1.0_f64, 1.0e-307, f64::MAX_COORDINATE / 16.0] {
+            check_rotated_ellipse_bounds(unit, f64::EPSILON);
+        }
+    }
 
     fn full_ellipse() -> EllipticArc<Point> {
         EllipticArc {

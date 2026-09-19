@@ -3,6 +3,7 @@ use crate::float::curve::builder::CurveError as CurveBuildError;
 use crate::float::curve::path::CurvePath as FloatCurvePath;
 use crate::float::curve::segment::CurveSegment as FloatCurveSegment;
 use crate::float::curve::shape::CurveShape as FloatCurveShape;
+use crate::float::math::vector_length;
 use crate::float::resource::{CurveResource, resource_bounds};
 use crate::int::CURVE_COORDINATE_SAFETY_BITS;
 use crate::int::{
@@ -437,18 +438,6 @@ fn int_point_to_float<P: FloatPointCompatible, I: CurveInt>(
 
 fn phase_angle<F: FloatNumber, I: CurveInt>(phase: ArcPhase<I>) -> F {
     vector_angle(F::from_int(phase.cos), F::from_int(phase.sin))
-}
-
-fn vector_length<F: FloatNumber>(x: F, y: F) -> F {
-    let scale = x.abs().max(y.abs());
-    if scale == F::ZERO {
-        return F::ZERO;
-    }
-    // Squaring tiny axes directly can underflow even when their length is
-    // representable. Normalize before squaring, then restore the magnitude.
-    let x = x / scale;
-    let y = y / scale;
-    scale * (x * x + y * y).sqrt()
 }
 
 fn vector_angle<F: FloatNumber>(x: F, y: F) -> F {
