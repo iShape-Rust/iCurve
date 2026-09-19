@@ -411,8 +411,8 @@ fn convert_arc_to_float<P: FloatPointCompatible, I: CurveInt>(
     RationalArc {
         ellipse: Ellipse {
             center: int_point_to_float(&source.ellipse.center, adapter),
-            radius_x: (axis_x_x * axis_x_x + axis_x_y * axis_x_y).sqrt(),
-            radius_y: (axis_y_x * axis_y_x + axis_y_y * axis_y_y).sqrt(),
+            radius_x: vector_length(axis_x_x, axis_x_y),
+            radius_y: vector_length(axis_y_x, axis_y_y),
             rotation: vector_angle(axis_x_x, axis_x_y),
         },
         control_points: source
@@ -439,7 +439,27 @@ fn phase_angle<F: FloatNumber, I: CurveInt>(phase: ArcPhase<I>) -> F {
     vector_angle(F::from_int(phase.cos), F::from_int(phase.sin))
 }
 
+fn vector_length<F: FloatNumber>(x: F, y: F) -> F {
+    let scale = x.abs().max(y.abs());
+    if scale == F::ZERO {
+        return F::ZERO;
+    }
+    // Squaring tiny axes directly can underflow even when their length is
+    // representable. Normalize before squaring, then restore the magnitude.
+    let x = x / scale;
+    let y = y / scale;
+    scale * (x * x + y * y).sqrt()
+}
+
 fn vector_angle<F: FloatNumber>(x: F, y: F) -> F {
+    let scale = x.abs().max(y.abs());
+    if scale == F::ZERO {
+        return F::ZERO;
+    }
+    // Compute the direction entirely at unit scale so a rounded subnormal
+    // length cannot distort the cosine.
+    let x = x / scale;
+    let y = y / scale;
     let length = (x * x + y * y).sqrt();
     let cosine = (x / length).max(-F::ONE).min(F::ONE);
     let angle = cosine.acos();
