@@ -7,7 +7,7 @@ use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::segment::Segment;
 use crate::kernel::int::math::angle::ApproximateAngle;
 use alloc::vec::Vec;
-use i_overlay::i_float::int::number::wide_int::WideIntNumber;
+use i_overlay::i_float::int::number::uint::UIntNumber;
 use i_overlay::i_shape::int::IntPoint;
 
 pub(crate) struct SplitOptions<I: CurveInt> {
@@ -16,7 +16,7 @@ pub(crate) struct SplitOptions<I: CurveInt> {
     pub(super) min_sqr_len_pow2: u32,
     min_separation_log2: u32,
     sin_angle_neg_pow2: u32,
-    pub(super) cross_radius: I::Wide,
+    pub(super) cross_radius: I::WideUInt,
 }
 
 pub(crate) struct SegmentIntersector<I: CurveInt> {
@@ -267,14 +267,14 @@ impl<I: CurveInt> Default for SplitOptions<I> {
             min_sqr_len_pow2: 2 * min_len_pow2,
             min_separation_log2: 2,
             sin_angle_neg_pow2: 3,
-            cross_radius: I::Wide::TWO,
+            cross_radius: I::WideUInt::TWO,
         }
     }
 }
 
 impl<I: CurveInt> SplitOptions<I> {
     #[inline]
-    pub(crate) fn with_cross_radius(cross_radius: I::Wide) -> Self {
+    pub(crate) fn with_cross_radius(cross_radius: I::WideUInt) -> Self {
         Self {
             cross_radius,
             ..Self::default()

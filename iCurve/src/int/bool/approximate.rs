@@ -5,7 +5,7 @@ use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::point_at::PointAt;
 use alloc::vec::Vec;
-use i_overlay::i_float::int::number::wide_int::WideIntNumber;
+use i_overlay::i_float::int::number::uint::UIntNumber;
 
 #[derive(Clone, Copy)]
 struct ApproximationItem<I: CurveInt> {
@@ -78,8 +78,8 @@ impl<I: CurveInt> CurveApproximator<I> {
     }
 
     #[inline]
-    fn is_small(sqr_length: I::Wide, min_length_power: u32) -> bool {
-        if sqr_length <= I::Wide::ONE {
+    fn is_small(sqr_length: I::WideUInt, min_length_power: u32) -> bool {
+        if sqr_length <= I::WideUInt::ONE {
             return true;
         }
         sqr_length.ilog2() < min_length_power.saturating_mul(2)

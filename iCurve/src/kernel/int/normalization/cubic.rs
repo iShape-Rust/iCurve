@@ -351,7 +351,7 @@ impl<I: CurveInt> CubicSegment<I> {
         }
 
         let aa = a.sqr_length();
-        if aa == I::Wide::ZERO {
+        if aa == I::WideUInt::ZERO {
             return None;
         }
 
@@ -516,9 +516,9 @@ fn unit_signed_ratio<I: CurveInt>(
 fn unit_dot_ratio_scaled<I: CurveInt>(
     lhs: IntVector<I>,
     rhs: IntVector<I>,
-    denominator: I::Wide,
+    denominator: I::WideUInt,
 ) -> Option<I::Wide> {
-    debug_assert!(denominator > I::Wide::ZERO);
+    debug_assert!(denominator > I::WideUInt::ZERO);
 
     let dot = SignedProduct::multiply(lhs.x, rhs.x).checked_add(SignedProduct::multiply(lhs.y, rhs.y))?;
     if dot.is_negative() {
@@ -526,15 +526,13 @@ fn unit_dot_ratio_scaled<I: CurveInt>(
     }
     let magnitude = dot.magnitude();
 
-    let unit_limit = <I::WideUInt as UIntNumber>::Product::multiply(
-        denominator.unsigned_abs(),
-        FixedScale::<I>::DENOMINATOR.to_uint(),
-    );
+    let unit_limit =
+        <I::WideUInt as UIntNumber>::Product::multiply(denominator, FixedScale::<I>::DENOMINATOR.to_uint());
     if magnitude >= unit_limit {
         return None;
     }
 
-    let quotient = magnitude.divide_with_rounding(denominator.unsigned_abs());
+    let quotient = magnitude.divide_with_rounding(denominator);
     let value = I::Wide::from_uint(quotient);
 
     (value > I::Wide::ZERO && value < FixedScale::<I>::DENOMINATOR).then_some(value)
@@ -793,6 +791,34 @@ mod tests {
 
         assert_eq!(unit_dot_ratio_scaled(lhs, rhs, 2_000_000_000_000), None);
         assert_eq!(unit_dot_ratio_scaled(lhs, negative_rhs, 2_000_000_000_000), None);
+    }
+
+    fn check_unit_dot_rounding<I: CurveInt>() {
+        let lhs = IntVector::<I>::new(I::Wide::ONE, I::Wide::ZERO);
+        let ratio = |numerator| {
+            unit_dot_ratio_scaled(
+                lhs,
+                IntVector::<I>::new(numerator, I::Wide::ZERO),
+                I::WideUInt::FOUR,
+            )
+        };
+        let scale = FixedScale::<I>::DENOMINATOR;
+
+        assert!(ratio(-I::Wide::ONE).is_none());
+        assert!(ratio(I::Wide::ZERO).is_none());
+        assert!(ratio(I::Wide::ONE).is_none());
+        assert!(ratio(I::Wide::TWO) == Some(I::Wide::ONE));
+        assert!(ratio(I::Wide::from_u32(6)) == Some(I::Wide::TWO));
+        assert!(ratio(I::Wide::FOUR * scale - I::Wide::from_u32(3)) == Some(scale - I::Wide::ONE));
+        assert!(ratio(I::Wide::FOUR * scale - I::Wide::TWO).is_none());
+        assert!(ratio(I::Wide::FOUR * scale).is_none());
+    }
+
+    #[test]
+    fn unit_dot_ratio_preserves_rounding_and_open_interval_for_all_engines() {
+        check_unit_dot_rounding::<i16>();
+        check_unit_dot_rounding::<i32>();
+        check_unit_dot_rounding::<i64>();
     }
 
     #[test]

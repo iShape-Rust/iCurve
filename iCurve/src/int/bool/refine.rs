@@ -6,7 +6,7 @@ use crate::kernel::int::curve::chord::Chord;
 use crate::kernel::int::curve::param::SegmentParam;
 use crate::kernel::int::curve::point_at::PointAt;
 use alloc::vec::Vec;
-use i_overlay::i_float::int::number::wide_int::WideIntNumber;
+use i_overlay::i_float::int::number::uint::UIntNumber;
 
 pub(crate) struct CurveContainmentRefiner<I: CurveInt> {
     targets: Vec<bool>,
@@ -183,7 +183,7 @@ impl<I: CurveInt> CurveContainmentRefiner<I> {
                 edge.curve.point_at(param)
             };
             let sqr_length = (point - previous).sqr_length();
-            if sqr_length == I::Wide::ZERO || sqr_length.ilog2() < min_sqr_length_power {
+            if sqr_length == I::WideUInt::ZERO || sqr_length.ilog2() < min_sqr_length_power {
                 return false;
             }
             previous = point;
